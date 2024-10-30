@@ -23,7 +23,7 @@ RUN dotnet restore "kowtomate/Presentation/KowToMateAdmin/KowToMateAdmin.csproj"
 COPY . .
 
 # Build the application
-WORKDIR "/src/Presentation/KowToMateAdmin"
+WORKDIR "/src/kowtomate/Presentation/KowToMateAdmin"
 RUN dotnet build "KowToMateAdmin.csproj" -c $BUILD_CONFIGURATION -maxcpucount:1 --no-restore -o /app/build
 
 # Check the contents of the build output directory
