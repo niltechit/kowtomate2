@@ -7,7 +7,7 @@ builder.ConfigureServices();
 
 //authntication
 // ******
-// BLAZOR COOKIE Auth Code (begin)
+//// BLAZOR COOKIE Auth Code (begin)
 builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<CookiePolicyOptions>(options =>
 {
