@@ -35,12 +35,12 @@ jobs:
         uses: docker/login-action@v2  # Updated to the latest version
         with:
           username: zakircmt47  # Your DockerHub username
-          password: zakircmt47  # Your DockerHub access token
+          password: zakircmt47      # Your DockerHub access token
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
-          context: .
-          file: ./Dockerfile  # Adjust the path to your Dockerfile if necessary
+          context: .  # Set the context to the root of the repository
+          file: Dockerfile  # Path to your Dockerfile at the base of the repository
           push: true
           tags: zakircmt47/ktm-test-production:latest, zakircmt47/ktm-test-production:${{ github.run_number }}
