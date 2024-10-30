@@ -1,0 +1,88 @@
+﻿@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Models.Security
+
+@if (ManageUserMode.Equals("CREATE"))
+{
+    <div class="mb-2 row">
+        <label for="Username" class="col-sm-4 col-form-label fw-bold">Username</label>
+        <div class="col-sm-8">
+            <InputText class="form-control" @bind-Value="user.Username"></InputText>
+            <ValidationMessage For="@(() => user.Username)" />
+        </div>
+    </div>
+
+    <div class="mb-2 row">
+        <label for="Permissions" class="col-sm-4 col-form-label fw-bold">Roles</label>
+        <div class="col-sm-8">
+           <RadzenDropDown AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                @bind-Value=@user.SelectedUserRoles Multiple="true" Placeholder="Select Role" Data=@roles TextProperty="Name" ValueProperty="ObjectId"
+                                Class="w-100" />
+        </div>
+    </div>
+
+    <div class="mb-2 row">
+        <label for="Password" class="col-sm-4 col-form-label fw-bold">Password</label>
+        <div class="col-sm-8">
+            <InputText type="password" class="form-control" @bind-Value="user.Password"></InputText>
+            <ValidationMessage For="@(() => user.Password)" />
+        </div>
+    </div>
+
+    <div class="mb-2 row">
+        <label for="ConfirmPassword" class="col-sm-4 col-form-label fw-bold">Confirm Password</label>
+        <div class="col-sm-8">
+            <InputText type="password" class="form-control" @bind-Value="user.ConfirmPassword"></InputText>
+            <ValidationMessage For="@(() => user.ConfirmPassword)" />
+        </div>
+    </div>
+}
+else if (ManageUserMode.Equals("CHANGE_ROLE"))
+{
+    <div class="mb-2 row">
+        <label for="Username" class="col-sm-4 col-form-label fw-bold">Username</label>
+        <div class="col-sm-8">
+            <InputText disabled="true" class="form-control" @bind-Value="user.Username"></InputText>
+            <ValidationMessage For="@(() => user.Username)" />
+        </div>
+    </div>
+
+    <div class="mb-2 row">
+        <label for="Permissions" class="col-sm-4 col-form-label fw-bold">Roles</label>
+        <div class="col-sm-8">
+           <RadzenDropDown AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                @bind-Value=@user.SelectedUserRoles Multiple="true" Placeholder="Select Role" Data=@roles TextProperty="Name" ValueProperty="ObjectId"
+                                Class="w-100" />
+        </div>
+    </div>
+}
+else if (ManageUserMode.Equals("CHANGE_PASSWORD"))
+{
+    <div class="mb-2 row">
+        <label for="Username" class="col-sm-4 col-form-label fw-bold">Username</label>
+        <div class="col-sm-8">
+            <InputText disabled="true" class="form-control" @bind-Value="user.Username"></InputText>
+            <ValidationMessage For="@(() => user.Username)" />
+        </div>
+    </div>
+
+    <div class="mb-2 mt-2 row">
+        <div class="col-sm-12">
+            <a href="javascript: void(0);">Want to reset password?</a>
+        </div>
+    </div>
+
+    
+}
+
+@code {
+    [Parameter]
+    public string ManageUserMode { get; set; }
+
+    [Parameter]
+    public UserListModel user { get; set; }
+
+    [Parameter]
+    public List<RoleViewModel> roles { get; set; }
+
+}

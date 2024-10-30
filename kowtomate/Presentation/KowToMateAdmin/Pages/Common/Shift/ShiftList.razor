@@ -1,0 +1,177 @@
+﻿@page "/common/shifts"
+
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.Managers.Common;
+
+@inject IShiftManager _shiftService
+
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Shifts </h4>
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New Country"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-12">
+
+        <RadzenDataGrid Data="@shifts" IsLoading="isLoading" TItem="ShiftModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+                <RadzenDataGridColumn TItem="ShiftModel" Property="Name" Title="Shift Name" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="ShiftModel" Property="StartTime" Title="Start Time" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="ShiftModel" Property="EndTime" Title="End Time" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="ShiftModel" Property="Code" Title="Shift Code"/>
+
+               @* <RadzenDataGridColumn TItem="Shift" Property="CreatedDate" Title="Created Date" TextAlign="TextAlign.Center" Filterable="false" />*@
+              @*  <RadzenDataGridColumn Width="120px" TItem="Shift" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <AuthorizeView Roles="Role.Edit">
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.ObjectId))">
+                                <span class="fas fa-pencil-alt"></span>
+                            </button>
+                        </AuthorizeView>
+
+                        <AuthorizeView Roles="Role.Delete">
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.ObjectId,data.Name)">
+                                <span class="fas fa-times"></span>
+                            </button>
+                        </AuthorizeView>
+                    </Template>
+                </RadzenDataGridColumn>*@
+
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+@if (isPopupVisible)
+{
+    <EditForm Model=@shift OnValidSubmit="@InsertUpdateShift">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Shift</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator/>
+                        <div class="row">
+                            <ShiftAddEdit shift="shift"/>
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @*@if (!string.IsNullOrWhiteSpace(country.ObjectId))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(country.ObjectId,country.Name)">Delete</button>
+                        }*@
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+
+@code {
+    private List<ShiftModel> shifts=new List<ShiftModel>();
+    bool isLoading = false;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    private ShiftModel shift = null;
+    bool isPopupVisible = false;
+    bool isSubmitting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadShifts();
+    }
+
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<ShiftModel> args)
+    {
+        await Edit(args.Data.Id);
+    }
+    private async Task Edit(long id)
+    {
+        //country = await _countryService.GetByObjectId(objectId);
+        //ShowAddEditPopup();
+    }
+
+    private async Task InsertUpdateShift()
+    {
+        await Task.Yield();
+
+        isSubmitting = true;
+        var response = await _shiftService.Insert(shift);
+        shift = new ShiftModel();
+
+        //if (country.Id == 0)
+        //{
+        //    country.CreatedByContactId = loginUser.ContactId;
+        //    country.ObjectId = Guid.NewGuid().ToString();
+
+        //    var addResponse = await _countryService.Insert(country);
+
+        //    if (!addResponse.IsSuccess)
+        //    {
+        //        ModalNotification.ShowMessage("Error", addResponse.Message);
+        //        isSubmitting = false;
+        //        return;
+        //    }
+        //}
+        //else
+        //{
+        //    country.UpdatedByContactId = loginUser.ContactId;
+        //    var updateResponse = await _countryService.Update(country);
+
+        //    if (!updateResponse.IsSuccess)
+        //    {
+        //        ModalNotification.ShowMessage("Error", updateResponse.Message);
+        //        isSubmitting = false;
+        //        return;
+        //    }
+        //}
+
+        //country = new Country();
+        isSubmitting = false;
+
+        await LoadShifts();
+        CloseAddEditPopup();
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    void AddNew()
+    {
+        shift = new ShiftModel { };
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    private async Task LoadShifts()
+    {
+        shifts = await _shiftService.GetAll();
+    }
+}

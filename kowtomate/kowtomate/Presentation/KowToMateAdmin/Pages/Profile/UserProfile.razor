@@ -1,0 +1,121 @@
+﻿@page "/myprofile"
+@attribute [Authorize(Roles = "General.MyProfile")]
+
+@using CutOutWiz.Data.HR
+@using CutOutWiz.Data.Security
+@using CutOutWiz.Data.Common
+@using CutOutWiz.Services.HR
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Models.Security
+@using CutOutWiz.Services.Common
+
+@inject IWorkContext _workContext
+@inject IContactService _contactService
+@inject IDesignationService _designationService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Proifle
+            </h4>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+<div class="row">
+<div class="col-xl-8">
+    <div class="card overflow-hidden">
+        <div class="bg-primary bg-soft">
+            <div class="row">
+                <div class="col-7">
+                    <div class="text-primary p-3">
+                        <h5 class="text-primary">Welcome Back !</h5>
+                        <p>It will seem like simplified</p>
+                    </div>
+                </div>
+                <div class="col-5 align-self-end">
+                    <img src="assets/images/profile-img.png" alt="" class="img-fluid">
+                </div>
+            </div>
+        </div>
+        <div class="card-body pt-0">
+            <div class="row">
+                <div class="col-sm-7">
+                    <div class="avatar-md profile-user-wid mb-4">
+                        <img src="assets/images/users/avatar-1.jpg" alt="" class="img-thumbnail rounded-circle">
+                    </div>
+                    <h5 class="font-size-15 text-truncate">@contact.FirstName @contact.LastName</h5>
+                    <p class="text-muted mb-0 text-truncate">@designation?.Name</p>
+                </div>
+
+                <div class="col-sm-5">
+                    <div class="pt-4">          
+                        @*<div class="row">
+                            <div class="col-6">
+                                <h5 class="font-size-15">125</h5>
+                                <p class="text-muted mb-0">Projects</p>
+                            </div>
+                            <div class="col-6">
+                                <h5 class="font-size-15">$1245</h5>
+                                <p class="text-muted mb-0">Revenue</p>
+                            </div>
+                        </div>*@
+                        <div class="mt-4">
+                            <a href="javascript: void(0);" class="btn btn-primary waves-effect waves-light btn-sm">Edit Profile <i class="mdi mdi-arrow-right ms-1"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- end card -->
+
+    <div class="card">
+        <div class="card-body">
+            <h4 class="card-title mb-4">Personal Information</h4>
+
+        
+            <div class="table-responsive">
+                <table class="table table-nowrap mb-0">
+                    <tbody>
+                        <tr>
+                            <th scope="row">Full Name :</th>
+                            <td>@contact.FirstName @contact.LastName</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Phone :</th>
+                            <td>@contact.Phone</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">E-mail :</th>
+                            <td>@contact.Email</td>
+                        </tr>
+                       @* <tr>
+                            <th scope="row">Location :</th>
+                            <td>California, United States</td>
+                        </tr>*@
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- end card -->
+</div>  
+                        </div>
+                        <!-- end row -->
+
+@code {
+    private Contact contact = new Contact();
+    private LoginUserInfoViewModel loginUser = null;
+    private Designation designation = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+
+        contact = await _contactService.GetById(loginUser.ContactId);
+        designation = await _designationService.GetById(contact.DesignationId);
+    }
+
+}

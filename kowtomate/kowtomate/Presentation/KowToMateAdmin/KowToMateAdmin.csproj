@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Remove="Pages\Common\BusinessYearAddEdit.razor" />
+    <Content Remove="Pages\Common\BusinessYears.razor" />
+    <Content Remove="Pages\HR\ItemUnitAddEdit.razor" />
+    <Content Remove="Pages\HR\ItemUnits.razor" />
+    <Content Remove="Pages\Security\Role\AssignPermission.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Libraries\CutOutWiz.Data\CutOutWiz.Data.csproj" />
+    <ProjectReference Include="..\..\Libraries\CutOutWiz.Services\CutOutWiz.Services.csproj" />
+    <ProjectReference Include="..\CutOutWiz.Web\CutOutWiz.Web.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Shared\Components\" />
+    <Folder Include="Utilities\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Radzen.Blazor" Version="3.18.9" />
+  </ItemGroup>
+
+</Project>

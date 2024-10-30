@@ -1,0 +1,301 @@
+﻿@page "/businessyears"
+@attribute [Authorize(Roles = "Admin,Manager")]
+
+@using Accounting.Data.Models.Master
+@using Accounting.Web.Pages.Common
+
+@inject Accounting.Data.Services.Master.IBusinessYearService _businessYearService
+@inject IWorkContext _workContext
+
+<div class="card">
+    <div class="card-header">
+        <div class="row">
+            <div class="col-auto me-auto">
+                <div class="fw-bold pt-1">
+                    Business Years
+                    @if (businessYears != null && businessYears.Count > 0)
+                    {
+                        <span>(@businessYears.Count)</span>
+                    }
+                </div>
+            </div>
+            <div class="col-auto">
+                <button type="button" class="btn btn-sm btn-secondary" @onclick="AddNew"><span class="oi oi-plus"></span> Add New</button>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+
+        @if (businessYears is null)
+        {
+        <p><em>Loading...</em></p>
+        }
+        else
+        {
+        <div class="row gy-2 gx-3 align-items-center mb-3">
+            <div class="col-sm-auto">
+                <div class="input-group">
+                    <div class="input-group-text"> <i class="fas fa-search"></i></div>
+                    <input type="text" class="form-control" @bind-value="searchText" @bind-value:event="oninput" id="txtsearchbox" placeholder="Search..">
+                    @*<input type="text" class="form-control" @bind-value="searchText" id="txtsearchbox" placeholder="Search..">*@
+                </div>
+            </div>
+            @* <div class="col-sm-auto">
+                <button type="submit" class="btn btn-secondary" @onclick="filterRecords">Filter</button>
+                <i class="fas fa-sync ms-2" @onclick="resetFilters"></i>
+            </div>*@
+        </div>
+
+        <table class="table table-sm table-striped table-hover table-responsive">
+            <thead>
+                <tr>
+                    <th>Year</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Is Current Year</th>
+                    <th>Status</th>
+                    <th class="d-none d-sm-block">Created Date</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <Virtualize Items="businessYears" Context="businessYear">
+                    <tr @ondblclick="() => Edit(businessYear.ObjectId)">
+                        <td>@businessYear.Name</td>
+                        <td>@businessYear.StartDate.ToShortDateString()</td>
+                        <td>@businessYear.EndDate.ToShortDateString()</td>
+                        <td>
+                            @if (businessYear.IsCurrentYear)
+                            {
+                            <span class="badge bg-success">Yes</span>
+                            }
+                            else
+                            {
+                            <span class="badge bg-warning text-dark">No</span>
+                            }
+                        </td>
+                        <td>
+                            @if (businessYear.IsActive)
+                            {
+                            <span class="badge bg-success">Active</span>
+                            }
+                            else
+                            {
+                            <span class="badge bg-warning text-dark">Inactive</span>
+                            }
+                        </td>
+                        <td>@businessYear.CreatedDateUtc.ToShortDateString()</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(businessYear.ObjectId))">
+                                <span class="oi oi-pencil"></span>
+                            </button>
+
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(businessYear.ObjectId)">
+                                <span class="oi oi-x"></span>
+                            </button>
+                        </td>
+                    </tr>
+                </Virtualize>
+            </tbody>
+        </table>
+        }
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@businessYear OnValidSubmit="@InsertUpdateBusinessYear">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Business Year</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <BusinessYearAddEdit businessYear="businessYear" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(businessYear.ObjectId)">Delete</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<BusinessYearModel>
+    businessYears = null;
+
+    private BusinessYearModel businessYear = new BusinessYearModel();
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+    loginUser = _workContext.LoginUserInfo;
+
+    await LoadBusinessYears();
+    }
+
+    private async Task  LoadBusinessYears()
+    {
+    businessYears = await _businessYearService.GetAll(loginUser.CompanyId, loginUser.ConnectionString);
+    }
+
+    private async Task InsertUpdateBusinessYear()
+    {
+    isSubmitting = true;
+
+    if (businessYear.Id == 0)
+    {
+    businessYear.CompanyId = loginUser.CompanyId;
+    businessYear.CreatedByContactId = loginUser.ContactId;
+    var addResponse = await _businessYearService.Insert(businessYear, loginUser.ConnectionString);
+
+    if (!addResponse.IsSuccess)
+    {
+    ModalNotification.ShowMessage("Error",addResponse.Message);
+    isSubmitting = false;
+    return;
+    }
+    }
+    else
+    {
+    businessYear.UpdatedByContactId = loginUser.ContactId;
+    var updateResponse = await _businessYearService.Update(businessYear, loginUser.ConnectionString);
+
+    if (!updateResponse.IsSuccess)
+    {
+    ModalNotification.ShowMessage("Error",updateResponse.Message);
+    isSubmitting = false;
+    return;
+    }
+    }
+
+    businessYear = new BusinessYearModel();
+    isSubmitting = false;
+
+    await LoadBusinessYears();
+    CloseAddEditPopup();
+    }
+
+    string StatusText()
+    {
+    if (businessYear.IsActive)
+    {
+    return "<span class='badge bg-success'>Active</span>";
+    }
+
+    return  "<span class='badge bg-info text-dark'>Inactive</span>";
+    }
+
+    void AddNew()
+    {
+    businessYear = new BusinessYearModel
+    {
+    StartDate = DateTime.UtcNow,
+    EndDate = DateTime.UtcNow
+    };
+
+    isSubmitting = false;
+    ShowAddEditPopup();
+    }
+
+    private async Task Edit(string objectId)
+    {
+    businessYear = await _businessYearService.GetByObjectId(objectId, loginUser.ConnectionString);
+    ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+    isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+    isPopupVisible = false;
+    }
+
+    protected void Delete(string objectId)
+    {
+    businessYear = businessYears.FirstOrDefault(f => f.ObjectId == objectId);
+    var msg = $"Are you sure you want to delete the business year \"{businessYear?.Name}\"?";
+    ModalNotification.ShowConfirmation("Confirm Delete",msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+    if (deleteConfirmed)
+    {
+    var deleteResponse = await _businessYearService.Delete(businessYear.ObjectId, loginUser.ConnectionString);
+
+    if (deleteResponse.IsSuccess)
+    {
+    await LoadBusinessYears();
+    businessYear = new BusinessYearModel();
+    CloseAddEditPopup();
+    }
+    else
+    {
+    ModalNotification.ShowMessage("Error",deleteResponse.Message);
+    }
+    }
+
+    isSubmitting = false;
+    }
+
+    //public void SearchEnter(KeyboardEventArgs e)
+    //{
+    //    if (e.Code == "Enter" || e.Code == "NumpadEnter")
+    //    {
+    //        filterRecords();
+    //    }
+    //}
+
+    //protected void filterRecords()
+    //{
+    //    if (!string.IsNullOrWhiteSpace(searchText))
+    //    {
+    //        filteredMenus = menus.Where(x =>
+    //                x.Name.Contains(searchText) ||
+    //                x.MenuUrl.Contains(searchText)
+    //            )
+    //            .ToList();
+    //    }
+    //    else
+    //    {
+    //        filteredMenus = menus;
+    //    }
+    //}
+
+    //private void onFilterChange(Microsoft.AspNetCore.Components.ChangeEventArgs args)
+    //{
+    //    searchText = (string)args.Value;
+    //    filterRecords();
+    //}
+
+    //protected void resetFilters()
+    //{
+    //    searchText = "";
+    //    filteredMenus = menus;
+    //}
+
+
+    }

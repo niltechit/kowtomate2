@@ -1,0 +1,77 @@
+﻿@attribute [CascadingTypeParameter(nameof(TItem))]
+@typeparam TItem
+
+@using CutOutWiz.Services.Models.SOP
+@using static CutOutWiz.Core.Utilities.Enums
+<div class="row">
+	<div class="col-lg-12">
+		<div class="card">
+			<div class="card-body">
+				@if (Items is null)
+				{
+					<p><em>Loading...</em></p>
+				}
+				else
+				{
+					@*<div class="row gy-2 gx-3 align-items-center mb-3">
+				<div class="col-sm-auto">
+				<div class="input-group">
+				<div class="input-group-text"> <i class="fas fa-search"></i></div>
+				<input type="text" class="form-control" @bind-value="searchText" @bind-value:event="oninput" id="txtsearchbox" placeholder="Search..">
+				</div>
+				</div>
+				</div>*@
+
+					<div class="table-responsive">
+						<table class="table mb-0 table-striped table-hover">
+							<thead class="table-light">
+								<tr>
+									@Columns(default(TItem))
+								</tr>
+							</thead>
+							<tbody>
+								@foreach (var item in Items)
+								{
+									<CascadingValue Value="item">
+										<tr@* @ondblclick="() => Edit(item.ObjectId)"*@>
+											@*<td>@item.Name</td>
+									<td>@item.SortOrder</td>
+									<td>
+									@if (item.Status == (int)GeneralStatus.Active)
+									{
+									<span class="badge bg-success">Active</span>
+									}
+									else
+									{
+									<span class="badge bg-warning text-dark">Inactive</span>
+									}
+									</td>
+									<td>@item.CreatedDate.ToShortDateString()</td>
+									<td>
+									<button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action"  @onclick="(async () => await Edit(standardService.ObjectId))" >
+									<span class="fas fa-pencil-alt"></span>
+									</button>
+
+									<button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action"  @onclick="() => Delete(standardService.ObjectId,standardService.Name)" >
+									<span class="fas fa-times"></span>
+									</button>
+									</td>*@
+									@Columns(item)
+								</tr>
+									</CascadingValue>
+								}
+							</tbody>
+						</table>
+					</div>
+				}
+			</div>
+		</div>
+	</div>
+</div>
+
+@code {
+	[Parameter]
+	public IList<TItem> Items { get; set; }
+	[Parameter]
+	public RenderFragment<TItem> Columns { get; set; }
+}

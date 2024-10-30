@@ -1,0 +1,47 @@
+image: mcr.microsoft.com/dotnet/sdk:8.0
+
+pipelines:
+  default:
+    - step:
+        name: Tag and Push Existing Docker Image
+        services:
+          - docker
+        caches:
+          - docker
+        script:
+          # Set the image name and version
+          - IMAGE_NAME="ktm-test2"  # Use your existing image name
+          - VERSION="prod-0.1.${BITBUCKET_BUILD_NUMBER}"
+
+          # Log in to Docker Hub
+          - echo ${DOCKERHUB_PASSWORD} | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+
+          # Tag the existing Docker image
+          - docker tag "${IMAGE_NAME}:latest" "${DOCKERHUB_NAMESPACE}/${IMAGE_NAME}:${VERSION}"
+
+          # Push the images to Docker Hub
+          - docker push "${DOCKERHUB_NAMESPACE}/${IMAGE_NAME}:${VERSION}"
+          - docker push "${IMAGE_NAME}:latest"
+
+  branches:
+    master:
+      - step:
+          name: Tag and Push Existing Docker Image
+          services:
+            - docker
+          caches:
+            - docker
+          script:
+            # Set the image name and version
+            - IMAGE_NAME="ktm-test2"  # Use your existing image name
+            - VERSION="prod-0.1.${BITBUCKET_BUILD_NUMBER}"
+
+            # Log in to Docker Hub
+            - echo ${DOCKERHUB_PASSWORD} | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+
+            # Tag the existing Docker image
+            - docker tag "${IMAGE_NAME}:latest" "${DOCKERHUB_NAMESPACE}/${IMAGE_NAME}:${VERSION}"
+
+            # Push the images to Docker Hub
+            - docker push "${DOCKERHUB_NAMESPACE}/${IMAGE_NAME}:${VERSION}"
+            - docker push "${IMAGE_NAME}:latest"

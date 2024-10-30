@@ -1,0 +1,101 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Name>ApprovalToolSQLProject</Name>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>4.1</ProjectVersion>
+    <ProjectGuid>{972d8016-5418-4a3c-853b-04ec1d784b55}</ProjectGuid>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql120DatabaseSchemaProvider</DSP>
+    <OutputType>Database</OutputType>
+    <RootPath>
+    </RootPath>
+    <RootNamespace>ApprovalToolSQLProject</RootNamespace>
+    <AssemblyName>ApprovalToolSQLProject</AssemblyName>
+    <ModelCollation>1033,CI</ModelCollation>
+    <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
+    <DeployToDatabase>True</DeployToDatabase>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetLanguage>CS</TargetLanguage>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <SqlServerVerification>False</SqlServerVerification>
+    <IncludeCompositeObjects>True</IncludeCompositeObjects>
+    <TargetDatabaseSet>True</TargetDatabaseSet>
+    <DefaultCollation>SQL_Latin1_General_CP1_CI_AS</DefaultCollation>
+    <DefaultFilegroup>PRIMARY</DefaultFilegroup>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>bin\Debug\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineDebug>true</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">11.0</VisualStudioVersion>
+    <!-- Default to the v11.0 targets path if the targets file for the current VS version is not found -->
+    <SSDTExists Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets')">True</SSDTExists>
+    <VisualStudioVersion Condition="'$(SSDTExists)' == ''">11.0</VisualStudioVersion>
+  </PropertyGroup>
+  <Import Condition="'$(SQLDBExtensionsRefPath)' != ''" Project="$(SQLDBExtensionsRefPath)\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <Import Condition="'$(SQLDBExtensionsRefPath)' == ''" Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <ItemGroup>
+    <Folder Include="Properties" />
+    <Folder Include="dbo\" />
+    <Folder Include="dbo\Tables\" />
+    <Folder Include="dbo\Stored Procedures\" />
+    <Folder Include="PublishLocations" />
+    <Folder Include="Compares" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="dbo\Tables\CompanyFileAccessKeys.sql" />
+    <Build Include="dbo\Tables\Contact.sql" />
+    <Build Include="dbo\Tables\Role.sql" />
+    <Build Include="dbo\Tables\User.sql" />
+    <Build Include="dbo\Tables\FileTrackingDetails.sql" />
+    <Build Include="dbo\Tables\FileTracking.sql" />
+    <Build Include="dbo\Tables\Company.sql" />
+    <Build Include="dbo\Stored Procedures\Helper_GeenrateClassWithProperties.sql" />
+    <Build Include="dbo\Stored Procedures\spUser_GetAll.sql" />
+    <Build Include="dbo\Stored Procedures\spUser_GetByUsername.sql" />
+    <Build Include="dbo\Stored Procedures\sp_FileTracking_Insert.sql" />
+    <Build Include="dbo\Stored Procedures\sp_FileTrackingDetails_Insert.sql" />
+    <Build Include="dbo\Stored Procedures\spCompany_GetAll.sql" />
+    <Build Include="dbo\Stored Procedures\spFileTracking_GetAll.sql" />
+    <Build Include="dbo\Stored Procedures\spFileTrackingDetails_GetAll.sql" />
+    <Build Include="dbo\Stored Procedures\sp_User_GeLoginUserInfo.sql" />
+    <Build Include="dbo\Stored Procedures\spFileTracking_GetIssuesByCompanyId.sql" />
+    <Build Include="dbo\Tables\ApplicationErrorLog.sql" />
+    <Build Include="dbo\Stored Procedures\spUser_Insert.sql" />
+    <Build Include="dbo\Stored Procedures\spRole_GetAll.sql" />
+    <Build Include="dbo\Stored Procedures\spGetLastInsertedId.sql" />
+    <Build Include="dbo\Stored Procedures\spContact_Insert.sql" />
+    <Build Include="dbo\Stored Procedures\sp_User_GetAllUser.sql" />
+    <Build Include="dbo\Stored Procedures\spCompanyByFolderName.sql" />
+    <Build Include="dbo\Stored Procedures\sp_Company_Insert.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="PublishLocations\ApprovalTool_Aminul_LocalDB.publish.xml" />
+    <None Include="Compares\Compare_AminulLocalToProject.scmp" />
+    <None Include="Compares\Compare_ShabujLocal_To_Project.scmp" />
+    <None Include="PublishLocations\ApprovalToolSQLProject_To_Shabuj_LocalDB.publish.xml" />
+    <None Include="PublishLocations\ApprovalToolSQLProjectFaisal_LocalDb.publish.xml" />
+  </ItemGroup>
+</Project>

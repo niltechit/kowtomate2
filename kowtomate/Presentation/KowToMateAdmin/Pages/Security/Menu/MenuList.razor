@@ -1,0 +1,290 @@
+﻿@page "/security/menus"
+
+@attribute [Authorize(Roles = "Security.ManageMenus")]
+
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IMenuService _menuService
+@inject IPermissionService _permissionService;
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Menus
+            </h4>
+
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New Menu"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+<div class="row">
+    <div class="col-lg-12">
+
+        <RadzenDataGrid Data="@menus" IsLoading="isLoading" TItem="MenuListModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        AllowColumnPicking="true" AllowColumnReorder="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        AllowGrouping="true"
+                        Render="@OnGridRender"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))" ColumnWidth="160px">
+            <Columns>
+                <RadzenDataGridColumn TItem="MenuListModel" Property="Name" Title="Menu Name" Width="160px" Frozen="true" Groupable="false" SortOrder="SortOrder.Ascending">
+                    <Template Context="data">
+                        @if (!string.IsNullOrWhiteSpace(data.Icon))
+                        {
+                            <span class="@data.Icon me-2"></span>
+                        }
+                        @data.Name
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="MenuListModel" Property="ParentMenuName" Title="Parent Menu" Width="160px" />
+                <RadzenDataGridColumn TItem="MenuListModel" Property="MenuUrl" Title="Menu Url" Width="160px" Groupable="false"/>
+
+
+                <RadzenDataGridColumn TItem="MenuListModel" Property="PermissionNames" Title="Permissions" Groupable="false" Filterable="false" Sortable="false">
+                    <Template Context="data">
+                        @if (!string.IsNullOrWhiteSpace(@data.PermissionNames))
+                        {
+                            var perList = @data.PermissionNames.Split(',');
+                            foreach (var per in perList)
+                            {
+                                <span class="me-1 badge badge bg-warning">@per</span>
+                            }
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="MenuListModel" Property="Status" Title="Status" TextAlign=TextAlign.Center Filterable="false" Width="100px">
+                    <Template Context="module">
+                        @if (module.Status == (int)GeneralStatus.Active)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Inactive</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="MenuListModel" Property="DisplayOrder" Title="Order" Groupable="false" TextAlign=TextAlign.Center Filterable="false" Width="90px" />
+                <RadzenDataGridColumn TItem="MenuListModel" Property="CreatedDate" Title="Created Date" Groupable="false" TextAlign=TextAlign.Center Filterable="false" Width="175px" />
+                <RadzenDataGridColumn Width="90px" TItem="MenuListModel" Property="Id" Title="Actions" Groupable="false" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.ObjectId))">
+                            <span class="fas fa-pencil-alt"></span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.ObjectId,data.Name)">
+                            <span class="fas fa-times"></span>
+                        </button>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@menu OnValidSubmit="@InsertUpdateMenu">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Menu</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <MenuAddEdit menu="menu" parentMenus="parentMenus" permissions="permissions" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save</button>
+                        @if (!string.IsNullOrWhiteSpace(menu.ObjectId))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(menu.ObjectId,menu.Name)">Delete</button>
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<MenuListModel> menus;
+    bool isLoading = false;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    private MenuModel menu = null;
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private string selectedObjectId = "";
+    List<MenuListModel> parentMenus = null;
+    List<PermissionModel> permissions = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+        await LoadMenus();
+        parentMenus = menus;
+        permissions = await _permissionService.GetAll();
+    }
+
+    private async Task LoadMenus()
+    {
+        menus = await _menuService.GetListWithDetails();
+    }
+
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<MenuListModel> args)
+    {
+        await Edit(args.Data.ObjectId);
+    }
+
+    
+    void OnGridRender(DataGridRenderEventArgs<MenuListModel> args)
+    {
+        if(args.FirstRender)
+        {
+            args.Grid.Groups.Add(new GroupDescriptor(){ Title = "Parent Menu", Property = "ParentMenuName", SortOrder = SortOrder.Ascending });
+            StateHasChanged();
+        }
+    }
+
+    private async Task InsertUpdateMenu()
+    {
+        if (menu.SelectedMenuPermissons == null)
+        {
+            menu.SelectedMenuPermissons = new List<string>();
+        }
+
+        isSubmitting = true;
+
+        if (menu.Id == 0)
+        {
+            menu.CreatedByContactId = loginUser.ContactId;
+            menu.ObjectId = Guid.NewGuid().ToString();
+
+            var addResponse = await _menuService.Insert(menu);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+
+            //Save menu permission on database for this menuId
+            await _menuService.MenuPermissionInsertOrUpdateByMenuObjectId(menu.ObjectId, menu.SelectedMenuPermissons.ToList(), (int)menu.CreatedByContactId);
+
+        }
+        else
+        {
+            menu.UpdatedByContactId = loginUser.ContactId;
+            var updateResponse = await _menuService.Update(menu);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+
+            //Save menu permission on database
+            await _menuService.MenuPermissionInsertOrUpdateByMenuObjectId(menu.ObjectId, menu.SelectedMenuPermissons.ToList(), (int)menu.UpdatedByContactId);
+        }
+
+        menu = new MenuModel();
+        isSubmitting = false;
+
+        await LoadMenus();
+        CloseAddEditPopup();
+    }
+
+    string StatusText()
+    {
+        if (menu.Status == (int)GeneralStatus.Active)
+        {
+            return "<span class='badge bg-success'>Active</span>";
+        }
+
+        return "<span class='badge bg-info text-dark'>Inactive</span>";
+    }
+
+    void AddNew()
+    {
+        menu = new MenuModel { Status = (int)GeneralStatus.Active };
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(string objectId)
+    {
+        menu = await _menuService.GetByObjectId(objectId);
+        menu.SelectedMenuPermissons = await _menuService.GetPermissionsByMenuObjectId(objectId);
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the menu \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _menuService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadMenus();
+                menu = new MenuModel();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+
+        isSubmitting = false;
+    }
+}

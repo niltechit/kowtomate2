@@ -1,0 +1,68 @@
+﻿@page "/security/loginhistory"
+
+@attribute [Authorize(Roles = "Security.CanViewAllLoginHistory")]
+
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.Models.Security;
+@using CutOutWiz.Services.Logs
+@using CutOutWiz.Services.Security;
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+
+@inject IWorkContext _workContext
+@inject ISecurityLoginHistoryService _loginHistory
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Login / Logout Histories
+            </h4>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+        <RadzenDataGrid Data="@loginHistories" IsLoading="isLoading" TItem="SecurityLoginHistoryViewModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        AllowColumnPicking="true" AllowColumnReorder="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions">
+            <Columns>
+                <RadzenDataGridColumn TItem="SecurityLoginHistoryViewModel" Property="Username" Title="Username" SortOrder="SortOrder.Ascending" Width="200px" />
+                <RadzenDataGridColumn TItem="SecurityLoginHistoryViewModel" Property="IPAddress" Title="IP Address" SortOrder="SortOrder.Ascending" Width="200px" />
+                <RadzenDataGridColumn TItem="SecurityLoginHistoryViewModel" Property="DeviceInfo" Title="Device Info" SortOrder="SortOrder.Ascending" Width="200px" />
+                <RadzenDataGridColumn TItem="SecurityLoginHistoryViewModel" Property="ActionType" Title="Action Type" SortOrder="SortOrder.Ascending" Width="200px" />
+                <RadzenDataGridColumn TItem="SecurityLoginHistoryViewModel" Property="ActionTime" Title="Action Time" SortOrder="SortOrder.Ascending" Width="200px" />
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+@code {
+
+    public List<SecurityLoginHistoryViewModel> loginHistories = new List<SecurityLoginHistoryViewModel>();
+    IEnumerable<int> pageSizeOptions = new int[] { 100, 200, 500, 1000, 5000 };
+    bool isLoading = false;
+    private SecurityLoginHistoryViewModel activityLog = new SecurityLoginHistoryViewModel();
+    private LoginUserInfoViewModel loginUser = new LoginUserInfoViewModel();
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+        await LoadLoginHistories();
+        isLoading = false;
+    }
+
+    private async Task LoadLoginHistories()
+    {
+        loginHistories = await _loginHistory.GetAll();
+    }
+}

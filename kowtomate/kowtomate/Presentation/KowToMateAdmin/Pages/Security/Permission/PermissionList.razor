@@ -1,0 +1,336 @@
+﻿@page "/security/permissions"
+
+@attribute [Authorize(Roles = "Security.ManagePermissions")]
+
+@using CutOutWiz.Data
+@using CutOutWiz.Data.Security
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IPermissionService _permissionService
+@inject IModuleService _moduleService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Permissions  
+                <span>(@filteredPermissions.Count)</span>
+            </h4>
+
+            <div class="page-title-right">
+                 <button type="button" class="btn btn-sm btn-secondary" @onclick="AddNew" title="Add New Permission"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-body">
+                @if (permissions is null)
+                {
+                    <p><em>Loading...</em></p>
+                }
+                else
+                {
+                    <div class="row gy-2 gx-3 align-items-center mb-3">                                           
+                        <div class="col-sm-auto">                  
+                            <div class="input-group">
+                                <div class="input-group-text"> <i class="fas fa-search"></i></div>
+                                 <input type="text" class="form-control" @bind-value="searchText" @bind-value:event="oninput" id="txtsearchbox" placeholder="Search..">
+                            </div>
+                        </div>                      
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table mb-0 table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Modules</th>
+                                    <th>Menus</th>
+                                    <th>Company Types</th>
+                                    <th>Status</th>
+                                    <th>Created Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <Virtualize Items="filteredPermissions" Context="permission">
+                                    <tr @ondblclick="() => Edit(permission.ObjectId)">
+                                        <td>@permission.Name</td>
+                                        <td>
+                                            @if (!string.IsNullOrWhiteSpace(permission.ModuleNames))
+                                            {
+                                                var selectedList = permission.ModuleNames.Split(',');
+                                                foreach(var selectedItem in selectedList)
+                                                {
+                                                    <span class="me-1 badge badge bg-success">@selectedItem</span>
+                                                }
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (!string.IsNullOrWhiteSpace(permission.MenuNames))
+                                            {
+                                                var selectedList = permission.MenuNames.Split(',');
+                                                foreach(var selectedItem in selectedList)
+                                                {
+                                                    <span class="me-1 badge badge bg-warning">@selectedItem</span>
+                                                }
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (!string.IsNullOrWhiteSpace(permission.CompanyTypes))
+                                            {
+                                                var selectedList = permission.CompanyTypes.Split(',');
+                                                foreach(var selectedItem in selectedList)
+                                                {
+                                                    <span class="me-1 badge badge bg-success">@selectedItem</span>
+                                                }
+                                            }
+                                        </td>                                        
+                                        <td>
+                                            @if (permission.Status == (int)GeneralStatus.Active)
+                                            {
+                                                <span class="badge bg-success">Active</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning text-dark">Inactive</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @permission.CreatedDate.ToShortDateString()
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(permission.ObjectId))">
+                                                <span class="fas fa-pencil-alt"></span>
+                                            </button>
+
+                                            <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(permission.ObjectId,permission.Name)">
+                                                <span class="fas fa-times"></span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </Virtualize>
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@permission OnValidSubmit="@InsertUpdatePermission" >
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Permission</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <PermissionAddEdit permission="permission" modules="modules" companyTypes="companyTypes"/>
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @if (!string.IsNullOrWhiteSpace(permission.ObjectId))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(permission.ObjectId,permission.Name)">Delete</button>   
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<PermissionListModel> permissions = new List<PermissionListModel>();
+
+    private Permission permission = null;
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private string searchText = "";
+    private string selectedObjectId = "";
+
+    List<Module> modules = null;
+    List<KeyValuePairCustomModel> companyTypes = null;
+    //private IEnumerable<int> selectedModules = new List<int>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+        await LoadPermissions();
+        modules = await _moduleService.GetAll();
+
+        companyTypes = new List<KeyValuePairCustomModel>();
+
+        foreach (var status in Enum.GetValues(typeof(CompanyType)))
+        {
+            companyTypes.Add(new KeyValuePairCustomModel(status.ToString(), Convert.ToString(((int)status))));
+        }
+    }
+
+    private async Task LoadPermissions()
+    {
+        permissions = await _permissionService.GetAllWithDetails();
+    }
+
+    private async Task InsertUpdatePermission()
+    {
+        if (permission.SelectedModules == null)
+        {
+            permission.SelectedModules = new List<string>();
+        }
+
+        if (permission.SelectedCompanyTypes == null)
+        {
+            permission.SelectedCompanyTypes = new List<string>();
+        }
+
+        isSubmitting = true;
+
+        if (permission.Id == 0)
+        {
+            permission.CreatedByContactId = loginUser.ContactId;
+            permission.ObjectId = Guid.NewGuid().ToString();
+
+            var addResponse = await _permissionService.Insert(permission);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error",addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+
+            //Save multil seleted values in Security_ModulePermission and Security_CompanyTypePermission on datebase
+            
+            //Save module permission on database for this permissionId
+            await _permissionService.ModulePermissionInsertOrUpdateByPermissionObjectId(permission.ObjectId, permission.SelectedModules.ToList(), (int)permission.CreatedByContactId);
+            await _permissionService.CompanyTypePermissionInsertOrUpdateByPermissionObjectId(permission.ObjectId, permission.SelectedCompanyTypes.ToList(), (int)permission.CreatedByContactId);
+        }
+        else
+        {
+            permission.UpdatedByContactId = loginUser.ContactId;
+            var updateResponse = await _permissionService.Update(permission);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error",updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+
+            //Save multil seleted values in Security_ModulePermission and Security_CompanyTypePermission on datebase
+
+            //Save module permission on database for this permissionId
+            await _permissionService.ModulePermissionInsertOrUpdateByPermissionObjectId(permission.ObjectId, permission.SelectedModules.ToList(), (int)permission.UpdatedByContactId);
+            await _permissionService.CompanyTypePermissionInsertOrUpdateByPermissionObjectId(permission.ObjectId, permission.SelectedCompanyTypes.ToList(), (int)permission.UpdatedByContactId);
+
+        }
+
+        //var ids = selectedModules;
+
+        permission = new Permission();
+        isSubmitting = false;
+
+        await LoadPermissions();
+        CloseAddEditPopup();
+    }
+
+    string StatusText()
+    {
+        if (permission.Status == (int)GeneralStatus.Active)
+        {
+            return "<span class='badge bg-success'>Active</span>";
+        }
+
+        return  "<span class='badge bg-info text-dark'>Inactive</span>";
+    }
+
+    void AddNew()
+    {
+        permission = new Permission { Status = (int)GeneralStatus.Active };
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(string objectId)
+    {
+        permission = await _permissionService.GetByObjectId(objectId);
+        //Load Modules by following menu page
+        permission.SelectedModules = await _permissionService.GetModulesByPermissionObjectId(objectId);
+        
+        permission.SelectedCompanyTypes = await _permissionService.GetCompanyTypesByPermissionObjectId(objectId);
+        //Load Company Types
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the permission \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete",msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _permissionService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadPermissions();
+                permission = new Permission();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                 ModalNotification.ShowMessage("Error",deleteResponse.Message);
+            }
+        }
+
+         isSubmitting = false;
+    }
+   
+     List<PermissionListModel> filteredPermissions => permissions
+                                        .Where(i => 
+                                                i.Name.ToLower().Contains(searchText.ToLower())
+                                        ).ToList();
+}

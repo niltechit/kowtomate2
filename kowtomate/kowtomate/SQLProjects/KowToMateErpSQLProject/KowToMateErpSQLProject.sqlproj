@@ -1,0 +1,140 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Name>KowToMateErpSQLProject</Name>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>4.1</ProjectVersion>
+    <ProjectGuid>{c9c9242f-a169-46e2-a886-0737fc8b6a62}</ProjectGuid>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql130DatabaseSchemaProvider</DSP>
+    <OutputType>Database</OutputType>
+    <RootPath>
+    </RootPath>
+    <RootNamespace>KowToMateErpSQLProject</RootNamespace>
+    <AssemblyName>KowToMateErpSQLProject</AssemblyName>
+    <ModelCollation>1033,CI</ModelCollation>
+    <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
+    <DeployToDatabase>True</DeployToDatabase>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetLanguage>CS</TargetLanguage>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <SqlServerVerification>False</SqlServerVerification>
+    <IncludeCompositeObjects>True</IncludeCompositeObjects>
+    <TargetDatabaseSet>True</TargetDatabaseSet>
+    <DefaultCollation>SQL_Latin1_General_CP1_CI_AS</DefaultCollation>
+    <DefaultFilegroup>PRIMARY</DefaultFilegroup>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>bin\Debug\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineDebug>true</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">11.0</VisualStudioVersion>
+    <!-- Default to the v11.0 targets path if the targets file for the current VS version is not found -->
+    <SSDTExists Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets')">True</SSDTExists>
+    <VisualStudioVersion Condition="'$(SSDTExists)' == ''">11.0</VisualStudioVersion>
+  </PropertyGroup>
+  <Import Condition="'$(SQLDBExtensionsRefPath)' != ''" Project="$(SQLDBExtensionsRefPath)\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <Import Condition="'$(SQLDBExtensionsRefPath)' == ''" Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <ItemGroup>
+    <Folder Include="Properties" />
+    <Folder Include="dbo\" />
+    <Folder Include="dbo\Tables\" />
+    <Folder Include="dbo\Stored Procedures\" />
+    <Folder Include="compare" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="dbo\Tables\Security_Country.sql" />
+    <Build Include="dbo\Tables\HR_Designation.sql" />
+    <Build Include="dbo\Tables\Security_Permission.sql" />
+    <Build Include="dbo\Tables\Security_Module.sql" />
+    <Build Include="dbo\Tables\Security_ModulePermission.sql" />
+    <Build Include="dbo\Tables\Security_Menu.sql" />
+    <Build Include="dbo\Tables\Common_FileServer.sql" />
+    <Build Include="dbo\Tables\Security_MenuPermission.sql" />
+    <Build Include="dbo\Tables\Email_SenderAccount.sql" />
+    <Build Include="dbo\Tables\Security_Role.sql" />
+    <Build Include="dbo\Tables\Email_Template.sql" />
+    <Build Include="dbo\Tables\Security_RolePermission.sql" />
+    <Build Include="dbo\Tables\Security_CompanyTypePermission.sql" />
+    <Build Include="dbo\Tables\Email_Queue.sql" />
+    <Build Include="dbo\Tables\Email_QueueArchive.sql" />
+    <Build Include="dbo\Tables\Security_CompanyPermission.sql" />
+    <Build Include="dbo\Tables\Management_Team.sql" />
+    <Build Include="dbo\Tables\Security_Contact.sql" />
+    <Build Include="dbo\Tables\Management_TeamRole.sql" />
+    <Build Include="dbo\Tables\Security_User.sql" />
+    <Build Include="dbo\Tables\Management_TeamMember.sql" />
+    <Build Include="dbo\Tables\Security_UserRole.sql" />
+    <Build Include="dbo\Tables\Common_ActivityLog.sql" />
+    <Build Include="dbo\Tables\SOP_StandardService.sql" />
+    <Build Include="dbo\Tables\SOP_Template.sql" />
+    <Build Include="dbo\Tables\SOP_TemplateService.sql" />
+    <Build Include="dbo\Tables\SOP_TemplateFile.sql" />
+    <Build Include="dbo\Tables\Common_Company.sql" />
+    <Build Include="dbo\Stored Procedures\Security_Helper_GeenrateClassWithProperties.sql" />
+    <Build Include="dbo\Stored Procedures\Common_sp_Company_Insert.sql" />
+    <Build Include="dbo\Stored Procedures\Common_sp_Company_Update.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_Contact_Insert.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_Contact_Update.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_Country_Insert.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_Country_Update.sql" />
+    <Build Include="dbo\Stored Procedures\HR_sp_Designation_Insert.sql" />
+    <Build Include="dbo\Stored Procedures\HR_sp_Designation_Update.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_GetCompanyById.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_GetContactById.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_GetCountryById.sql" />
+    <Build Include="dbo\Stored Procedures\HR_sp_GetDesignationById.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_GetMenuById.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_GetModuleById.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_GetPermissionById.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_GetRoleById.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_Menu_Insert.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_Menu_Update.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_Module_Insert.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_Module_Update.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_Permission_Insert.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_Permission_Update.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_Role_Insert.sql" />
+    <Build Include="dbo\Stored Procedures\Security_sp_Role_Update.sql" />
+    <Build Include="dbo\Stored Procedures\Common_spCompany_Delete.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spContact_Delete.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spContact_GetAll.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spCountry_Delete.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spCountry_GetAll.sql" />
+    <Build Include="dbo\Stored Procedures\HR_spDesignation_Delete.sql" />
+    <Build Include="dbo\Stored Procedures\HR_spDesignation_GetAll.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spMenu_Delete.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spMenu_GetAll.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spModule_Delete.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spModule_GetAll.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spPermission_Delete.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spPermission_GetAll.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spRole_Delete.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spRole_GetAll.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spUser_GetAll.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spUser_GetByUsername.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spUser_Insert.sql" />
+    <Build Include="dbo\Stored Procedures\Security_spUser_Update.sql" />
+  </ItemGroup>
+</Project>

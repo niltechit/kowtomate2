@@ -1,0 +1,453 @@
+﻿@using CutOutWiz.Services.Models.FtpModels
+@using CutOutWiz.Services.Models.Security;
+@using static CutOutWiz.Core.Utilities.Enums
+
+
+
+<div class="row">
+    <div class="col-md-6">
+
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.AutoAssignOrderToTeam" class="form-check-input" type="checkbox" id="OrderToTeam"></InputCheckbox>
+            <label class="form-check-label" for="OrderToTeam">
+                Auto Assign Order To Team
+            </label>
+        </div>
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.AutoDistributeToEditor" class="form-check-input" type="checkbox" id="ToEditor"></InputCheckbox>
+            <label class="form-check-label" for="ToEditor">
+                Auto Distribute To Editor
+            </label>
+        </div>
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.AutoQcPass" class="form-check-input" type="checkbox" id="QcPass"></InputCheckbox>
+            <label class="form-check-label" for="QcPass">
+                Auto Qc Pass
+            </label>
+        </div>
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.AutoOperationPass" class="form-check-input" type="checkbox" id="OperationPass"></InputCheckbox>
+            <label class="form-check-label" for="OperationPass">
+                Auto Operation Pass
+            </label>
+        </div>
+
+
+
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.AllowPartialDelivery" class="form-check-input" type="checkbox" id="AllowPartialDelivery"></InputCheckbox>
+            <label class="form-check-label" for="AllowPartialDelivery">
+                Allow Partial Delivery
+            </label>
+        </div>
+
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.EnableFtpOrderPlacement" @onclick="ChangeOrderPlacement" class="form-check-input" type="checkbox" id="EnableFtpOrderPlacement"></InputCheckbox>
+            <label class="form-check-label" for="EnableFtpOrderPlacement">
+                Enable Ftp Order Placement
+            </label>
+        </div>
+
+        @if (isEnableFtpOrderPlacementInputShow)
+        {
+            <div style="margin-left : 15px; border:initial;">
+                <div class="form-check form-check-primary mt-4">
+                    <InputCheckbox @bind-Value="generalSetting.CheckUploadCompletedFlagOnFile" class="form-check-input" type="checkbox" id="CheckUploadCompletedFlagOnFile"></InputCheckbox>
+                    <label class="form-check-label" for="CheckUploadCompletedFlagOnFile">
+                        Check Upload Completed Flag On File
+                    </label>
+                </div>
+
+                <div class="form-check form-check-primary mt-4">
+                    <InputCheckbox @bind-Value="generalSetting.CheckUploadCompletedFlagOnBatchName" @onclick="ChangeCheckCompletedFlagOnBatchName" class="form-check-input" type="checkbox" id="CheckUploadCompletedFlagOnBatchName"></InputCheckbox>
+                    <label class="form-check-label" for="CheckUploadCompletedFlagOnBatchName">
+                        Check Upload Completed Flag OnBatchName
+                    </label>
+                </div>
+                @if (isCheckCompletedFlagOnBatchNameInputShow)
+                {
+                    <div style="margin-left : 15px; border:initial;">
+                        <div class="mt-4 row">
+                            <label for="text" class="col-sm-4 fw-bold required-field">Completed Flag Key Name OnBatch</label>
+                            <div class="col-sm-8">
+                                <InputText class="form-control" @bind-Value="generalSetting.CompletedFlagKeyNameOnBatch" placeholder="Completed Flag Key NameOnBatch" autocomplete="off"></InputText>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <div class="form-check form-check-primary mt-4">
+                    <InputCheckbox @bind-Value="generalSetting.IsFtpIdleTimeChecking" @onclick="ChangeFtpIdleTime" class="form-check-input" type="checkbox" id="IsFtpIdleTimeChecking"></InputCheckbox>
+                    <label class="form-check-label" for="IsFtpIdleTimeChecking">
+                        Check Upload Ftp Idle Time
+                    </label>
+                </div>
+                @if (IsFtpIdleTimeCheckingInputShow)
+                {
+                    <div class="mb-2 row" style="padding-top:10px;margin-top:10px;">
+                        <label for="Name" class="col-sm-4 col-form-label fw-bold">Set Time</label>
+                        <div class="col-sm-8">
+                            <InputNumber class="form-control" DisplayName="Set Ftp Idle Time" @bind-Value="generalSetting.FtpIdleTime"></InputNumber>
+                            <ValidationMessage For="@(() => generalSetting.FtpIdleTime)" />
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        <div class="form-check form-check-primary mb-3 mt-4">
+            <InputCheckbox @bind-Value="generalSetting.EnableOrderDeliveryToFtp" @onclick="ChangeOrderDelivery" class="form-check-input" type="checkbox" id="EnableOrderDeliveryToFtp"></InputCheckbox>
+            <label class="form-check-label" for="EnableOrderDeliveryToFtp">
+                Enable Order Delivery To Ftp
+            </label>
+        </div>
+
+        @if (isEnableFtpOrderDeliveryInputShow)
+        {
+            <div class="form-check form-check-primary mb-3" style="padding-top:10px;margin-left:10px;">
+                <InputCheckbox @bind-Value="generalSetting.IsSendClientHotkey" @onclick="ChangeHotkeyClient" class="form-check-input" type="checkbox" id="IsSendClientHotkey"></InputCheckbox>
+                <label class="form-check-label" for="IsSendClientHotkey">
+                    Send Hotkey For Client Order Delivery Completed
+                </label>
+            </div>
+            if (isSendHotkeyFilenameInputShow)
+            {
+                <div style="margin-left : 15px; border:initial;">
+                    <div class="mt-4 row">
+                        <label for="text" class="col-sm-4 fw-bold required-field">Hotkey Flag FileName</label>
+                        <div class="col-sm-8">
+                            <InputText class="form-control" @bind-Value="generalSetting.HotkeyFlagFileName" placeholder="Completed Flag Key Name For Client" autocomplete="off"></InputText>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.AllowSingleOrderFromFTP" class="form-check-input" type="checkbox" id="AllowSingleOrderFromFTP"></InputCheckbox>
+            <label class="form-check-label" for="AllowSingleOrderFromFTP">
+                Allow Single Order From FTP
+            </label>
+        </div>
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.EnableSingleOrderPlacement" class="form-check-input" type="checkbox" id="EnableSingleOrderPlacement"></InputCheckbox>
+            <label class="form-check-label" for="EnableSingleOrderPlacement">
+                Enable Single Order Placement
+            </label>
+        </div>
+
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.IsIbrProcessedEnabled" class="form-check-input" type="checkbox" id="IsIbrProcessedEnabled"></InputCheckbox>
+            <label class="form-check-label" for="IsIbrProcessedEnabled">
+                Is Ibr Processed Enabled
+            </label>
+        </div>
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.AllowAutoUploadFromEditorPc" class="form-check-input" type="checkbox" id="AllowAutoUploadFromEditorPc"></InputCheckbox>
+            <label class="form-check-label" for="AllowAutoUploadFromEditorPc">
+                Allow Auto Upload From Editor Pc
+            </label>
+        </div>
+
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.AllowAutoUploadFromQcPc" class="form-check-input" type="checkbox" id="AllowAutoUploadFromQcPc"></InputCheckbox>
+            <label class="form-check-label" for="AllowAutoUploadFromQcPc">
+                Allow Auto Upload From Qc Pc
+            </label>
+        </div>
+        <div class="mb-2 row">
+            <label for="Name" class="col-sm-4 col-form-label fw-bold">Max File Per Order</label>
+            <div class="col-sm-8">
+                <InputNumber class="form-control" DisplayName="Maximum No Of File Per Order" @bind-Value="generalSetting.AllowMaxNumOfItemsPerOrder"></InputNumber>
+                <ValidationMessage For="@(() => generalSetting.AllowMaxNumOfItemsPerOrder)" />
+            </div>
+        </div>
+
+        <div class="mb-2 row">
+            <label for="ParentId" class="col-sm-4 col-form-label fw-bold">FTP Order </label>
+            <div class="col-sm-8">
+                <InputSelect @bind-Value="generalSetting.FtpOrderPlacedAppNo" class="form-select">
+                    <option value="0">- Select -</option>
+                    @foreach (var type in Enum.GetValues(typeof(FtpOrderProcessedApp)))
+                    {
+                        <option value="@((int)type)">@type</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="@(() => generalSetting.FtpOrderPlacedAppNo)" />
+            </div>
+        </div>
+
+    </div>
+    <div class="col-md-6">
+
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.RemoveFacilityNameFromOutputRootFolderPath" class="form-check-input" type="checkbox" id="RemoveFacilityNameFromOutputRootFolderPath"></InputCheckbox>
+            <label class="form-check-label" for="RemoveFacilityNameFromOutputRootFolderPath">
+                Remove Facility Name From Output Root Folder Path
+            </label>
+        </div>
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.AllowClientWiseImageProcessing" class="form-check-input" type="checkbox" id="AllowClientWiseImageProcessing"></InputCheckbox>
+            <label class="form-check-label" for="AllowClientWiseImageProcessing">
+                Allow Client Wise Image Processing
+            </label>
+        </div>
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.AllowNotifyOpsOnImageArrivalFTP" class="form-check-input" type="checkbox" id="AllowNotifyOpsOnImageArrivalFTP"></InputCheckbox>
+            <label class="form-check-label" for="AllowNotifyOpsOnImageArrivalFTP">
+                Allow Notify Ops On Image Arrival FTP
+            </label>
+        </div>
+
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.CheckEmailForUploadCompletedConfirmation" class="form-check-input" type="checkbox" id="CheckEmailForUploadCompletedConfirmation"></InputCheckbox>
+            <label class="form-check-label" for="CheckEmailForUploadCompletedConfirmation">
+                Check Email For Upload Completed Confirmation
+            </label>
+        </div>
+
+
+
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.IsBatchRootFolderNameAddWithOrder" class="form-check-input" type="checkbox" id="IsBatchRootFolderNameAddWithOrder"></InputCheckbox>
+            <label class="form-check-label" for="IsBatchRootFolderNameAddWithOrder">
+                Is Batch Root Folder Name Add With Order?
+            </label>
+        </div>
+
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.AllowExtraFile" class="form-check-input" type="checkbox" id="AllowExtraFile"></InputCheckbox>
+            <label class="form-check-label" for="AllowExtraFile">
+                Is Allow Extra File Uploaded?
+            </label>
+        </div>
+
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.isFtpFolderPreviousStructureWiseStayInFtp" class="form-check-input" type="checkbox" id="isFtpFolderPreviousStructureWiseStayInFtp"></InputCheckbox>
+            <label class="form-check-label" for="isFtpFolderPreviousStructureWiseStayInFtp">
+                is Ftp Folder Previous Structure After Order Place?
+            </label>
+        </div>
+
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.IsSameNameImageExistOnSameFolder" class="form-check-input" type="checkbox" id="IsSameNameImageExistOnSameFolder"></InputCheckbox>
+            <label class="form-check-label" for="IsSameNameImageExistOnSameFolder">
+                Is Same Name Image Exist On Same Folder?
+            </label>
+        </div>
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.AllowAutoDownloadToEditorPc" class="form-check-input" type="checkbox" id="AllowAutoDownloadToEditorPc"></InputCheckbox>
+            <label class="form-check-label" for="AllowAutoDownloadToEditorPc">
+                Allow Auto Download To Editor Pc
+            </label>
+        </div>
+
+        <label for="ParentId" class="col-sm-4 col-form-label fw-bold"> Delivery Type </label>
+        <div class="col-sm-8">
+            <InputSelect @bind-Value="generalSetting.DeliveryType" class="form-select">
+                <option value="0">- Select -</option>
+                @foreach (var type in Enum.GetValues(typeof(DeliveryType)))
+                {
+                    <option value="@((int)type)">@type</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="@(() => generalSetting.DeliveryType)" />
+        </div>
+
+        <label for="ParentId" class="col-sm-4 col-form-label fw-bold"> Order Placed Then File/Batch Move </label>
+        <div class="col-sm-8">
+            <InputSelect @bind-Value="generalSetting.OrderPlaceBatchMoveType" class="form-select" @oninput="HandleChange">
+                <option value="0">- Select -</option>
+                @foreach (var type in Enum.GetValues(typeof(OrderPlaceBatchMoveType)))
+                {
+                    <option value="@((int)type)">@type</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="@(() => generalSetting.OrderPlaceBatchMoveType)" />
+        </div>
+        @if (isOrderPlaceBatchMoveTypeInputShow)
+        {
+            <div style="margin-left : 15px; border:initial;">
+                <div class="mt-4 row">
+                    <label for="text" class="col-sm-4 fw-bold required-field">Input File/Batch Move Path After Order Placed</label>
+                    <div class="col-sm-8">
+                        <InputText class="form-control" @bind-Value="generalSetting.FtpFileMovedPathAfterOrderCreated" placeholder="Input File/Batch Move Path After Order Placed" autocomplete="off"></InputText>
+                    </div>
+                </div>
+
+                <div class="form-check form-check-primary mb-3">
+                    <InputCheckbox @bind-Value="generalSetting.IsOrderCreatedThenFileMove" class="form-check-input" type="checkbox" id="IsOrderCreatedThenFileMove"></InputCheckbox>
+                    <label class="form-check-label" for="IsOrderCreatedThenFileMove">
+                        Is Order Create Then File Move ?
+                    </label>
+                </div>
+
+            </div>
+        }
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.AllowSingleOrderForRootAllFolderAndFiles " class="form-check-input" type="checkbox" id="AllowSingleOrderForRootAllFolderAndFiles "></InputCheckbox>
+            <label class="form-check-label" for="AllowSingleOrderForRootAllFolderAndFiles ">
+                Allow Single Order  For RootAllFolderAndFiles
+            </label>
+        </div>
+
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.IsOrderPlacedEmailSentToCompany" class="form-check-input" type="checkbox" id="IsOrderPlacedEmailSentToCompany"></InputCheckbox>
+            <label class="form-check-label" for="IsOrderPlacedEmailSentToCompany">
+                Is Send Order Placed Notification Email To Company ?
+            </label>
+        </div>
+
+        <div class="form-check form-check-primary mb-3">
+            <InputCheckbox @bind-Value="generalSetting.IsOrderPlacedEmailSentToCompanyAllUsers" class="form-check-input" type="checkbox" id="IsOrderPlacedEmailSentToCompanyAllUsers"></InputCheckbox>
+            <label class="form-check-label" for="IsOrderPlacedEmailSentToCompanyAllUsers">
+                Send Order Placed Notification Email To Company All Users ?
+            </label>
+        </div>
+
+    </div>
+</div>
+
+
+@code {
+    [Parameter]
+    public CompanyGeneralSettingModel generalSetting { get; set; }
+    bool isEnableFtpOrderPlacementInputShow = false;
+    bool isEnableFtpOrderDeliveryInputShow = false;
+    bool isSendHotkeyFilenameInputShow = false;
+    bool IsFtpIdleTimeCheckingInputShow = false;
+    bool isCheckCompletedFlagOnBatchNameInputShow = false;
+    bool isOrderPlaceBatchMoveTypeInputShow = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (generalSetting.EnableFtpOrderPlacement)
+        {
+            isEnableFtpOrderPlacementInputShow = true;
+        }
+        if (generalSetting.EnableOrderDeliveryToFtp)
+        {
+            isEnableFtpOrderDeliveryInputShow = true;
+        }
+        if (generalSetting.IsSendClientHotkey)
+        {
+            isSendHotkeyFilenameInputShow = true;
+        }
+        if (generalSetting.IsFtpIdleTimeChecking)
+        {
+            IsFtpIdleTimeCheckingInputShow = true;
+        }
+        if (generalSetting.CheckUploadCompletedFlagOnBatchName)
+        {
+            isCheckCompletedFlagOnBatchNameInputShow = true;
+        }
+        if (generalSetting.OrderPlaceBatchMoveType != (int)OrderPlaceBatchMoveType.FileandFolderNotMoveAfterOrderPlace)
+        {
+            isOrderPlaceBatchMoveTypeInputShow = true;
+        }
+    }
+
+    void ChangeOrderPlacement()
+    {
+        if (isEnableFtpOrderPlacementInputShow)
+        {
+            isEnableFtpOrderPlacementInputShow = false;
+            StateHasChanged();
+        }
+        else
+        {
+            isEnableFtpOrderPlacementInputShow = true;
+            StateHasChanged();
+        }
+    }
+    void ChangeOrderDelivery()
+    {
+        if (isEnableFtpOrderDeliveryInputShow)
+        {
+            isEnableFtpOrderDeliveryInputShow = false;
+            StateHasChanged();
+        }
+        else
+        {
+            isEnableFtpOrderDeliveryInputShow = true;
+            StateHasChanged();
+        }
+    }
+    void ChangeHotkeyClient()
+    {
+        if (isSendHotkeyFilenameInputShow)
+        {
+            isSendHotkeyFilenameInputShow = false;
+            StateHasChanged();
+        }
+        else
+        {
+            isSendHotkeyFilenameInputShow = true;
+            StateHasChanged();
+        }
+    }
+
+    void ChangeFtpIdleTime()
+    {
+        if (IsFtpIdleTimeCheckingInputShow)
+        {
+            IsFtpIdleTimeCheckingInputShow = false;
+            StateHasChanged();
+        }
+        else
+        {
+            IsFtpIdleTimeCheckingInputShow = true;
+            StateHasChanged();
+        }
+    }
+    void ChangeCheckCompletedFlagOnBatchName()
+    {
+        if (isCheckCompletedFlagOnBatchNameInputShow)
+        {
+            isCheckCompletedFlagOnBatchNameInputShow = false;
+            StateHasChanged();
+        }
+        else
+        {
+            isCheckCompletedFlagOnBatchNameInputShow = true;
+            StateHasChanged();
+        }
+
+    }
+
+    void HandleChange(ChangeEventArgs e)
+    {
+        if (Enum.TryParse(typeof(OrderPlaceBatchMoveType), e.Value.ToString(), out var selectedType))
+        {
+            ChangeFileMoved((int)selectedType);
+        }
+    }
+
+    void ChangeFileMoved(int inputValue)
+    {
+
+
+        switch (inputValue)
+        {
+            case (int)OrderPlaceBatchMoveType.FileandFolderMoveAfterOrderPlace:
+                isOrderPlaceBatchMoveTypeInputShow = true;
+                StateHasChanged();
+                break;
+
+            // Add additional cases if needed
+            case (int)OrderPlaceBatchMoveType.FileandFolderNotMoveAfterOrderPlace:
+                isOrderPlaceBatchMoveTypeInputShow = false;
+                StateHasChanged();
+                break;
+
+            case (int)OrderPlaceBatchMoveType.NoActionNeeded:
+                isOrderPlaceBatchMoveTypeInputShow = false;
+                StateHasChanged();
+                break;
+
+            default:
+                // Default case, if none of the cases match
+                break;
+        }
+    }
+}

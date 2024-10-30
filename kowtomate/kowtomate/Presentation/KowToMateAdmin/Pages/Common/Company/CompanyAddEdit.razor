@@ -1,0 +1,120 @@
+﻿@using CutOutWiz.Data.Common
+@using static CutOutWiz.Core.Utilities.Enums
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="company.Name"></InputText>
+        <ValidationMessage For="@(() => company.Name)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Code" class="col-sm-4 col-form-label fw-bold">Code</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="company.Code"></InputText>
+        <ValidationMessage For="@(() => company.Code)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="ParentId" class="col-sm-4 col-form-label fw-bold">Type</label>
+    <div class="col-sm-8">
+        <InputSelect @bind-Value="company.CompanyType" class="form-select">
+           <option value="0">- Select -</option>
+        @foreach (var type in Enum.GetValues(typeof(CompanyType)))
+        {
+            <option value="@((int)type)">@type</option>
+        }
+         </InputSelect>
+        <ValidationMessage For="@(() => company.CompanyType)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Telephone" class="col-sm-4 col-form-label fw-bold">Telephone</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="company.Telephone"></InputText>
+        <ValidationMessage For="@(() => company.Telephone)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Email" class="col-sm-4 col-form-label fw-bold">Email</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="company.Email"></InputText>
+        <ValidationMessage For="@(() => company.Email)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Address1" class="col-sm-4 col-form-label fw-bold">Address1</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="company.Address1"></InputText>
+        <ValidationMessage For="@(() => company.Address1)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Address2" class="col-sm-4 col-form-label fw-bold">Address2</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="company.Address2"></InputText>
+        <ValidationMessage For="@(() => company.Address2)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="City" class="col-sm-4 col-form-label fw-bold">City</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="company.City"></InputText>
+        <ValidationMessage For="@(() => company.City)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="State" class="col-sm-4 col-form-label fw-bold">State</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="company.State"></InputText>
+        <ValidationMessage For="@(() => company.State)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Zipcode" class="col-sm-4 col-form-label fw-bold">Zipcode</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="company.Zipcode"></InputText>
+        <ValidationMessage For="@(() => company.Zipcode)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Country" class="col-sm-4 col-form-label fw-bold">Country</label>
+    <div class="col-sm-8">
+         <RadzenDropDown AllowClear="true" TValue="string"  @bind-Value="company.Country" AllowVirtualization="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowFiltering="true" Class="w-100" 
+                            Placeholder="- Select -" Data=@countries TextProperty="Name" ValueProperty="Name"/>
+        <ValidationMessage For="@(() => company.Country)" />
+    </div>
+</div>
+
+
+<div class="mb-2 row">
+    <label for="Status" class="col-sm-4 col-form-label fw-bold">Status</label>
+    <div class="col-sm-8">
+      <InputSelect @bind-Value="company.Status" class="form-select">
+           <option value="0">- Select -</option>
+        @foreach (var status in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            <option value="@((int)status)">@status</option>
+        }
+         </InputSelect>
+        <ValidationMessage For="@(() => company.Status)" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Company company { get; set; }
+
+    [Parameter]
+    public  List<Country> countries { get; set; }
+}

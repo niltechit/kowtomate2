@@ -1,0 +1,44 @@
+﻿@using static CutOutWiz.Core.Utilities.Enums
+@using CutOutWiz.Services.Models.ClientCategoryServices
+
+<div class="mb-2 row">
+	<label for="Name" class="col-sm-4 col-form-label fw-bold required-field"> Name </label>
+	<div class="col-sm-8">
+		<InputText class="form-control" placeholder=" Name" @bind-Value="commonCategory.Name"></InputText>
+		<ValidationMessage For="@(() => commonCategory.Name)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Time In Minute</label>
+	<div class="col-sm-8">
+		<InputNumber class="form-control" placeholder="Time In Minute" @bind-Value="commonCategory.TimeInMinutes"></InputNumber>
+		<ValidationMessage For="@(() => commonCategory.TimeInMinutes)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Price (USD)</label>
+	<div class="col-sm-8">
+		<InputText class="form-control" placeholder="Price In USD" @bind-Value="commonCategory.PriceInUSD"></InputText>
+		<ValidationMessage For="@(() => commonCategory.PriceInUSD)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label class="col-sm-4 col-form-label fw-bold">Is Active</label>
+	<div class="col-sm-8">
+		<InputCheckbox @bind-Value="commonCategory.IsActive" id="IsActive" class="form-check-input"></InputCheckbox>
+		<label class="form-check-label" for="IsActive">
+
+		</label>
+		<ValidationMessage For="@(() => commonCategory.IsActive)" />
+	</div>
+</div>
+
+
+
+@code {
+	[Parameter]
+	public CommonCategoryModel commonCategory { get; set; }
+}

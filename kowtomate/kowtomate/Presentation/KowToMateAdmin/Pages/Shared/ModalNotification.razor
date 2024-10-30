@@ -1,0 +1,69 @@
+﻿@if (ShowModal)
+{
+    <div class="modal fade show d-block" id="exampleModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title" id="exampleModalLabel">@Title</h5>
+                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"  @onclick="() => OnConfirmationChange(false)"></button>  
+                </div>
+                <div class="modal-body">
+                    @Message
+                </div>
+                <div class="modal-footer bg-light">
+                     @if (Type=="Message")
+                     {
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal"
+                            @onclick="(() =>  ShowModal = false)">Cancel</button>
+                    }
+                    else if (Type == "Confirmation")
+                    {
+                     <button type="button" class="btn btn-danger"
+                            @onclick="() => OnConfirmationChange(true)">Delete</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal"
+                            @onclick="() => OnConfirmationChange(false)">Cancel</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    protected bool ShowModal { get; set; }
+    protected string Type { get; set; } = "Message";
+    protected string Title { get; set; } = "Message";
+    protected string Message { get; set; } = "";
+
+    private void Show()
+    {
+        ShowModal = true;
+        StateHasChanged();
+    }
+
+    public void ShowMessage(string title, string message)
+    {
+        Type = "Message";
+        Title = title;
+        Message = message;
+        Show();
+    }
+
+        public void ShowConfirmation(string title, string message)
+        {
+            Type = "Confirmation";
+            Title = title;
+            Message = message;
+            ShowModal = true;
+            Show();
+        }
+
+        [Parameter]
+        public EventCallback<bool> ConfirmationChanged { get; set; }
+
+        protected async Task OnConfirmationChange(bool value)
+        {
+            ShowModal = false;
+            await ConfirmationChanged.InvokeAsync(value);
+        }
+}

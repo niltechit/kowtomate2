@@ -1,0 +1,180 @@
+﻿@page "/report/dynamicreportsconfiguration"
+
+@attribute [Authorize(Roles = "DynamicReport.CanSetupDynamicReport")]
+
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.DynamicReports
+@using CutOutWiz.Services.DynamicReports
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IDynamicReportInfoService _dynamicReportInfoService
+@inject NavigationManager NavigationManager
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Dynamic Reports Configuration
+            </h4>
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New DynamicReportInfo"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+        <RadzenDataGrid Data="@dynamicReportInfos" IsLoading="isLoading" TItem="DynamicReportInfoModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+                <RadzenDataGridColumn Width="200px" TItem="DynamicReportInfoModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => GoToManageReportColumns(data.Id))">
+                            <span class="fas fa-cog">Setup Coloumns</span>
+                        </button>
+                        <button type="button" title="edit" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.ObjectId))">
+                            <span class="fas fa-pencil-alt"></span>
+                        </button>
+                        <button type="button" title="copy or clone this report configuration" class="btn btn-sm btn-outline-success btn-tbl-action" @onclick="(async () => await Copy(data.Id,data.Name))">
+                            <span class="fas fa-clone"></span>
+                        </button>
+                        <button type="button" title="delete this report configuration" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.ObjectId,data.Name)">
+                            <span class="fas fa-times"></span>
+                        </button>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="DynamicReportInfoModel" Property="Name" Title="Report Name" SortOrder="SortOrder.Ascending" Width="300px" />
+                <RadzenDataGridColumn TItem="DynamicReportInfoModel" Property="ReportCode" Title="Report Code" SortOrder="SortOrder.Ascending" Width="300px" />
+                <RadzenDataGridColumn TItem="DynamicReportInfoModel" Property="ReportType" Title="Report Type" Width="180px" FilterValue="@filterReportType">
+                    <FilterTemplate>
+                        <RadzenDropDown @bind-Value=@filterReportType Style="width:100%" Data="@(reportTypes)" TextProperty="EnumName"
+                                        ValueProperty="EnumValue" AllowClear="true"  />
+                    </FilterTemplate>
+
+                    <Template Context="data">
+                        @if (data.ReportType != null)
+                        {
+                            if ((DynamicReportType)data.ReportType == DynamicReportType.AdvanceDynamicReport)
+                            {
+                                <span class="text-success">Advance Dynamic Report</span>
+                            }
+                            else if ((DynamicReportType)data.ReportType == DynamicReportType.EmailOnlyReport)
+                            {
+                                <span class="text-primary">Email Only Report</span>
+                            }
+                            else if ((DynamicReportType)data.ReportType == DynamicReportType.ExcelFormatReport)
+                            {
+                                <span class="text-warning">Excel Format Report</span>
+                            }
+                            else
+                            {
+                                <span class="text-default">Basic Dynamic Report</span>
+                            }
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="DynamicReportInfoModel" Property="AllowFiltering" Title="Allow Filtering" TextAlign="TextAlign.Center" Filterable="false" Width="120px" />
+                <RadzenDataGridColumn TItem="DynamicReportInfoModel" Property="AllowPaging" Title="Allow Paging" TextAlign="TextAlign.Center" Filterable="false" Width="110px" />
+                <RadzenDataGridColumn TItem="DynamicReportInfoModel" Property="AllowSorting" Title="Allow Sorting" TextAlign="TextAlign.Center" Filterable="false" Width="110px" />
+                <RadzenDataGridColumn TItem="DynamicReportInfoModel" Property="AllowHtmlPreview" Title="Allow Html Pre." TextAlign="TextAlign.Center" Filterable="false" Width="110px" />
+               @* <RadzenDataGridColumn TItem="DynamicReportInfo" Property="DefaultSortColumn" Title="Default Sort Column" TextAlign="TextAlign.Center" Filterable="false" Width="120px" />
+                <RadzenDataGridColumn TItem="DynamicReportInfo" Property="DefaultSortOrder" Title="Default Sort Order" TextAlign="TextAlign.Center" Filterable="false" Width="120px" />*@
+                @*<RadzenDataGridColumn TItem="DynamicReportInfo" Property="AllowVirtualization" Title="Allow Virtualization" TextAlign="TextAlign.Center" Filterable="false" Width="120px" />*@
+                <RadzenDataGridColumn TItem="DynamicReportInfoModel" Property="PageSize" Title="Page Size" TextAlign="TextAlign.Center" Filterable="false" Width="100px" />
+                <RadzenDataGridColumn TItem="DynamicReportInfoModel" Property="CreatedDate" Title="Created Date" TextAlign="TextAlign.Center" Filterable="false" Width="120px" />
+                              
+
+                <RadzenDataGridColumn TItem="DynamicReportInfoModel" Property="Status" Title="Status" FilterValue="@filterStatus" Width="100px" TextAlign="TextAlign.Center">
+                    <FilterTemplate>
+                        <RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                                        Data="@(statuses)" AllowClear="true" />
+                    </FilterTemplate>
+                    <Template Context="role">
+                        @if (role.Status == (int)GeneralStatus.Active)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Inactive</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@dynamicReportInfo OnValidSubmit="@InsertUpdateDynamicReportInfo">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">DynamicReportInfo</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <DynamicReportInfoAddEdit dynamicReportInfo="dynamicReportInfo" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @if (!string.IsNullOrWhiteSpace(dynamicReportInfo.ObjectId))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(dynamicReportInfo.ObjectId,dynamicReportInfo.Name)">Delete</button>
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@if (showCloneConfirmPopup)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal fade show" style="display:block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Copy</h5>
+                    <button type="button" @onclick="closeCloneConfirmPopup" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>@msgCloneConfirm</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" @onclick="ConfirmCloneReport_Click" class="btn btn-primary" disabled="@isSubmitting" >Yes</button>
+                    <button type="button" @onclick="closeCloneConfirmPopup" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    
+}

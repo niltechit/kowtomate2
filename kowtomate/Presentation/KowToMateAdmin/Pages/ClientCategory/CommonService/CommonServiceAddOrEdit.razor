@@ -1,0 +1,45 @@
+﻿@using static CutOutWiz.Core.Utilities.Enums
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Services.Models.ClientCategoryServices
+
+<div class="mb-2 row">
+	<label for="Name" class="col-sm-4 col-form-label fw-bold required-field">Service Name </label>
+	<div class="col-sm-8">
+		<InputText class="form-control" placeholder=" Name" @bind-Value="commonService.Name"></InputText>
+		<ValidationMessage For="@(() => commonService.Name)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Time In Minute</label>
+	<div class="col-sm-8">
+		<InputNumber class="form-control" placeholder="Time In Minute" @bind-Value="commonService.TimeInMinutes"></InputNumber>
+		<ValidationMessage For="@(() => commonService.TimeInMinutes)" />
+	</div>
+</div>
+
+@* <AuthorizeView Roles="ClientOrder.ClientCategoryPriceCanAdd"> *@
+<AuthorizeView Roles=@PermissionConstants.Category_CanAddCategoryPrice>
+	<div class="mb-2 row">
+		<label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Price (USD)</label>
+		<div class="col-sm-8">
+			<InputText class="form-control" placeholder="Price In USD" @bind-Value="commonService.PriceInUSD"></InputText>
+			<ValidationMessage For="@(() => commonService.PriceInUSD)" />
+		</div>
+	</div>
+</AuthorizeView>
+
+<div class="mb-2 row">
+	<label class="col-sm-4 col-form-label fw-bold">Is Active</label>
+	<div class="col-sm-8">
+		<label class="form-check-label mt-2" for="IsActive">
+			<InputCheckbox @bind-Value="commonService.IsActive" id="IsActive" class="form-check-input"></InputCheckbox>
+		</label>
+		<ValidationMessage For="@(() => commonService.IsActive)" />
+	</div>
+</div>
+
+@code {
+	[Parameter]
+	public CommonServiceModel commonService { get; set; }
+}

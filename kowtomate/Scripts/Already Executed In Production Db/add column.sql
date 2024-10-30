@@ -1,0 +1,2 @@
+ALTER TABLE CompanyGeneralSettings
+ADD AllowNotifyOpsOnImageArrivalFTP bit;

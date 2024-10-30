@@ -1,0 +1,157 @@
+﻿@page "/sop/templates"
+
+@attribute [Authorize(Roles = "SOPTemplate.ViewList")]
+
+@using CutOutWiz.Data.Common
+@using CutOutWiz.Services.Common
+@using CutOutWiz.Data.SOP
+@using CutOutWiz.Services.SOP
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject ISOPTemplateService _templateService
+@inject IFileServerService _fileServerService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">SOP Templates
+                <span>(@filteredTemplates.Count)</span>
+            </h4>
+
+            <div class="page-title-right">
+                <AuthorizeView Roles="SOPTemplate.Add">
+                    <a href="/sop/template" class="btn btn-sm btn-secondary" title="Add New Template"><span class="fas fa-plus"></span> Add New</a> 
+                </AuthorizeView>
+                 
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-body">
+                @if (templates is null)
+                {
+                    <p><em>Loading...</em></p>
+                }
+                else
+                {
+                    <div class="row gy-2 gx-3 align-items-center mb-3">                                           
+                        <div class="col-sm-auto">                  
+                            <div class="input-group">
+                                <div class="input-group-text"> <i class="fas fa-search"></i></div>
+                                 <input type="text" class="form-control" @bind-value="searchText" @bind-value:event="oninput" id="txtsearchbox" placeholder="Search..">
+                            </div>
+                        </div>                      
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table mb-0 table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Unit Price</th>
+                                    <th>Status</th>
+                                    <th>Created Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <Virtualize Items="filteredTemplates" Context="template">
+                                    <tr>
+                                        <td><a href="/sop/template/@template.ObjectId">@template.Name</a></td>
+                                        <td>@template.UnitPrice</td>
+                                        <td>
+                                             @if (template.Status == (int)GeneralStatus.Active)
+                                            {
+                                                <span class="badge bg-success">Active</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning text-dark">Inactive</span>
+                                            }
+                                        </td>
+                                          <td>@template.CreatedDate.ToShortDateString()</td>
+                                        <td>
+                                            <a href="/sop/template/@template.ObjectId" class="btn btn-sm btn-outline-primary btn-tbl-action">
+                                                <span class="fas fa-pencil-alt"></span>
+                                            </a>
+
+                                            <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(template.ObjectId,template.Name)">
+                                                <span class="fas fa-times"></span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </Virtualize>
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<SOPTemplate> templates = new List<SOPTemplate>();
+    private LoginUserInfoViewModel loginUser = null;
+    private string searchText = "";
+    private string selectedObjectId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+        await LoadTemplates();
+    }
+
+    private async Task LoadTemplates()
+    {
+        templates = await _templateService.GetAll();
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the template \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete",msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _templateService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadTemplates();
+            }
+            else
+            {
+                 ModalNotification.ShowMessage("Error",deleteResponse.Message);
+            }
+        }
+
+         isSubmitting = false;
+    }
+   
+     List<SOPTemplate> filteredTemplates => templates
+                                        .Where(i => 
+                                                i.Name.ToLower().Contains(searchText.ToLower())
+                                        ).ToList();
+}

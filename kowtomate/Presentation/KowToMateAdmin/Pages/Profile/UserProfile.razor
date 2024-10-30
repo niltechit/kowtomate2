@@ -1,0 +1,292 @@
+﻿@page "/myprofile"
+@attribute [Authorize(Roles = "General.MyProfile")]
+
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.HR
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.ClaimManagementService
+@using CutOutWiz.Services.HR
+@using CutOutWiz.Services.Security
+
+@using KowToMateAdmin.Helper;
+@using KowToMateAdmin.Models.Security
+@using Renci.SshNet.Security.Cryptography
+@using SharpDX.Text
+@using System.Security.Cryptography
+@using static CutOutWiz.Core.Utilities.Enums;
+
+@inject IWorkContext _workContext
+@inject IContactManager _contactManager
+@inject IDesignationService _designationService
+@inject IJSRuntime js
+@inject IUserService _userService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IClaimsService _claimsService
+
+<!-- start page title -->
+<div class="row">
+	<div class="col-12">
+		<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+			<h4 class="mb-sm-0 font-size-18">
+				Profile
+			</h4>
+		</div>
+	</div>
+</div>
+
+<!-- end page title -->
+<div class="row">
+	<div class="col-xl-8">
+		<div class="card overflow-hidden">
+			<div class="bg-primary bg-soft">
+				<div class="row">
+					<div class="col-7">
+						<div class="text-primary p-3">
+							<h5 class="text-primary">Welcome Back !</h5>
+							<p>Simplify, Scale, Succeed: Kowtomate at Your Service</p>
+						</div>
+					</div>
+					<div class="col-5 align-self-end">
+						<img src="assets/images/profile-img.png" alt="" class="img-fluid">
+					</div>
+				</div>
+			</div>
+			<div class="card-body pt-0">
+				<div class="row">
+					<div class="col-sm-7">
+						<div class="avatar-md profile-user-wid mb-4">
+							<img src="assets/images/users/avatar-1.jpg" alt="" class="img-thumbnail rounded-circle">
+						</div>
+						<h5 class="font-size-15 text-truncate">@contact.FirstName @contact.LastName</h5>
+						<p class="text-muted mb-0 text-truncate">@designation?.Name</p>
+					</div>
+
+					<div class="col-sm-5">
+						<div class="pt-4">
+							@* <div class="row">
+							<div class="col-6">
+							<h5 class="font-size-15">125</h5>
+							<p class="text-muted mb-0">Projects</p>
+							</div>
+							<div class="col-6">
+							<h5 class="font-size-15">$1245</h5>
+							<p class="text-muted mb-0">Revenue</p>
+							</div>
+							</div> *@
+							<div class="mt-4">
+								<button type="button" @onclick="ChangePasswordOnClicked" class="btn btn-primary waves-effect waves-light btn-sm">Reset Password <i class="mdi mdi-arrow-right ms-1"></i></button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!-- end card -->
+
+		<div class="card">
+			<div class="card-body">
+				<h4 class="card-title mb-4">Personal Information</h4>
+
+
+				<div class="table-responsive">
+					<table class="table table-nowrap mb-0">
+						<tbody>
+							<tr>
+								<th scope="row">Full Name :</th>
+								<td>@contact.FirstName @contact.LastName</td>
+							</tr>
+							<tr>
+								<th scope="row">Phone :</th>
+								<td>@contact.Phone</td>
+							</tr>
+							<tr>
+								<th scope="row">E-mail :</th>
+								<td>@contact.Email</td>
+							</tr>
+							@* <tr>
+							<th scope="row">Location :</th>
+							<td>California, United States</td>
+							</tr>*@
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+		<!-- end card -->
+	</div>
+</div>
+
+@if (loginUser.CompanyType != (int)CompanyType.Client)
+{
+
+	<div class="row">
+		<div class="col-xl-8">
+			<div class="card overflow-hidden">
+				<div class="bg-primary bg-soft">
+					<div class="row">
+						<EditForm Model="contact" OnValidSubmit="UpdateDownloadPath">
+							<div class="col-md-6">
+								<InputText class="form-control" @bind-Value="contact.DownloadFolderPath"></InputText>
+							</div>
+							<div class="col-md-3">
+							</div>
+							<div class="col-md-3">
+								<button type="submit" class="btn btn-secondary" data-bs-dismiss="modal">Change</button>
+							</div>
+
+						</EditForm>
+					</div>
+				</div>
+			</div>
+
+		</div>
+	</div>
+}
+
+
+@if (isPopupVisible)
+{
+	<EditForm Model=@userInfo OnValidSubmit="@ChangePassword">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Password Reset</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+							<KowToMateAdmin.Pages.Security.PasswordResetForm userInfo="userInfo" IsShowOldPassword="isShowOldPassword" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+						<button type="submit" class="btn btn-primary" disabled="@isSubmitting" >Save Changes</button>
+                        
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@code {
+	private ContactModel contact = new ContactModel();
+	private LoginUserInfoViewModel loginUser = null;
+	private DesignationModel designation = null;
+	private bool isSubmitting = false;
+	private bool isPopupVisible = false;
+	private UserViewModel userInfo = new UserViewModel();
+	string passwordType = "password";
+	string passwordIcon = "fas fa-eye-slash";
+	private bool isShowOldPassword = false;
+	public UserProfile()
+	{
+	}
+
+	protected override async Task OnInitializedAsync()
+	{
+		loginUser = _workContext.LoginUserInfo;
+
+		contact = await _contactManager.GetById(loginUser.ContactId);
+		var claims = await _claimsService.GetClaimsAsync();
+		if (contact.DesignationId > 0)
+		{
+			designation = await _designationService.GetById((int)contact.DesignationId);
+		}
+		else
+		{
+			designation = new DesignationModel();
+		}
+		//await UpdateDownloadPath();
+
+	}
+
+	private async Task UpdateDownloadPath()
+	{
+		if(Directory.Exists(contact.DownloadFolderPath))
+		{
+			await _contactManager.UpdateContactDownloadPath(contact);
+			await js.DisplayMessage("Successfully Update");
+		}
+		else
+		{
+			await js.DisplayMessage("Invalid Path");
+
+		}
+		StateHasChanged();
+
+	}
+
+	void ChangePasswordOnClicked()
+	{
+		//commonService = new Common { Status = (int)GeneralStatus.Active };
+
+		isSubmitting = false;
+		isShowOldPassword = true;
+		ShowAddEditPopup();
+	}
+
+	void ShowAddEditPopup()
+	{
+		isPopupVisible = true;
+	}
+	void CloseAddEditPopup()
+	{
+		isPopupVisible = false;
+	}
+	private async Task ChangePassword()
+	{
+		userInfo.UserId = loginUser.UserId;
+		var validateUser =await _userService.ValidateUserPassword(userInfo);
+
+		if (validateUser.Result != null && validateUser.IsSuccess)
+		{
+			var passwordChagesResponse = await _userService.ChangePassword(userInfo);
+
+			if (passwordChagesResponse.IsSuccess)
+			{
+				await js.DisplayMessage($"Your Password Reset Successfully !!");
+				NavigationManager.NavigateTo("/authorizelogout", true);
+			}
+			else
+			{
+				await js.DisplayMessage($"Failed to change password !!");
+			}
+		}
+		else
+		{
+			await js.DisplayMessage($"Your provided Previous Password is not  Correct !!");
+		}
+	}
+	private async Task ShowPassword()
+	{
+		if (passwordIcon == "fas fa-eye-slash")
+		{
+			passwordType = "";
+			passwordIcon = "fas fa-eye";
+		}
+		else if (passwordIcon == "fas fa-eye")
+		{
+			passwordType = "password";
+			passwordIcon = "fas fa-eye-slash";
+		}
+	}
+	private List<System.Security.Claims.Claim> claims = new List<System.Security.Claims.Claim>();
+
+	private async Task GetClaims()
+	{
+		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		var user = authState.User;
+
+		if (user.Identity.IsAuthenticated)
+		{
+			claims = user.Claims.ToList();
+		}
+	}
+}

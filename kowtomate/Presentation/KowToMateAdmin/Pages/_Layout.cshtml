@@ -1,0 +1,100 @@
+﻿@using Microsoft.AspNetCore.Components.Web
+@namespace KowToMateAdmin.Pages
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="~/" />
+    <meta content="Premium Multipurpose Admin & Dashboard Template" name="description" />
+    <meta content="Themesbrand" name="author" />
+   
+     <!-- App favicon -->
+        <link rel="shortcut icon" href="assets/images/favicon.ico">
+
+        <!-- Plugins css -->
+        <link href="assets/libs/dropzone/min/dropzone.min.css" rel="stylesheet" type="text/css" />
+
+        <!-- Bootstrap Css -->
+        <link href="assets/css/bootstrap.min.css" id="bootstrap-style" rel="stylesheet" type="text/css" />
+        <!-- Icons Css -->
+        <link href="assets/css/icons.min.css" rel="stylesheet" type="text/css" />
+        <!-- App Css-->
+        <link href="assets/css/app.min.css" id="app-style" rel="stylesheet" type="text/css" />
+        <link href="_content/BlazorPro.SpinKit/spinKit.min.css" rel="stylesheet" />
+        <!-- App favicon -->
+        <link rel="shortcut icon" href="assets/images/favicon.ico">
+
+        <!-- Bootstrap Css -->
+        <link href="assets/css/bootstrap.min.css" id="bootstrap-style" rel="stylesheet" type="text/css" />
+        <!-- Icons Css -->
+        <link href="assets/css/icons.min.css" rel="stylesheet" type="text/css" />
+        <!-- App Css-->
+        <link href="assets/css/app.min.css" id="app-style" rel="stylesheet" type="text/css" />
+
+    <link href="assets/css/custom.css" id="custom-style" rel="stylesheet" type="text/css" />
+
+    <!-- Plugins css -->
+        <link href="assets/libs/dropzone/dropzone.css" rel="stylesheet" type="text/css" />
+
+    <link href="KowToMateAdmin.styles.css" rel="stylesheet" />
+    <script src="~/assets/js/pages/sweetalert2.js"></script>
+    <script src="assets/libs/jquery/jquery.min.js"></script>
+
+    <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
+</head>
+<body data-sidebar="dark">
+    @RenderBody()
+
+    <div id="blazor-error-ui">
+        <environment include="Staging,Production">
+            An error has occurred. This application may no longer respond until reloaded.
+        </environment>
+        <environment include="Development">
+            An unhandled exception has occurred. See browser dev tools for details.
+        </environment>
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <!-- JAVASCRIPT -->
+    <script src="assets/libs/jquery/jquery.min.js"></script>
+    <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/libs/metismenu/metisMenu.min.js"></script>
+    <script src="assets/libs/simplebar/simplebar.min.js"></script>
+    <script src="assets/libs/node-waves/waves.min.js"></script>
+    <script src="assets/js/pages/validation.init.js"></script>
+        <!-- Plugins js -->
+    <script src="assets/libs/dropzone/min/dropzone.min.js"></script>
+    <!-- apexcharts for Dashboard-->
+ <script src="assets/libs/apexcharts/apexcharts.min.js"></script>
+    <!-- dashboard init -->
+   <script src="assets/js/pages/dashboard.init.js"></script>
+    <script src="assets/js/pages/getStreamValue.js"></script>
+
+    <!-- App js -->
+    <script src="assets/js/app.js"></script>
+
+    <script src="_framework/blazor.server.js" autostart="false"></script>
+   @*   Custome JS Files Added *@
+    <script src="/assets/js/pages/custom.js"></script>
+    <script src="/assets/js/pages/drive-manager.js"></script>
+    <script src="/assets/js/pages/Paint.js"></script>
+
+    <script>
+        Blazor.start({
+            configureSignalR: function (builder) {
+                let c = builder.build();
+                c.serverTimeoutInMilliseconds = 600000;
+                c.keepAliveIntervalInMilliseconds = 600000;
+                builder.build = () => {
+                    return c;
+                };
+            }
+        });
+    </script>
+
+</body>
+</html>

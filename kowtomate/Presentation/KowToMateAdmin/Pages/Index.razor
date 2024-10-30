@@ -1,0 +1,26 @@
+﻿@page "/"
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core.Dashboards
+@using CutOutWiz.Services.Dashboards
+@using KowToMateAdmin.Models.Security
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+<PageTitle>Dashboard</PageTitle>
+
+@if (loginUser.CompanyType == (int)CompanyType.Client)
+{
+    <KowToMateAdmin.Pages.DashBoard.ClientDashBoard></KowToMateAdmin.Pages.DashBoard.ClientDashBoard>
+}
+else
+{
+    <KowToMateAdmin.Pages.DashBoard.OperationDashboard></KowToMateAdmin.Pages.DashBoard.OperationDashboard>
+}
+@code {
+    private LoginUserInfoViewModel loginUser = null;
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+        
+    }
+}

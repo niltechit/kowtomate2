@@ -1,0 +1,305 @@
+﻿@page "/security/menus"
+
+@attribute [Authorize(Roles = "Security.ManageMenus")]
+
+@using CutOutWiz.Data.Security
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IMenuService _menuService
+@inject IPermissionService _permissionService;
+
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Menus  
+                <span>(@filteredMenus.Count)</span>
+            </h4>
+
+            <div class="page-title-right">
+                @*<ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="javascript: void(0);">Invoices</a></li>
+                    <li class="breadcrumb-item active">Invoice List</li>
+                </ol>*@              
+                <button type="button" class="btn btn-sm btn-secondary" @onclick="AddNew" title="Add New Menu"><span class="fas fa-plus"></span> Add New</button>                     
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-body">
+                @if (menus is null)
+                {
+                    <p><em>Loading...</em></p>
+                }
+                else
+                {
+                    <div class="row gy-2 gx-3 align-items-center mb-3">                                           
+                        <div class="col-sm-auto">                  
+                            <div class="input-group">
+                                <div class="input-group-text"> <i class="fas fa-search"></i></div>
+                                 <input type="text" class="form-control" @bind-value="searchText" @bind-value:event="oninput" id="txtsearchbox" placeholder="Search..">
+                            </div>
+                        </div>                      
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table mb-0 table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Parent</th>
+                                    <th>Url</th>
+                                    <th>Permissions</th>
+                                    <th>Display Order</th>
+                                    <th>Status</th>
+                                    <th>Created Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <Virtualize Items="filteredMenus" Context="menu">
+                                    <tr @ondblclick="() => Edit(menu.ObjectId)">
+                                        <td>
+                                            @if (!string.IsNullOrWhiteSpace(menu.Icon))
+                                            {
+                                                <span class="@menu.Icon me-2"></span> 
+                                            }
+                                            @menu.Name</td>
+                                        <td>@menu.ParentMenuName</td>                                   
+                                        <td>@menu.MenuUrl</td>
+                                        <td>
+                                            @if (!string.IsNullOrWhiteSpace(@menu.PermissionNames))
+                                        {
+                                            var perList = @menu.PermissionNames.Split(',');
+                                            foreach(var per in perList)
+                                            {
+                                                <span class="me-1 badge badge bg-warning">@per</span>
+                                            }
+                                        }
+                                    </td>
+                                    <td>@menu.DisplayOrder</td>
+                                       
+                                          <td>@menu.CreatedDate.ToShortDateString()</td>
+                                           <td>
+                                             @if (menu.Status == (int)GeneralStatus.Active)
+                                        {
+                                            <span class="badge bg-success">Active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark">Inactive</span>
+                                        }
+                                    </td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(menu.ObjectId))">
+                                                <span class="fas fa-pencil-alt"></span>
+                                            </button>
+
+                                            <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(menu.ObjectId,menu.Name)">
+                                                <span class="fas fa-times"></span>
+                                            </button>
+                                        </td>
+
+                                    </tr>
+                                </Virtualize>
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    @* https://www.puresourcecode.com/dotnet/blazor/modal-dialog-component-for-blazor/*@
+    <EditForm Model=@menu OnValidSubmit="@InsertUpdateMenu" >
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Menu</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <MenuAddEdit menu="menu" parentMenus="parentMenus" permissions="permissions"/>
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @if (!string.IsNullOrWhiteSpace(menu.ObjectId))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(menu.ObjectId,menu.Name)">Delete</button>
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<MenuListModel> menus = new List<MenuListModel>();
+
+    private Menu menu = null;
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private string searchText = "";
+    private string selectedObjectId = "";
+    List<MenuListModel> parentMenus = null;
+    List<Permission> permissions = null;
+    //private IEnumerable<int> selectedMenuPermissons = new List<int>();
+    //private IEnumerable<string> selectedMenuPermissons = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+        await LoadMenus();
+        parentMenus = menus;
+        permissions = await _permissionService.GetAll();
+        //Load permission ids from database by Menu Id using menuservice
+        //selectedMenuPermissons = new List<short> { 2,3,4,5 }; //make it dynamic  list menu perssionlist.Select(f>f.Permisisonid).ToList();
+    }
+
+    private async Task LoadMenus()
+    {
+        menus = await _menuService.GetListWithDetails();
+    }
+
+    private async Task InsertUpdateMenu()
+    {
+        if (menu.SelectedMenuPermissons == null)
+        {
+            menu.SelectedMenuPermissons = new List<string>();
+        }
+
+        isSubmitting = true;
+
+        if (menu.Id == 0)
+        {
+            menu.CreatedByContactId = loginUser.ContactId;
+            menu.ObjectId = Guid.NewGuid().ToString();
+
+            var addResponse = await _menuService.Insert(menu);
+
+            if (!addResponse.IsSuccess)
+            {               
+                ModalNotification.ShowMessage("Error",addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+
+            //Save menu permission on database for this menuId
+            await _menuService.MenuPermissionInsertOrUpdateByMenuObjectId(menu.ObjectId, menu.SelectedMenuPermissons.ToList(), (int)menu.CreatedByContactId);
+
+        }
+        else
+        {
+            menu.UpdatedByContactId = loginUser.ContactId;
+            var updateResponse = await _menuService.Update(menu);
+
+            if (!updateResponse.IsSuccess)
+            {                
+                ModalNotification.ShowMessage("Error",updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+
+            //Save menu permission on database
+            await _menuService.MenuPermissionInsertOrUpdateByMenuObjectId(menu.ObjectId, menu.SelectedMenuPermissons.ToList(), (int)menu.UpdatedByContactId);
+        }
+
+        menu = new Menu();
+        isSubmitting = false;
+
+        await LoadMenus();
+        CloseAddEditPopup();
+    }
+
+    string StatusText()
+    {
+        if (menu.Status == (int)GeneralStatus.Active)
+        {
+            return "<span class='badge bg-success'>Active</span>";
+        }
+
+        return  "<span class='badge bg-info text-dark'>Inactive</span>";
+    }
+
+    void AddNew()
+    {
+        menu = new Menu { Status = (int)GeneralStatus.Active };
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(string objectId)
+    {
+        menu = await _menuService.GetByObjectId(objectId);
+        menu.SelectedMenuPermissons = await _menuService.GetPermissionsByMenuObjectId(objectId);
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the menu \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete",msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _menuService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadMenus();
+                menu = new Menu();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                 ModalNotification.ShowMessage("Error",deleteResponse.Message);
+            }
+        }
+
+         isSubmitting = false;
+    }
+   
+     List<MenuListModel> filteredMenus => menus.Where(i => i.Name.ToLower().Contains(searchText.ToLower())).ToList();   
+}

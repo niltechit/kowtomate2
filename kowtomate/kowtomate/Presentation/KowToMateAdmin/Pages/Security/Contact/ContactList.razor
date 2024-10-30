@@ -1,0 +1,498 @@
+﻿@page "/security/contacts"
+
+@attribute [Authorize(Roles = "Contact.ViewList")]
+
+@using CutOutWiz.Data.Security
+@using CutOutWiz.Data.HR
+@using CutOutWiz.Data.Common
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using CutOutWiz.Services.Common
+@using CutOutWiz.Services.HR
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IContactService _contactService
+@inject ICompanyService _companyService
+@inject IRoleService _roleService
+@inject IUserService _userService
+@inject IDesignationService _designationService  
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Contacts  
+                <span>(@filteredContacts.Count)</span>
+            </h4>
+
+            <div class="page-title-right">
+                @*<ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a href="javascript: void(0);">Invoices</a></li>
+                    <li class="breadcrumb-item active">Invoice List</li>
+                </ol>*@
+                <AuthorizeView Roles="Contact.Add">
+                    <button type="button" class="btn btn-sm btn-secondary" @onclick="AddNew" title="Add New Contact"><span class="fas fa-plus"></span> Add New</button>
+                </AuthorizeView>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-body">
+                @if (contacts is null)
+                {
+                    <p><em>Loading...</em></p>
+                }
+                else
+                {
+                    <div class="row gy-2 gx-3 align-items-center mb-3">                                           
+                        <div class="col-sm-auto">                  
+                            <div class="input-group">
+                                <div class="input-group-text"> <i class="fas fa-search"></i></div>
+                                 <input type="text" class="form-control" @bind-value="searchText" @bind-value:event="oninput" id="txtsearchbox" placeholder="Search..">
+                            </div>
+                        </div>                      
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table mb-0 table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Company</th>
+                                    <th>Designation</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Manage User</th>
+                                    <th>Status</th>
+                                    <th>Created Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <Virtualize Items="filteredContacts" Context="contact">
+                                    <tr @ondblclick="() => Edit(contact.ObjectId)">
+                                        <td>@contact.FirstName @contact.LastName</td>
+                                        <td>@contact.CompanyName</td>                                   
+                                        <td>@contact.DesignationName</td>
+                                        <td>@contact.Email</td>
+                                        <td>@contact.Phone</td>
+                                        <td>
+                                            @if (contact.UserId == 0)
+                                            {
+                                                <button class="badge bg-info" @onclick='(async () => await SetManageUserMode("CREATE", contact))'>
+                                                    Create User
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="badge bg-info" @onclick='(async () => await SetManageUserMode("CHANGE_ROLE", contact))'>
+                                                    Role
+                                                </button>
+                                                <button class="badge bg-info" @onclick='(async () => await SetManageUserMode("CHANGE_PASSWORD", contact))'>
+                                                    Password
+                                                </button>
+                                            }
+                                        </td>
+                                        <td>
+                                             @if (contact.Status == (int)GeneralStatus.Active)
+                                            {
+                                                <span class="badge bg-success">Active</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning text-dark">Inactive</span>
+                                            }
+                                        </td>
+                                          <td>@contact.CreatedDate.ToShortDateString()</td>
+                                        <td>
+                                            <AuthorizeView Roles="Contact.Edit">
+                                                <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(contact.ObjectId))">
+                                                    <span class="fas fa-pencil-alt"></span>
+                                                </button>
+                                            </AuthorizeView>  
+
+                                            <AuthorizeView Roles="Contact.Delete">
+                                                <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(contact.ObjectId,contact.FirstName)">
+                                                    <span class="fas fa-times"></span>
+                                                </button>
+                                            </AuthorizeView>  
+                                        </td>
+                                    </tr>
+                                </Virtualize>
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    @* https://www.puresourcecode.com/dotnet/blazor/modal-dialog-component-for-blazor/*@
+    <EditForm Model=@contact OnValidSubmit="@InsertUpdateContact">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Contact</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <ContactAddEdit contact="contact" companies="companies" designations="designations" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @if (!string.IsNullOrWhiteSpace(contact.ObjectId))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(contact.ObjectId,contact.FirstName)">Delete</button>
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@if (isManageUserPopupVisible)
+{
+    <EditForm Model=@user OnValidSubmit="@InsertUpdateUser">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">@ManageUserTitle</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseManageUserPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <ContactManageUser ManageUserMode="@ManageUserMode" user="@user" roles="@roles" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        @if (!ManageUserMode.Equals("CHANGE_PASSWORD"))
+                        {
+                            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseManageUserPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<ContactListModel> contacts = new List<ContactListModel>();
+    private Contact contact = null;
+    bool isPopupVisible = false;
+    bool isManageUserPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private string searchText = "";
+    private List<Designation> designations = null;
+    private List<Company> companies = null;
+    private string selectedObjectId = "";
+    private UserListModel user = null;
+    private string ManageUserMode = null;
+    private string ManageUserTitle = null;
+    private List<Role> roles = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+        designations = await _designationService.GetAll();
+        companies = await _companyService.GetAll();
+        roles = await _roleService.GetAll(loginUser.CompanyObjectId);
+
+        await LoadContacts();
+    }
+
+    private async Task LoadContacts()
+    {
+        contacts = await _contactService.GetListWithDetails();
+    }
+
+    private async Task InsertUpdateContact()
+    {
+        isSubmitting = true;
+
+        if (contact.Id == 0)
+        {
+            contact.CreatedByContactId = loginUser.ContactId;
+            contact.ObjectId = Guid.NewGuid().ToString();
+
+            var addResponse = await _contactService.Insert(contact);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error",addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+        else
+        {
+            contact.UpdatedByContactId = loginUser.ContactId;
+            var updateResponse = await _contactService.Update(contact);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error",updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+
+        contact = new Contact();
+        isSubmitting = false;
+
+        await LoadContacts();
+        CloseAddEditPopup();
+    }
+
+    string StatusText()
+    {
+        if (contact.Status == (int)GeneralStatus.Active)
+        {
+            return "<span class='badge bg-success'>Active</span>";
+        }
+
+        return  "<span class='badge bg-info text-dark'>Inactive</span>";
+    }
+
+    void AddNew()
+    {
+        contact = new Contact { Status = (int)GeneralStatus.Active };
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(string objectId)
+    {
+        contact = await _contactService.GetByObjectId(objectId);
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the contact \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete",msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _contactService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadContacts();
+                contact = new Contact();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error",deleteResponse.Message);
+            }           
+        }
+        isSubmitting = false;
+    }
+
+
+    #region Email Notifications
+    ///// <summary>
+    ///// Sends a user password recovery mail
+    ///// </summary>
+    ///// <param name="model"></param>
+    //private void SendPassswordRecoveryEmail(Contact model)
+    //{
+    //        var adminBaseUrl = _workContext.AdminBaseUrl;
+
+    //        var emailModel = new PasswordResetNofitication
+    //        {
+    //            ToEmail = model.Email,
+    //            ToEmailName = model.Contact.FullName,
+    //            TempPassword = model.RandomPassword,
+    //            PasswordResetToken = model.PasswordResetToken,
+    //            PasswordResetUrl = adminBaseUrl + "/account/forgotpassword/" + model.PasswordResetToken
+    //        };
+
+    //        _workflowEmailService.SendPasswordResetNotificationForUser(emailModel);
+    //}
+    #endregion
+
+    List<ContactListModel> filteredContacts => contacts.Where(i => 
+                                                        i.FirstName.ToLower().Contains(searchText.ToLower()) || 
+                                                        i.LastName.ToLower().Contains(searchText.ToLower()) 
+                                                    ).ToList();   
+
+
+    //----------manage user --------------
+
+    void ShowManageUserPopup()
+    {
+        isManageUserPopupVisible = true;
+    }
+
+    void CloseManageUserPopup()
+    {
+        isManageUserPopupVisible = false;
+        StateHasChanged();
+    }
+
+    private void AddNewUser(ContactListModel contact)
+    {
+        user = new UserListModel 
+        {
+            Username = contact.UserName,
+            Id = contact.UserId,
+            ContactId = contact.Id,
+            CompanyId = contact.CompanyId,
+            Status = (int)GeneralStatus.Active,
+            ObjectId = contact.UserObjectId
+        };
+
+        isSubmitting = false;
+        ShowManageUserPopup();
+    }
+
+    private async Task EditUser(ContactListModel contact)
+    {
+        var userRoles = await _userService.GetRolesByUserObjectId(contact.UserObjectId);
+
+        user = new UserListModel 
+        {
+            Username = contact.UserName,
+            Id = contact.UserId,
+            ContactId = contact.Id,
+            CompanyId = contact.CompanyId,
+            Status = (int)GeneralStatus.Active,
+            ObjectId = contact.UserObjectId,
+            SelectedUserRoles = userRoles
+        };
+
+        isSubmitting = false;
+        ShowManageUserPopup();
+    }
+
+    private async Task SetManageUserMode(string mode, ContactListModel contact)
+    {
+        ManageUserMode = mode;
+
+        if (ManageUserMode.Equals("CREATE"))
+        {
+            ManageUserTitle = "Create User";
+            AddNewUser(contact);
+        }
+        else if (ManageUserMode.Equals("CHANGE_ROLE"))
+        {
+            ManageUserTitle = "User Role";
+            await EditUser(contact);
+        }
+        else if (ManageUserMode.Equals("CHANGE_PASSWORD")) 
+        {
+            ManageUserTitle = "User Password";
+            await EditUser(contact);
+        }
+    }
+
+    private async Task InsertUpdateUser()
+    {
+        isSubmitting = true;
+
+        if (ManageUserMode.Equals("CREATE"))
+        {
+            await CreateUser();
+            await LoadContacts();
+        }
+        else if (ManageUserMode.Equals("CHANGE_ROLE"))
+        {
+            await ChangeRole();
+            await LoadContacts();
+        }
+        else if (ManageUserMode.Equals("CHANGE_PASSWORD"))
+        {
+            ChangePassword();
+        }
+
+        isSubmitting = false;
+    }
+
+    private async Task CreateUser()
+    {
+        var salt = _userService.CreateRandomSalt();
+        var hashedPassword = _userService.GetHashPassword(user.Password, salt);
+
+        var userOfContact = new User
+        {
+            Username = user.Username,
+            CompanyId = user.CompanyId,
+            ContactId = user.ContactId,
+            CreatedByContactId = loginUser.ContactId,
+            ObjectId = Guid.NewGuid().ToString(),
+            PasswordHash = hashedPassword,
+            PasswordSalt = salt,
+            Status = (int) (GeneralStatus.Active),
+            ProfileImageUrl = user.ProfileImageUrl,
+            PasswordResetToken = user.PasswordResetToken,
+            RegistrationToken = user.RegistrationToken,
+            SelectedUserRoles = user.SelectedUserRoles
+        };
+
+        await _userService.Insert(userOfContact);
+        await _userService.UserRoleInsertOrUpdateByUserObjectId(userOfContact.ObjectId, userOfContact.SelectedUserRoles.ToList(), (int)userOfContact.CreatedByContactId);
+        
+        CloseManageUserPopup();
+    }
+
+    private async Task ChangeRole()
+    {
+        await _userService.UserRoleInsertOrUpdateByUserObjectId(user.ObjectId, user.SelectedUserRoles.ToList(), (int)loginUser.ContactId);
+        
+        CloseManageUserPopup();
+    }
+
+    private void ChangePassword()
+    {
+        
+    }
+
+}

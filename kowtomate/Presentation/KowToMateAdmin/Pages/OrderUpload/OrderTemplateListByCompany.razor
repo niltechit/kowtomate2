@@ -1,0 +1,95 @@
+﻿ @using CutOutWiz.Services.Models.ClientOrders
+@using CutOutWiz.Services.Models.SOP
+
+
+                               <div class="card">
+                                <div class="card-header">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6>Sop Templates</h6>
+                                        </div>
+                                        <div class="col-md-6">
+                                           @* <AuthorizeView Roles="Order.Edit">
+                                               
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="Upload" style="float:right"><span class="fas fa-pencil-alt"></span> Upload</button>
+                                                
+                                            </AuthorizeView>*@
+                                        </div>
+                                    </div>
+                                </div>
+								</div>
+	@if (templateList != null && templateList.Any())
+{
+	<dl>
+		<table class="table mb-0 table-striped table-hover table-sm">
+			<thead>
+				<tr>
+					<th>SL</th>
+					<th style="width:191px">Name</th>
+					<th>Action</th>
+
+				</tr>
+			</thead>
+			<tbody>
+				@{
+					int count = 1;
+				}
+				@foreach (var item in templateList)
+				{
+
+					<tr data-id="1">
+						<td class="fw-bold">@(count++) </td>
+						<td data-field="id" style="width: 80px">@item.Name</td>
+
+						<td>
+							<button type="button" class="btn btn-sm btn-outline-info btn-tbl-action" @onclick="(e)=>DownloadSOPTemplate(item)">
+								<i class="fas fa-download"></i>
+							</button>
+							<button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="(e)=>Delete(item)">
+								<i class="fas fa-times"></i>
+							</button>
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</dl>
+}
+else
+{
+	<p>N/A</p>
+}
+
+@code {
+	[Parameter]
+	public List<SOPTemplateModel> templateList { get; set; }
+
+	[Parameter]
+	public EventCallback<SOPTemplateModel> DownloadSopTemplate { get; set; }
+	[Parameter]
+	public EventCallback<SOPTemplateModel> DownloadTemplate { get; set; }
+	[Parameter]
+	public EventCallback<SOPTemplateModel> DeleteSOPTemplate { get; set; }
+	[Parameter]
+	public EventCallback<bool> UploadSop { get; set; }
+
+	[Parameter]
+	public ClientOrderModel Order {get;set;}
+
+	protected async Task PrintSopTemplate(SOPTemplateModel template)
+	{
+		await DownloadSopTemplate.InvokeAsync(template);
+	}
+	protected async Task DownloadSOPTemplate(SOPTemplateModel template)
+	{
+		await DownloadTemplate.InvokeAsync(template);
+	}
+	protected async Task Delete(SOPTemplateModel template)
+	{
+		await DeleteSOPTemplate.InvokeAsync(template);
+	}
+	protected async Task Upload()
+	{
+		await UploadSop.InvokeAsync(true);
+	}
+}

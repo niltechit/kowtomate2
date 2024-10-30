@@ -1,0 +1,124 @@
+﻿@page "/employees"
+@using CutOutWiz.Services.Models.ClientOrders
+@using CutOutWiz.Services.ClientOrders
+@using Radzen
+@inject IClientOrderItemService _clientOrderItemService
+@*
+<RadzenCard Variant="Variant.Outlined" class="rz-my-4">
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center" Wrap="FlexWrap.Wrap">
+        <RadzenCheckBox @bind-Value=@allowRowSelectOnRowClick Name="CheckBox1" />
+        <RadzenLabel Text="Allow row select on row click" Component="CheckBox1" />
+        <RadzenButton Text="Clear selected rows" Click="@(args => selectedEmployees = null)" />
+    </RadzenStack>
+</RadzenCard>
+
+<RadzenDataGrid @ref="grid" AllowRowSelectOnRowClick="@allowRowSelectOnRowClick" AllowFiltering="true"
+    FilterPopupRenderMode="PopupRenderMode.OnDemand" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowPaging="true" PageSize="2"
+                AllowSorting="true" Data="@clientOrderItems" ColumnWidth="200px"
+                SelectionMode="DataGridSelectionMode.Multiple" @bind-Value=@selectedEmployees>
+    <Columns>
+        <RadzenDataGridColumn Width="60px" Sortable="false" Filterable="false">
+            <HeaderTemplate>
+                <RadzenCheckBox TabIndex="-1" TriState="false" TValue="bool?" InputAttributes="@(new Dictionary<string,object>(){ { "aria-label", "Select all items" }})"
+                                Value="@(selectedEmployees == null || selectedEmployees?.Any() != true ? false : !employees.All(i => selectedEmployees.Contains(i)) ? null : employees.Any(i => selectedEmployees.Contains(i)))"
+                                Change="@(args => selectedEmployees = args == true ? employees.Skip(grid.CurrentPage* grid.PageSize).Take(grid.PageSize).ToList() : null)" />
+            </HeaderTemplate>
+            <Template Context="data">
+                <RadzenCheckBox TabIndex="-1" TriState="false" Value="@(selectedEmployees != null && selectedEmployees.Contains(data))" InputAttributes="@(new Dictionary<string,object>(){ { "aria-label", "Select item" }})"
+                                TValue="bool" Change=@(args => { if(!allowRowSelectOnRowClick) { grid.SelectRow(data); }}) />
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Property="@nameof(Employee.Photo)" Title="Employee" Sortable="false" Filterable="false">
+            <Template Context="data">
+                <RadzenImage Path="@data.Photo" Style="width: 40px; height: 40px;" class="rz-border-radius-2 rz-me-2" AlternateText="@(data.FirstName + " " + data.LastName)" />
+                @data.FirstName @data.LastName
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(Employee.Title)" Title="Title" />
+        <RadzenDataGridColumn Property="@nameof(Employee.EmployeeID)" Title="Employee ID" />
+        <RadzenDataGridColumn Property="@nameof(Employee.HireDate)" Title="Hire Date" FormatString="{0:d}" />
+        <RadzenDataGridColumn Property="@nameof(Employee.City)" Title="City" />
+        <RadzenDataGridColumn Property="@nameof(Employee.Country)" Title="Country" />
+    </Columns>
+</RadzenDataGrid> *@
+
+
+<RadzenDataGrid @ref="grid" Data="@clientOrderItems" TItem="ClientOrderItemModel"
+                AllowFiltering="true" AllowColumnResize="true"
+                FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                AllowSorting="true" AllowPaging="true" PageSize="12"
+                PagerHorizontalAlign="HorizontalAlign.Center"
+                SelectionMode="DataGridSelectionMode.Multiple"
+                ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                AllowRowSelectOnRowClick=@allowRowSelectOnRowClick
+                @bind-Value="@selectedFiles" ColumnWidth="150px">
+
+    <Columns>
+        <RadzenDataGridColumn TItem="ClientOrderItemModel" TextAlign="TextAlign.Center" Width="30px" Frozen="true" Sortable="false"
+                              Filterable="false" Groupable="false" Reorderable="false" Pickable="false">
+            <HeaderTemplate>
+                <RadzenCheckBox TriState="false" TValue="bool" Value="@(clientOrderItems == null ? false : clientOrderItems.Any(i => selectedFiles != null && selectedFiles.Contains(i)))"
+                                Change="@(args => selectedFiles = args && clientOrderItems != null ? clientOrderItems.Skip(grid.CurrentPage * grid.PageSize).Take(grid.PageSize).ToList() : null)" />
+            </HeaderTemplate>
+            <Template Context="data">
+                <RadzenCheckBox TriState="false" Value="@(selectedFiles != null && selectedFiles.Contains(data))"
+                                TValue="bool" Change=@(args => { if(!allowRowSelectOnRowClick) { grid.SelectRow(data); }}) />
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="ClientOrderItemModel" OrderIndex=1 Property="FileName" Title="File Name"  Resizable="true" Width="550px" Frozen="true">
+           
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="ClientOrderItemModel" OrderIndex=1 Property="Id" Title="Id"  Resizable="true" Width="550px" Frozen="true">
+
+        </RadzenDataGridColumn>
+
+    </Columns>
+
+</RadzenDataGrid>
+
+
+@code {
+    public class Employee
+    {
+        public int EmployeeID { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string Title { get; set; }
+        public string Photo { get; set; }
+        public DateTime HireDate { get; set; }
+        public string City { get; set; }
+        public string Country { get; set; }
+    }
+
+    bool allowRowSelectOnRowClick = true;
+    IEnumerable<Employee> employees;
+    IList<ClientOrderItemModel> selectedFiles;
+    RadzenDataGrid<ClientOrderItemModel> grid;
+    IEnumerable<Employee> pagedEmployees;
+    private List<ClientOrderItemModel> clientOrderItems = new List<ClientOrderItemModel>();
+    IEnumerable<int> pageSizeOptions = new int[] { 5, 10, 7, 12, 15, 18, 20, 50, 100, 500, 600, 700, 1000 };
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        // Seed employee data
+        employees = new List<Employee>
+        {
+            new Employee { EmployeeID = 1, FirstName = "John", LastName = "Doe", Title = "Manager", Photo = "images/john_doe.jpg", HireDate = new DateTime(2015, 1, 1), City = "New York", Country = "USA" },
+            new Employee { EmployeeID = 2, FirstName = "Jane", LastName = "Smith", Title = "Developer", Photo = "images/jane_smith.jpg", HireDate = new DateTime(2018, 3, 15), City = "San Francisco", Country = "USA" },
+            new Employee { EmployeeID = 3, FirstName = "Sam", LastName = "Brown", Title = "Designer", Photo = "images/sam_brown.jpg", HireDate = new DateTime(2019, 7, 22), City = "Los Angeles", Country = "USA" },
+            new Employee { EmployeeID = 4, FirstName = "Alice", LastName = "Johnson", Title = "Tester", Photo = "images/alice_johnson.jpg", HireDate = new DateTime(2020, 10, 5), City = "Seattle", Country = "USA" },
+            new Employee { EmployeeID = 5, FirstName = "Alice", LastName = "Johnson", Title = "Tester", Photo = "images/alice_johnson.jpg", HireDate = new DateTime(2020, 10, 5), City = "Seattle", Country = "USA" },
+            new Employee { EmployeeID = 6, FirstName = "Alice", LastName = "Johnson", Title = "Tester", Photo = "images/alice_johnson.jpg", HireDate = new DateTime(2020, 10, 5), City = "Seattle", Country = "USA" },
+            new Employee { EmployeeID = 7, FirstName = "Alice", LastName = "Johnson", Title = "Tester", Photo = "images/alice_johnson.jpg", HireDate = new DateTime(2020, 10, 5), City = "Seattle", Country = "USA" },
+            new Employee { EmployeeID = 8, FirstName = "Alice", LastName = "Johnson", Title = "Tester", Photo = "images/alice_johnson.jpg", HireDate = new DateTime(2020, 10, 5), City = "Seattle", Country = "USA" },
+            new Employee { EmployeeID = 9, FirstName = "Alice", LastName = "Johnson", Title = "Tester", Photo = "images/alice_johnson.jpg", HireDate = new DateTime(2020, 10, 5), City = "Seattle", Country = "USA" },
+            new Employee { EmployeeID = 10, FirstName = "Alice", LastName = "Johnson", Title = "Tester", Photo = "images/alice_johnson.jpg", HireDate = new DateTime(2020, 10, 5), City = "Seattle", Country = "USA" },
+        };
+
+        clientOrderItems = await _clientOrderItemService.GetAllOrderItemByOrderId(471827);
+    }
+}

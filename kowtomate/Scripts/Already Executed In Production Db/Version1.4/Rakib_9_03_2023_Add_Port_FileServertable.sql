@@ -1,0 +1,2 @@
+ALTER TABLE Common_FileServer 
+ADD Port INT DEFAULT 0 NOT NULL;

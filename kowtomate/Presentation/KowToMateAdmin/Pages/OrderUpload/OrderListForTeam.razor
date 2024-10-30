@@ -1,0 +1,708 @@
+﻿@page "/orderforteam"
+
+@*@attribute [Authorize(Roles = "Order.ViewList")]*@
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Data
+@using CutOutWiz.Data.ClientOrders
+@using CutOutWiz.Data.Common
+
+
+@using CutOutWiz.Data.Security
+@using CutOutWiz.Services.Common
+@using CutOutWiz.Data.SOP
+@using CutOutWiz.Services.Email
+@using CutOutWiz.Services.EmailMessage
+@using CutOutWiz.Services.Logs
+
+@using CutOutWiz.Services.Management
+@using CutOutWiz.Services.ClientOrders
+@using CutOutWiz.Services.SOP
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Helper
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider _authenticationStateProvider
+@inject IWorkContext _workContext
+@inject IClientOrderService _orderService
+@inject IFileServerService _fileServerService
+@inject ICompanyService _companyService
+@inject ILogServices _activityLogService
+@inject NavigationManager NavigationManager
+@inject IUserService _userService
+@inject IRoleService _roleService
+@inject IWorkflowEmailService _workflowEmailService
+@inject IContactService _contactService
+@inject IConfiguration _configuration
+@inject IJSRuntime js
+@inject IOperationEmailService _operationEmailService
+@inject ITeamService _teamService 
+<!-- start page title -->
+
+<div class="row">
+	<div class="col-12">
+		<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+			<h4 class="mb-sm-0 font-size-18">
+				Orders
+			</h4>
+
+			<div class="page-title-right">
+				<AuthorizeView Roles="Order.Add">
+					<a href="/order/upload" class="btn btn-sm btn-primary" title="Add New Order"><span class="fas fa-plus"></span> Add New</a>
+				</AuthorizeView>
+			</div>
+		</div>
+	</div>
+</div>
+<!-- end page title -->
+<div class="row">
+	<div class="col-lg-12">
+
+		<RadzenDataGrid @ref="grid" Data="@orders" LoadData="@LoadData" Count="@count" IsLoading="isLoading" TItem="ClientOrderListModel"
+						AllowFiltering="true" AllowColumnResize="true"
+						FilterMode="FilterMode.SimpleWithMenu" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+						AllowSorting="true" AllowPaging="true" PageSize="20"
+						PagerHorizontalAlign="HorizontalAlign.Center"
+						ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+						SelectionMode="DataGridSelectionMode.Multiple"
+						AllowRowSelectOnRowClick=@allowRowSelectOnRowClick
+						@bind-Value="@selectedOrders"
+						RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+			<Columns>
+
+				<RadzenDataGridColumn TItem="ClientOrderListModel" TextAlign="TextAlign.Center" Visible=@(loginUser == null || loginUser.CompanyType == (int)CompanyType.Client ? false:true) Width="30px" Frozen="true" Sortable="false"
+									  Filterable="false" Groupable="false" Reorderable="false" Pickable="false">
+					<HeaderTemplate>
+						<RadzenCheckBox TriState="false" TValue="bool" Value="@(orders == null ? false : orders.Any(i => selectedOrders != null && selectedOrders.Contains(i)))"
+										Change="@(args => selectedOrders = args && orders != null ? orders.ToList() : null)" />
+					</HeaderTemplate>
+					<Template Context="data">
+						<RadzenCheckBox TriState="false" Value="@(selectedOrders != null && selectedOrders.Contains(data))"
+										TValue="bool" Change=@(args => { if(!allowRowSelectOnRowClick) { grid.SelectRow(data); }}) />
+					</Template>
+				</RadzenDataGridColumn>
+
+				<RadzenDataGridColumn TItem="ClientOrderListModel" Property="OrderNumber" Title="Order Number">
+					<Template Context="order">
+						<a title="Order Detail" href="/order/upload/@order.ObjectId">@order.OrderNumber</a>
+					</Template>
+				</RadzenDataGridColumn>
+
+				<RadzenDataGridColumn TItem="ClientOrderListModel" Property="CompanyName" Title="Company" TextAlign="TextAlign.Left" Visible=@(loginUser == null || loginUser.CompanyType == (int)CompanyType.Client ? false:true)>
+					<FilterTemplate>
+						<RadzenDropDown @bind-Value=@selectedFilterCompanies Style="width:100%;" TextProperty="Name" ValueProperty="Id"
+										Data="@(companies)" Change=@OnSelectedCompanyChange AllowClear="true" AllowFiltering="true" Multiple="true" AllowVirtualization="true" />
+					</FilterTemplate>
+					<Template Context="order">
+						<a href="/company/detail/@order.CompanyObjectId">@order.CompanyName</a>
+					</Template>
+				</RadzenDataGridColumn>
+
+				<RadzenDataGridColumn TItem="ClientOrderListModel" Property="InternalOrderStatus" Title="Status" TextAlign="TextAlign.Center" Width="200px">
+					<FilterTemplate>
+						<RadzenDropDown @bind-Value=@selectedFilterInternalStatuss Change=@OnSelectedInternalOrderStatusChange Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+										Data="@(statuses)" AllowClear="true" Multiple="true" />
+					</FilterTemplate>
+					<Template Context="order">
+						<span class="badge bg-success">@((InternalOrderStatus)order.InternalOrderStatus)</span>
+					</Template>
+				</RadzenDataGridColumn>
+
+				<RadzenDataGridColumn TItem="ClientOrderListModel" Property="NumberOfImage" Title="Number Of Image" TextAlign="TextAlign.Right" Width="150px" />
+
+				<RadzenDataGridColumn TItem="ClientOrderListModel" Property="OrderPlaceDate" Title="Order Place Date" TextAlign="TextAlign.Center" SortOrder="SortOrder.Descending" Width="250px" />
+
+				<RadzenDataGridColumn Width="120px" TItem="ClientOrderListModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+					<Template Context="order">
+						<a href="/order/upload/@order.ObjectId" class="btn btn-sm btn-outline-primary btn-tbl-action">
+							<span class="fas fa-pencil-alt"></span>
+						</a>
+
+						<a href="/order/Details/@order.ObjectId" class="btn btn-sm btn-outline-primary btn-tbl-action">
+							<i class="fas fa-eye"></i>
+						</a>
+
+						<button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(order.ObjectId, order.OrderNumber)">
+							<span class="fas fa-times"></span>
+						</button>
+					</Template>
+				</RadzenDataGridColumn>
+			</Columns>
+		</RadzenDataGrid>
+
+	</div>
+</div>
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+	protected ModalNotification ModalNotification { get; set; }
+	RadzenDataGrid<ClientOrderListModel> grid;
+	IEnumerable<ClientOrderListModel> orders;
+	int count;
+	IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+	bool isLoading = false;
+
+	ClientOrderFilter orderFilter = new ClientOrderFilter();
+	private LoginUserInfoViewModel loginUser = null;
+	private string selectedObjectId = "";
+	List<CustomEnumTypes> statuses;
+
+	List<Company> companies;
+	IEnumerable<int> selectedFilterCompanies;
+	IEnumerable<byte> selectedFilterInternalStatuss;
+	IList<ClientOrderListModel> selectedOrders;
+	bool allowRowSelectOnRowClick = false;
+
+	bool isSubmitting;
+	bool isPopupVisible;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await Task.Yield();
+		loginUser = _workContext.LoginUserInfo;
+		//await LoadOrders();
+		statuses = new List<CustomEnumTypes>();
+		foreach (InternalOrderStatus item in Enum.GetValues(typeof(InternalOrderStatus)))
+		{
+			statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+		}
+		//
+		companies = await _companyService.GetAllClientCompany();
+	}
+
+	private async Task LoadOrders()
+	{
+		await Task.Yield();
+		////
+		//var filter = new ClientOrderFilter
+		//{
+		//	CompanyId = loginUser.CompanyId
+		//};
+
+		//var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+
+		//if (authState.User.IsInRole(PermissionContants.Order_ViewAllOrderByClient))
+		//{
+		//	UserCompanyId = null;
+		//}
+		//else
+		//{
+		//	UserCompanyId = loginUser.CompanyId;
+		//}
+
+		//orders = await _orderService.GetOrderByFilterWithPaging(filter);
+		////orders = await _orderService.GetAllByCompanyId(loginUser.CompanyId);
+	}
+
+	private async Task RowDoubleClick(DataGridRowMouseEventArgs<ClientOrderListModel> args)
+	{
+		await Task.Yield();
+		NavigationManager.NavigateTo($"/order/Details/{args.Data.ObjectId}", true);
+	}
+
+	async Task Reset()
+	{
+		grid.Reset(true);
+		await grid.FirstPage(true);
+	}
+
+	async Task OnSelectedCompanyChange(object value)
+	{
+		if (selectedFilterCompanies != null && !selectedFilterCompanies.Any())
+		{
+			selectedFilterCompanies = null;
+		}
+
+		await grid.FirstPage(true);
+	}
+
+	async Task OnSelectedInternalOrderStatusChange(object value)
+	{
+		if (selectedFilterInternalStatuss != null && !selectedFilterInternalStatuss.Any())
+		{
+			selectedFilterInternalStatuss = null;
+		}
+
+		await grid.FirstPage(true);
+	}
+
+	async Task LoadData(LoadDataArgs args)
+	{
+		isLoading = true;
+		orderFilter.Top = args.Top ?? 20;
+		orderFilter.Skip = args.Skip ?? 0;
+		orderFilter.IsCalculateTotal = true;
+		orderFilter.Where = await PrepareFilterQuery(args.Filters);
+
+		//Add sorting
+		PopulateSortFilterQuery(orderFilter, args.Sorts);
+
+		orders = await _orderService.GetAllOrderByFilterWithPagingForTeam(orderFilter);
+
+		count = orderFilter.TotalCount;
+
+		isLoading = false;
+	}
+
+	async Task<string> PrepareFilterQuery(IEnumerable<FilterDescriptor> filters)
+	{
+		string where = string.Empty;
+		string and = string.Empty;
+
+		//Set group filter
+		var items = string.Empty;
+
+		//Set permisison
+
+		if (loginUser.CompanyType == (int)CompanyType.Client)
+		{
+			where = $"{where}{and} o.[CompanyId] = {loginUser.CompanyId}";
+			and = " AND ";
+		}
+		//else if (loginUser.CompanyType == (int)CompanyType.Admin)
+		//{
+		//    //where = $"{where}{and} o.[CompanyId] = {loginUser.CompanyId} ";
+		//    //and = " AND ";
+		//}
+		else
+		{
+			var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+
+			//if (!authState.User.IsInRole(PermissionContants.Order_ViewAllOrderList))
+			//{
+			//    where = $"";
+			//    and = " AND ";
+			//}
+			if (authState.User.IsInRole(PermissionContants.Order_ViewAllTeamOrders))
+			{
+				var contact = await _teamService.GetByContactId(loginUser.ContactId);
+				var teamId=contact.TeamId;
+				var query = "INNER JOIN [dbo].[Order_Assigned_Team] A WITH(NOLOCK) on A.OrderId=o.Id INNER JOIN [dbo].Management_Team T WITH(NOLOCK) ON T.Id = A.TeamId";
+				where = $"{query}{where} A.[TeamId] = {teamId} ";
+				and = " AND ";
+			}
+			else
+			{
+				where = "notFount";
+				and = " AND ";
+			}
+			//else
+			//{
+			//    where = $"{where}{and} o.[OrderId] In (SELECT OrderId FROM dbo.TeamOrder) {loginUser.CompanyId} ";
+			//    and = " AND ";
+			//}
+		}
+
+		//var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+
+		if (selectedFilterCompanies != null && selectedFilterCompanies.Any())
+		{
+			if (selectedFilterCompanies.Count() == 1)
+			{
+				where = $"{where}{and} o.[CompanyId] = {selectedFilterCompanies.FirstOrDefault()} ";
+				and = " AND ";
+			}
+			else //count > 1
+			{
+				items = GetCommaSeperatedIntItems(selectedFilterCompanies);
+				where = $"{where}{and} o.[CompanyId] in ({items})";
+				and = " AND ";
+			}
+		}
+
+		if (selectedFilterInternalStatuss != null && selectedFilterInternalStatuss.Any())
+		{
+			if (selectedFilterInternalStatuss.Count() == 1)
+			{
+				where = $"{where}{and} o.[InternalOrderStatus] = {selectedFilterInternalStatuss.FirstOrDefault()} ";
+				and = " AND ";
+			}
+			else //count > 1
+			{
+				items = GetCommaSeperatedByteItems(selectedFilterInternalStatuss);
+				where = $"{where}{and} o.[InternalOrderStatus] in ({items})";
+				and = " AND ";
+			}
+		}
+
+		if (filters != null && filters.Any())
+		{
+			foreach (var filterItem in filters)
+			{
+				//NOt in database need to add those
+				//Check boxes
+
+				if (filterItem.Property == "OrderPlaceDate"
+					|| filterItem.Property == "ExpectedDeliveryDate"
+					|| filterItem.Property == "DeliveredDate"
+					|| filterItem.Property == "CreatedDate"
+					|| filterItem.Property == "UpdatedDate"
+				)
+				{
+					PopulateDateFiltersForGridHeader(ref where, ref and, filterItem);
+				}
+				else if (filterItem.Property == "NumberOfImage"
+				)
+				{
+					PopulateNumberFiltersForGridHeader(ref where, ref and, filterItem);
+				}
+				else if (filterItem.Property == "IsDeleted"
+				)
+				{
+					where = $"{where}{and} [{filterItem.Property}] = ''{filterItem.FilterValue.ToString()}''";
+					and = " AND ";
+				}  //Date time fields
+				else  // String fields
+				{
+					PopulateStringFiltersForGridHeader(ref where, ref and, filterItem);
+				}
+			}
+		}
+
+		if (!string.IsNullOrWhiteSpace(where))
+			where = " WHERE " + where;
+
+		return where;
+	}
+
+	private void PopulateDateFiltersForGridHeader(ref string where, ref string and, FilterDescriptor filterItem)
+	{
+		if (!string.IsNullOrEmpty(filterItem.FilterValue?.ToString()))
+		{
+			if (filterItem.FilterOperator == FilterOperator.Equals)
+			{
+				where = $"{where}{and} DATEADD(dd, DATEDIFF(dd, 0, {GetActualFieldName(filterItem.Property)}), 0) = ''{((DateTime)filterItem.FilterValue).ToShortDateString()}''";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.NotEquals)
+			{
+				where = $"{where}{and} DATEADD(dd, DATEDIFF(dd, 0, {GetActualFieldName(filterItem.Property)}), 0) <> ''{((DateTime)filterItem.FilterValue).ToShortDateString()}''";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.LessThan)
+			{
+				where = $"{where}{and} DATEADD(dd, DATEDIFF(dd, 0, {GetActualFieldName(filterItem.Property)}), 0) < ''{((DateTime)filterItem.FilterValue).ToShortDateString()}''";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.LessThanOrEquals)
+			{
+				where = $"{where}{and} DATEADD(dd, DATEDIFF(dd, 0, {GetActualFieldName(filterItem.Property)}), 0) <= ''{((DateTime)filterItem.FilterValue).ToShortDateString()}''";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.GreaterThan)
+			{
+				where = $"{where}{and} DATEADD(dd, DATEDIFF(dd, 0, {GetActualFieldName(filterItem.Property)}), 0) > ''{((DateTime)filterItem.FilterValue).ToShortDateString()}''";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.GreaterThanOrEquals)
+			{
+				where = $"{where}{and} DATEADD(dd, DATEDIFF(dd, 0, {GetActualFieldName(filterItem.Property)}), 0) >= ''{((DateTime)filterItem.FilterValue).ToShortDateString()}''";
+				and = " AND ";
+			}
+		}
+		else
+		{
+			if (filterItem.FilterOperator == FilterOperator.IsNull)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} IS NULL";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.IsNotNull)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} IS NOT NULL";
+				and = " AND ";
+			}
+		}
+	}
+
+	private void PopulateNumberFiltersForGridHeader(ref string where, ref string and, FilterDescriptor filterItem)
+	{
+		if (!string.IsNullOrEmpty(filterItem.FilterValue?.ToString()))
+		{
+			if (filterItem.FilterOperator == FilterOperator.Equals)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} = {filterItem.FilterValue}";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.NotEquals)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} <> {filterItem.FilterValue}";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.LessThan)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} < {filterItem.FilterValue}";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.LessThanOrEquals)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} <= {filterItem.FilterValue}";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.GreaterThan)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} > {filterItem.FilterValue}";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.GreaterThanOrEquals)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} >= {filterItem.FilterValue}";
+				and = " AND ";
+			}
+		}
+		else
+		{
+			if (filterItem.FilterOperator == FilterOperator.IsNull)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} IS NULL";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.IsNotNull)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} IS NOT NULL";
+				and = " AND ";
+			}
+		}
+	}
+
+	private void PopulateStringFiltersForGridHeader(ref string where, ref string and, FilterDescriptor filterItem)
+	{
+		if (!string.IsNullOrEmpty(filterItem.FilterValue?.ToString()))
+		{
+			if (filterItem.FilterOperator == FilterOperator.Contains)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} like ''%{filterItem.FilterValue}%''";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.DoesNotContain)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} NOT like ''%{filterItem.FilterValue}%''";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.StartsWith)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} like ''{filterItem.FilterValue}%''";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.EndsWith)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)}  like ''%{filterItem.FilterValue}''";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.Equals)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} = ''{filterItem.FilterValue}''";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.NotEquals)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} <> ''{filterItem.FilterValue}''";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.LessThan)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} < ''{filterItem.FilterValue}''";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.LessThanOrEquals)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} <= ''{filterItem.FilterValue}''";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.GreaterThan)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} > ''{filterItem.FilterValue}''";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.GreaterThanOrEquals)
+			{
+				where = $"{where}{and} {GetActualFieldName(filterItem.Property)} >= ''{filterItem.FilterValue}''";
+				and = " AND ";
+			}
+		}
+		else
+		{
+			if (filterItem.FilterOperator == FilterOperator.IsEmpty || filterItem.FilterOperator == FilterOperator.IsNull)
+			{
+				where = $"{where}{and} ({GetActualFieldName(filterItem.Property)} = '''' OR {GetActualFieldName(filterItem.Property)} IS NULL)";
+				and = " AND ";
+			}
+			else if (filterItem.FilterOperator == FilterOperator.IsNotEmpty || filterItem.FilterOperator == FilterOperator.IsNotNull)
+			{
+				where = $"{where}{and} ({GetActualFieldName(filterItem.Property)} <> '''' AND {GetActualFieldName(filterItem.Property)} IS NOT NULL)";
+				and = " AND ";
+			}
+		}
+	}
+
+	void PopulateSortFilterQuery(ClientOrderFilter filter, IEnumerable<SortDescriptor> sorts)
+	{
+		string sortClouse = string.Empty;
+
+		//Set group filter
+		if (sorts != null && sorts.Any())
+		{
+			var sortColumn = sorts.FirstOrDefault();
+			filter.SortColumn = GetActualFieldName(sortColumn.Property);
+
+			if (sortColumn.SortOrder == SortOrder.Ascending)
+			{
+				filter.SortDirection = "ASC";
+			}
+			else
+			{
+				filter.SortDirection = "DESC";
+			}
+		}
+		else
+		{
+			filter.SortColumn = "";
+			filter.SortDirection = "";
+		}
+	}
+
+	string GetActualFieldName(string uiFieldName)
+	{
+		if (uiFieldName == "OrderPlaceDate")
+		{
+			return "o.[OrderPlaceDate]";
+		}
+		else if (uiFieldName == "CompanyName")
+		{
+			return "c.[Name]";
+		}
+
+		return $"o.[{uiFieldName}]";
+	}
+
+	string GetCommaSeperatedStringItems(IEnumerable<string> filterItems)
+	{
+		var items = "";
+
+		var seperator = "";
+		var planItem = "";
+
+		foreach (var item in filterItems)
+		{
+			planItem = item.Replace("'", " "); //TODO
+			items = $"{items}{seperator}''{planItem}''";
+			seperator = ",";
+		}
+
+		return items;
+	}
+
+	string GetCommaSeperatedIntItems(IEnumerable<int> filterItems)
+	{
+		var items = "";
+
+		var seperator = "";
+
+		foreach (var item in filterItems)
+		{
+			items = $"{items}{seperator}{item}";
+			seperator = ",";
+		}
+
+		return items;
+	}
+
+	string GetCommaSeperatedByteItems(IEnumerable<byte> filterItems)
+	{
+		var items = "";
+
+		var seperator = "";
+
+		foreach (var item in filterItems)
+		{
+			items = $"{items}{seperator}{item}";
+			seperator = ",";
+		}
+
+		return items;
+	}
+
+	protected async void Delete(string objectId, string orderNumber)
+	{
+		await Task.Yield();
+		selectedObjectId = objectId;
+		var msg = $"Are you sure you want to delete the Order \"{orderNumber}\"?";
+		ModalNotification.ShowConfirmation("Confirm Delete", msg);
+	}
+
+	protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+	{
+		if (deleteConfirmed)
+		{
+			var selectedOrder = orders.FirstOrDefault(f => f.ObjectId == selectedObjectId);
+			var deleteResponse = await _orderService.Delete(selectedObjectId);
+
+			if (!deleteResponse.IsSuccess)
+			{
+				ModalNotification.ShowMessage("Error", deleteResponse.Message);
+				return;
+			}
+
+			OrderUploadActivityLogo(selectedOrder);
+			await SendMailToAllOperation("Delete", selectedOrder);
+			await LoadOrders();
+			await js.DisplayMessage("Successfully Deleted");
+
+		}
+	}
+
+	private async void OrderUploadActivityLogo(ClientOrderListModel deletedOrder)
+	{
+		ActivityLog activityLog = new ActivityLog();
+		activityLog.ActivityLogFor = ActivityLogForConstants.Order;
+		activityLog.PrimaryId = (int)deletedOrder.Id;
+		activityLog.Description = $"Deleted Order '{deletedOrder.OrderNumber}' by '{loginUser.FullName}' on {DateTime.Now}";
+		activityLog.CreatedDate = DateTime.Now;
+		activityLog.CreatedByContactId = loginUser.ContactId;
+		activityLog.ObjectId = Guid.NewGuid().ToString();
+
+		await _activityLogService.Insert(activityLog);
+	}
+
+	#region Operation Mail for Order
+	private async Task SendMailToAllOperation(string callerType, ClientOrderListModel deletedOrder)
+	{
+		var userList = await _operationEmailService.GetUserListByCompanyIdAndPermissionName(Convert.ToInt32(_configuration["CompanyId"]), PermissionContants.OrderDeleteOrderEmailNotifyForOPeration);
+		foreach (var user in userList)
+		{
+			var detailUrl = $"Your Order Deleted";
+
+			var ordervm = new ClientOrderViewModel
+				{
+					Contact = user,
+					DetailUrl = detailUrl,
+					CreatedByContactId = loginUser.ContactId,
+					OrderNumber = deletedOrder.OrderNumber,
+				};
+
+			ordervm.MailType = callerType;
+			await _workflowEmailService.SendOrderAddUpdateDeleteNotificationForCompanyOperationsTeam(ordervm);
+		}
+	}
+	#endregion
+	void AssignToEditor()
+	{
+		Contact contact = new Contact();
+
+		isSubmitting = false;
+		ShowAddEditPopup();
+	}
+	void ShowAddEditPopup()
+	{
+		isPopupVisible = true;
+	}
+	void CloseAddEditPopup()
+	{
+		isPopupVisible = false;
+	}
+}

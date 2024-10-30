@@ -1,0 +1,17 @@
+﻿@page "/image-comparison"
+@using System.IO
+
+<h3>Image Comparison</h3>
+
+<div>
+    <img src="@RawImagePath" alt="Raw Image">
+    <img src="@CompleteImagePath" alt="Complete Image">
+    <ImageComparison RawImagePath="path_to_raw_image.jpg" CompleteImagePath="path_to_complete_image.jpg" />
+
+</div>
+
+@code {
+    [Parameter] public string RawImagePath { get; set; }
+    [Parameter] public string CompleteImagePath { get; set; }
+}
+

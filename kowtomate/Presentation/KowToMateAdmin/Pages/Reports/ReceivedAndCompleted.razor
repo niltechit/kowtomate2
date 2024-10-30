@@ -1,0 +1,178 @@
+﻿@page "/summaryreport/dailyreceivedandcompleted"
+
+@using System.Globalization
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.Common;
+@using CutOutWiz.Services.Models.Reports;
+@using CutOutWiz.Services.ReportServices;
+@using CutOutWiz.Services.Models.Dashboard
+
+@inject AuthenticationStateProvider _authenticationStateProvider
+@inject IOperationReportService _operationReportService
+@inject IWorkContext _workContext
+@inject ICompanyManager _companyService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Reports
+            </h4>
+            <div class="page-title-right">
+
+                @*<a href="/management/teams" class="btn btn-sm btn-secondary" @onclick="AddNew" title="Back"><span class="fas fa-plus"></span> Back</a>*@
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+
+    <div class="col-auto">
+        <label for="staticEmail2" class="visually-hidden">Email</label>
+        <RadzenDropDown Multiple="false" Placeholder="-- Select Company --" Data="@companies" TextProperty="Name" ValueProperty="Id" @bind-Value="companyId" Change="@LoadMonthlyImageCount" />
+
+    </div>
+    <div class="col-auto">
+        <label for="staticEmail2" class="visually-hidden">Email</label>
+        <RadzenDatePicker ShowTime="true" Placeholder="Start Date" HourFormat="12" DateFormat="MM/dd/yyyy h:mm tt" @bind-Value="StartDate" Change="@LoadMonthlyImageCount" />
+    </div>
+    <div class="col-auto">
+        <label for="staticEmail2" class="visually-hidden">Email</label>
+        <RadzenDatePicker ShowTime="true" Placeholder="End Date" HourFormat="12" DateFormat="MM/dd/yyyy h:mm tt" @bind-Value="EndDate" Change="@LoadMonthlyImageCount" />
+    </div>
+
+</div>
+
+
+<!-- end page title -->
+<div class="row">
+    <div class="col-lg-12">
+        <div class="row">
+            <div class="col-sm-9">
+                <RadzenChart>
+                    <RadzenColumnSeries Data="@revenue2020" CategoryProperty="MonthName" Title="@currentYearTitle" LineType="LineType.Dashed" ValueProperty="TotalImages">
+                        <RadzenSeriesDataLabels Visible="@showDataLabels" />
+                    </RadzenColumnSeries>
+                    <RadzenColumnSeries Data="@revenue2019" CategoryProperty="MonthName" Title="@previousYearTitle" ValueProperty="TotalImages">
+                        <RadzenSeriesDataLabels Visible="@showDataLabels" />
+                    </RadzenColumnSeries>
+                    <RadzenColumnOptions Radius="5" />
+                    <RadzenValueAxis Formatter="@FormatAsUSD">
+                        <RadzenGridLines Visible="true" />
+                        <RadzenAxisTitle Text="Received Vs Completed Images" />
+                    </RadzenValueAxis>
+                    <h1 style=" writing-mode: vertical-lr;  text-orientation: upright; background-color:red;">
+                        <RadzenLegend Position="LegendPosition.Top"/>
+                    </h1>
+                </RadzenChart>
+            </div>
+            <div class="col-sm-3">
+                <RadzenDataGrid Data="@allImageCountList" IsLoading="isLoading" TItem="MonthlyImageCountModel"
+                                AllowFiltering="false" AllowColumnResize="false"
+                                AllowSorting="false" AllowPaging="false"
+                                PagerHorizontalAlign="HorizontalAlign.Center"
+                                ShowPagingSummary="false">
+                    <Columns>
+                      
+                        <RadzenDataGridColumn TItem="MonthlyImageCountModel" Property="MonthName" Title="Days">
+                            <Template Context="order">
+                                @order.MonthName
+                            </Template>
+                            <FooterTemplate>
+                                Total :
+                            </FooterTemplate>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="MonthlyImageCountModel" Property="TotalImages" Title="Total Recevied">
+                            <Template Context="order">
+                                @order.TotalImages
+                            </Template>
+                            <FooterTemplate>
+                                 <b>@allImageCountList.Sum(o => o.TotalImages)</b>
+                            </FooterTemplate>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="MonthlyImageCountModel" Property="TotalImages2" Title="Total Completed">
+                            <Template Context="order">
+                                @order.TotalImages2
+                            </Template>
+                            <FooterTemplate>
+                                 <b>@allImageCountList.Sum(o => o.TotalImages2)</b>
+                            </FooterTemplate>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    bool showDataLabels = true;
+    //AuthenticationState authState;
+    List<MonthlyImageCountModel> allImageCountList = new List<MonthlyImageCountModel>();
+
+    List<MonthlyImageCountModel> revenue2019 = new List<MonthlyImageCountModel>();
+    List<MonthlyImageCountModel> revenue2020 = new List<MonthlyImageCountModel>();
+    string currentYearTitle = "";
+    string previousYearTitle = "";
+    bool isLoading = false;
+
+    private int companyId=0;
+    private DateTime StartDate  = DateTime.Now.Date.AddDays(-30);
+    private DateTime EndDate    = DateTime.Now.Date;
+    List<CompanyModel> companies;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Yield();
+        //authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+        // var loginUser = _workContext.LoginUserInfo;
+        companies = await _companyService.GetAllClientCompany();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadMonthlyImageCount();
+            StateHasChanged();
+        }
+        //await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private async Task LoadMonthlyImageCount()
+    {
+        //authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+        // var loginUser = _workContext.LoginUserInfo;
+        isLoading = true;
+        var allData = await _operationReportService.GetImagesReceivedAndCompletedData(companyId, StartDate, EndDate);
+
+        revenue2020 = allData.Where(f => f.LabelName.StartsWith("1-")).OrderBy(o => o.MonthYearValue).ToList();
+
+        currentYearTitle = revenue2020.FirstOrDefault().LabelName.Replace("1-", "");
+
+        revenue2019 = allData.Where(f => f.LabelName.StartsWith("2-")).OrderBy(o => o.MonthYearValue).ToList();
+        previousYearTitle = revenue2019.FirstOrDefault().LabelName.Replace("2-", "");
+
+
+        allImageCountList = revenue2020;
+
+        foreach (var item in allImageCountList)
+        {
+            item.TotalImages2 = revenue2019.FirstOrDefault(f => f.MonthName == item.MonthName).TotalImages;
+        }
+
+        isLoading = false;
+    }
+
+
+    string FormatAsUSD(object value)
+    {
+        return ((double)value).ToString("N0", CultureInfo.CreateSpecificCulture("en-US"));
+    }
+
+}

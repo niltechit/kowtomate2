@@ -1,0 +1,313 @@
+﻿@page "/hr/employeeProfile"
+
+@attribute [Authorize(Roles = PermissionConstants.HR_ViewAllEmployeeprofiles)]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.Models.HR
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.ClaimManagementService
+@using CutOutWiz.Services.HR
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IEmployeeProfileService _employeeProfileService
+@inject IShiftManager _shiftService
+@inject IContactManager _contactManager
+@inject NavigationManager NavigationManager
+@inject IClaimsService _claimsService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                
+                @if (employeeProfiles?.Any() == true)
+                {
+                    @:Employee(@employeeProfiles.Count)
+                }
+                else
+                {
+                    @:Employee
+                }
+            </h4>
+            <AuthorizeView Roles="@PermissionConstants.HR_CanAddEmployeeProfile">
+                <div class="page-title-right">
+                    <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New Designation"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+            </AuthorizeView>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+        <RadzenDataGrid Data="@employeeProfiles" IsLoading="isLoading" TItem="EmployeeProfileModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+                <RadzenDataGridColumn TItem="EmployeeProfileModel" Property="EmployeeId" Title="Employee Id" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="EmployeeProfileModel" Property="Name" Title="Name" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="EmployeeProfileModel" Property="ShiftName" Title="Shift" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="EmployeeProfileModel" Property="MonthlySalary" Title="Salary" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="EmployeeProfileModel" Property="YearlyBonus" Title="Bonus" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="EmployeeProfileModel" Property="HireDate" Title="Hire Date" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="EmployeeProfileModel" Property="DateOfBirth" Title="Date Of Birth" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="EmployeeProfileModel" Property="FullAddress" Title="Address" SortOrder="SortOrder.Ascending" />
+
+                <RadzenDataGridColumn Width="120px" TItem="EmployeeProfileModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await ShowDetail(data.Id))">
+                            <span class="fas fa-eye"></span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.Id.ToString()))">
+                            <span class="fas fa-pencil-alt"></span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.Id.ToString(),data.Id.ToString())">
+                            <span class="fas fa-times"></span>
+                        </button>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@employeeProfile OnValidSubmit="@InsertUpdateEmployeeProfile">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Employee Profile</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <EmployeeProfileAddOrEdit profile="employeeProfile" shifts="shifts" contacts="contacts"/>
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @if (!string.IsNullOrWhiteSpace(employeeProfile.Id.ToString()))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(employeeProfile.Id.ToString(),employeeProfile.Id.ToString())">Delete</button>
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+@if (isDetail)
+{
+     <EditForm Model=@employeeProfile>
+    <div class="modal" tabindex="-1" style="display:block;">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Employee Profile Detail</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseDetailPopup"></button>
+                </div>
+                <div class="modal-body">
+                    
+                    <div class="row">
+                        <EmployeeProfileDetail profile="employeeProfile"/>
+                        <div class="col">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseDetailPopup">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </EditForm>
+}
+
+
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<EmployeeProfileModel> employeeProfiles;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    private EmployeeProfileModel employeeProfile = null;
+    bool isPopupVisible = false;
+    bool isDetail = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private string selectedObjectId = "";
+    List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+    private byte? filterStatus;
+
+    private List<ShiftModel> shifts = new List<ShiftModel>();
+    private List<ContactModel> contacts = new List<ContactModel>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+        await LoadEmployeeProfiles();
+
+        foreach (GeneralStatus item in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+        shifts = await _shiftService.GetAll();
+        contacts = await _contactManager.GetAll();
+        contacts = contacts.Where(x => !string.IsNullOrWhiteSpace(x.EmployeeId)).ToList();
+        isLoading = false;
+    }
+
+    private async Task LoadEmployeeProfiles()
+    {
+        var claims = await _claimsService.GetClaimsAsync();
+
+        employeeProfiles = await _employeeProfileService.GetAll<EmployeeProfileModel>();
+
+        if (claims.Where(x => x.Value.Contains(PermissionConstants.HR_ViewAllEmployeeprofiles)).Count() == 0)
+        {
+            employeeProfiles = employeeProfiles.Where(x => x.ContactId == loginUser.ContactId).ToList();
+        }
+
+    }
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<EmployeeProfileModel> args)
+    {
+        await Edit(args.Data.Id.ToString());
+    }
+
+    private async Task InsertUpdateEmployeeProfile()
+    {
+        isSubmitting = true;
+
+        if (employeeProfile.Id == 0)
+        {
+            //employeeProfile.CreatedByContactId = loginUser.ContactId;
+
+            var addResponse = await _employeeProfileService.Insert(employeeProfile);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+        else
+        {
+            //designation.UpdatedByContactId = loginUser.ContactId;
+            var updateResponse = await _employeeProfileService.Update(employeeProfile);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+
+        employeeProfile = new EmployeeProfileModel();
+        isSubmitting = false;
+
+        await LoadEmployeeProfiles();
+        CloseAddEditPopup();
+    }
+
+    // string StatusText()
+    // {
+    //     if (employeeProfile.Status == (int)GeneralStatus.Active)
+    //     {
+    //         return "<span class='badge bg-success'>Active</span>";
+    //     }
+
+    //     return "<span class='badge bg-info text-dark'>Inactive</span>";
+    // }
+
+    void AddNew()
+    {
+        employeeProfile = new EmployeeProfileModel { };
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(string objectId)
+    {
+        employeeProfile = await _employeeProfileService.GetById(Convert.ToInt32(objectId));
+        ShowAddEditPopup();
+    }
+    private async Task ShowDetail(int id)
+    {
+        employeeProfile = await _employeeProfileService.GetById(id);
+        ShowDetailPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+    void ShowDetailPopup()
+    {
+        isDetail = true;
+    }
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+    void CloseDetailPopup()
+    {
+        isDetail = false;
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the employee profile \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _employeeProfileService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadEmployeeProfiles();
+                employeeProfile = new EmployeeProfileModel();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+
+        isSubmitting = false;
+    }
+}

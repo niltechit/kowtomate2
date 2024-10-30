@@ -1,0 +1,82 @@
+﻿@page "/companyinfo/{paramCompanyObjectId}"
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.Common
+@using KowToMateAdmin.Models.Security
+
+@inject IWorkContext _workContext
+@inject ICompanyManager _companyService
+
+<!-- start page title -->
+@*<div class="row">
+	<div class="col-12">
+		<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+			<h4 class="mb-sm-0 font-size-18">
+				Company Information
+			</h4>
+		</div>
+	</div>
+</div>*@
+<!-- end page title -->
+<div class="row">
+	<div class="col-xl-8">
+		<div class="card">
+			<div class="card-body">
+				<h4 class="card-title mb-4">Company Information</h4>
+				<div class="table-responsive">
+					<table class="table table-nowrap mb-0">
+						<tbody>
+							<tr>
+								<th scope="row">Company Name :</th>
+								<td>@company.Name</td>
+							</tr>
+							<tr>
+								<th scope="row">Company Code :</th>
+								<td>@company.Code</td>
+							</tr>
+							<tr>
+								<th scope="row">E-mail :</th>
+								<td>@company.Email</td>
+							</tr>
+							<tr>
+								<th scope="row">City :</th>
+								<td>@company.City</td>
+							</tr>
+							<tr>
+								<th scope="row">State :</th>
+								<td>@company.Email</td>
+							</tr>
+							<tr>
+								<th scope="row">Phone :</th>
+								<td>@company.Telephone</td>
+							</tr>
+							<tr>
+								<th scope="row">Address :</th>
+								<td>@company.Address1 @company.Address2</td>
+							</tr>
+							
+							@* <tr>
+							<th scope="row">Location :</th>
+							<td>California, United States</td>
+							</tr>*@
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+		<!-- end card -->
+	</div>
+</div>
+<!-- end row -->
+
+@code {
+	[Parameter]
+	public string paramCompanyObjectId { get; set; }
+	private CompanyModel company = new CompanyModel();
+	private LoginUserInfoViewModel loginUser = null;
+
+	protected override async Task OnInitializedAsync()
+	{
+		loginUser = _workContext.LoginUserInfo;
+		company =await _companyService.GetByObjectId(paramCompanyObjectId);
+	}
+}

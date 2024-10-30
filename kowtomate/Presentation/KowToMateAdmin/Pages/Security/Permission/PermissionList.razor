@@ -1,0 +1,327 @@
+﻿@page "/security/permissions"
+
+@attribute [Authorize(Roles = "Security.ManagePermissions")]
+
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IPermissionService _permissionService
+@inject IModuleService _moduleService
+
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Permissions
+            </h4>
+
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New Permission"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+        <RadzenDataGrid Data="@permissions" IsLoading="isLoading" TItem="PermissionListModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        ColumnWidth="200px"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+                <RadzenDataGridColumn TItem="PermissionListModel" Property="DisplayName" Title="Display Name" Width="300px" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="PermissionListModel" Property="PermissionValue" Title="Permission Value"  SortOrder="SortOrder.Ascending" />
+                  <RadzenDataGridColumn TItem="PermissionListModel" Property="DisplayOrder" TextAlign=TextAlign.Center Title="Display Order" Width="100px" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="PermissionListModel" Property="ModuleNames" Title="Modules" Filterable="false" Sortable="false">
+                    <Template Context="data">
+                        @if (!string.IsNullOrWhiteSpace(data.ModuleNames))
+                        {
+                            var selectedList = data.ModuleNames.Split(',');
+                            foreach (var selectedItem in selectedList)
+                            {
+                                <span class="me-1 badge badge bg-success">@selectedItem</span>
+                            }
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="PermissionListModel" Property="MenuNames" Title="Menus" Filterable="false" Sortable="false">
+                    <Template Context="data">
+                        @if (!string.IsNullOrWhiteSpace(data.MenuNames))
+                        {
+                            var selectedList = data.MenuNames.Split(',');
+                            foreach (var selectedItem in selectedList)
+                            {
+                                <span class="me-1 badge badge bg-warning">@selectedItem</span>
+                            }
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="PermissionListModel" Property="CreatedDate" Title="Created Date" TextAlign=TextAlign.Center Filterable="false" Width="200px" />
+                <RadzenDataGridColumn Width="90px" TItem="PermissionListModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.ObjectId))">
+                            <span class="fas fa-pencil-alt"></span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.ObjectId,data.DisplayName)">
+                            <span class="fas fa-times"></span>
+                        </button>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@permission OnValidSubmit="@InsertUpdatePermission">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Permission</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <PermissionAddEdit permission="permission" modules="modules" companyTypes="companyTypes" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save</button>
+                        @if (!string.IsNullOrWhiteSpace(permission.ObjectId))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(permission.ObjectId,permission.DisplayName)">Delete</button>
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+    bool isLoading = false;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isSubmitting;
+    private List<PermissionListModel> permissions;
+
+    private PermissionModel permission = null;
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private string selectedObjectId = "";
+
+    List<ModuleModel> modules = null;
+    List<KeyValuePairCustomModel> companyTypes = null;
+    //private IEnumerable<int> selectedModules = new List<int>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+
+
+        //Populate Status
+        companyTypes = new List<KeyValuePairCustomModel>();
+        foreach (var status in Enum.GetValues(typeof(CompanyType)))
+        {
+            companyTypes.Add(new KeyValuePairCustomModel(status.ToString(), Convert.ToString(((int)status))));
+        }
+
+        await LoadPermissions();
+        modules = await _moduleService.GetAll();
+    }
+
+    private async Task LoadPermissions()
+    {
+        permissions = await _permissionService.GetAllWithDetails();
+    }
+
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<PermissionListModel> args)
+    {
+        await Edit(args.Data.ObjectId);
+    }
+
+    private async Task InsertUpdatePermission()
+    {
+        if (permission.SelectedModules == null)
+        {
+            permission.SelectedModules = new List<string>();
+        }
+
+
+        if (permission.SelectedCompanyTypes == null)
+        {        
+            permission.SelectedCompanyTypes = new List<string>();
+        }
+
+
+        isSubmitting = true;
+
+        if (permission.Id == 0)
+        {
+            permission.CreatedByContactId = loginUser.ContactId;
+            permission.ObjectId = Guid.NewGuid().ToString();
+
+            var addResponse = await _permissionService.Insert(permission);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+
+            //Save multil seleted values in Security_ModulePermission and Security_CompanyTypePermission on datebase
+
+            //Save module permission on database for this permissionId
+            await _permissionService.ModulePermissionInsertOrUpdateByPermissionObjectId(permission.ObjectId, permission.SelectedModules.ToList(), (int)permission.CreatedByContactId);
+
+            //Add Company Permission
+            await _permissionService.CompanyTypePermissionInsertOrUpdateByPermissionObjectId(permission.ObjectId, permission.SelectedCompanyTypes.ToList(), (int)permission.CreatedByContactId);
+
+            var oldPermisison = await _permissionService.GetDetailsByPermisisonId(permission.ObjectId);
+
+            if (oldPermisison != null)
+            {
+                permissions.Add(oldPermisison);
+            }
+
+        }
+        else
+        {
+            permission.UpdatedByContactId = loginUser.ContactId;
+            var updateResponse = await _permissionService.Update(permission);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+
+            //Save multil seleted values in Security_ModulePermission and Security_CompanyTypePermission on datebase
+
+            //Save module permission on database for this permissionId
+            await _permissionService.ModulePermissionInsertOrUpdateByPermissionObjectId(permission.ObjectId, permission.SelectedModules.ToList(), (int)permission.UpdatedByContactId);
+
+
+            await _permissionService.CompanyTypePermissionInsertOrUpdateByPermissionObjectId(permission.ObjectId, permission.SelectedCompanyTypes.ToList(), (int)permission.UpdatedByContactId);
+
+            var updatedPermission = await _permissionService.GetDetailsByPermisisonId(permission.ObjectId);
+
+            if (updatedPermission != null)
+            {
+                var oldPermisison = permissions.FirstOrDefault(f => f.ObjectId == permission.ObjectId);
+
+                if (oldPermisison != null)
+                {
+                    oldPermisison.DisplayName = updatedPermission.DisplayName;
+                    oldPermisison.PermissionValue = updatedPermission.PermissionValue;
+                    oldPermisison.DisplayOrder = updatedPermission.DisplayOrder;
+                    oldPermisison.ModuleNames = updatedPermission.ModuleNames;
+                    oldPermisison.CompanyTypes = updatedPermission.CompanyTypes;
+                    oldPermisison.MenuNames = updatedPermission.MenuNames;
+                    oldPermisison.Status = updatedPermission.Status;
+                }
+            }
+        }
+
+        //var ids = selectedModules;
+
+        permission = new PermissionModel();
+        isSubmitting = false;
+
+        CloseAddEditPopup();
+    }
+
+    string StatusText()
+    {
+        if (permission.Status == (int)GeneralStatus.Active)
+        {
+            return "<span class='badge bg-success'>Active</span>";
+        }
+
+        return "<span class='badge bg-info text-dark'>Inactive</span>";
+    }
+
+    void AddNew()
+    {
+        permission = new PermissionModel { Status = (int)GeneralStatus.Active };
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(string objectId)
+    {
+        permission = await _permissionService.GetByObjectId(objectId);
+        //Load Modules by following menu page
+        permission.SelectedModules = await _permissionService.GetModulesByPermissionObjectId(objectId);
+
+
+        // Load Company types
+       permission.SelectedCompanyTypes = await _permissionService.GetCompanyTypesByPermissionObjectId(objectId);
+
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the permission \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _permissionService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadPermissions();
+                permission = new PermissionModel();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+
+        isSubmitting = false;
+    }
+}
+

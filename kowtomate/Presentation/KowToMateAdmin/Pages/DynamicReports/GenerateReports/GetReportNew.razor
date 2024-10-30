@@ -1,0 +1,334 @@
+﻿@page "/report/getreportsnew"
+
+@using System.Linq.Dynamic.Core
+@using CutOutWiz.Core.Utilities;
+@using CutOutWiz.Services.DynamicReports;
+@using CutOutWiz.Services.ImportExport;
+@using CutOutWiz.Services.UI
+@using KowToMateAdmin.Pages.DynamicReports.GridViewTemplate
+@using KowToMateAdmin.Services;
+@using static CutOutWiz.Core.Utilities.Enums;
+
+@inject IDynamicReportInfoService _dynamicReportInfoService
+@inject IDataImportExportService _dataImportService
+@inject IGridFilterService _gridFilterService
+@inject IJSRuntime js
+@inject NotificationService _notificationService
+@inject IWorkContext _workContext
+@inject IGridViewSetupService _gridViewSetupService
+@inject IDynamicReportPageViewFilterService _dynamicReportPageViewFilterService
+
+@attribute [Authorize(Roles = "DynamicReport.CanViewGetDynamicReport")]
+
+<style>
+    .ui-dropdown-items-wrapper {
+        max-height: 400px !important;
+    }
+</style>
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Get Reports
+            </h4>
+            @*<div class="page-title-right">
+            <button type="button" class="btn btn-sm btn-primary me-2" disabled="@isExporting || @isSearching" @onclick="DownloadExcelDocument" title="Export">
+            @if (isExporting)
+            {
+            @:<span class="fas i fa-spinner fa-spin"></span> Exporting
+            }
+            else
+            {
+            @:<span class="fas i fa-file-export"></span> Export
+            }
+            </button>
+            </div>*@
+        </div>
+    </div>
+</div>
+
+<!-- end page title -->
+<div class="row">
+    <div class="col-lg-12">
+        <div class="mb-2 row">
+            <label for="Report" class="col-sm-2 col-form-label fw-bold">Select a Report</label>
+            <div class="col-sm-8">
+                <RadzenDropDown AllowClear="true" TValue="int?" @bind-Value="selectedDynamicReportInfoId" Change="OnSelectedReportChange" AllowVirtualization="true"
+                                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowFiltering="true" Class="w-100"
+                                Placeholder="- Select a Report -" Data=@dynamicReportList TextProperty="Name" ValueProperty="Id" All />
+            </div>
+        </div>
+
+        <div class="row mb-3">
+
+            @*@if (selectDynamicReportInfo.AllowCompanyFilter)
+            {
+            <div class="col-auto">
+            <label for="staticEmail2" class="visually-hidden">Company</label>
+            <RadzenDropDown Multiple="false" Placeholder="-- Select Company --" Data="@companies"  AllowClear="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"  AllowFiltering="true" TextProperty="Name" ValueProperty="Id" @bind-Value="dynamicReportFilter.ClientCompanyId" />
+            </div>
+            }*@
+
+
+            @* @if (tableColumns != null && tableColumns.Count() > 0)
+            {
+            <RadzenDataFilter @ref="dataFilter" Auto="false" Data="mainProducts" TItem="IDictionary<string, object>">
+            <Properties>
+
+            @foreach(var prop in tableColumns.Where(f=> f.Id != 1 && f.Id != 4).OrderBy(f=>f.DisplayName))
+            {
+            <RadzenDataFilterProperty TItem="IDictionary<string, object>" Property="@prop.FieldName" Type="GetTypeByString(prop.FieldTypeEnum)" FilterValue="GetDefaultFilterValue(prop.FieldTypeEnum)" Title="@prop.DisplayName" />
+            }
+
+            </Properties>
+            </RadzenDataFilter>
+            } *@
+
+
+            <div class="col-auto">
+                <label for="Actions" class="visually-hidden">Action</label>
+                <button type="button" disabled="@(isExporting || isSearching)" class="btn btn-sm btn-primary me-2" @onclick="FindResults" title="Show Result">
+                    @if (isSearching)
+                    {
+                        @:<span class="fas i fa-spinner fa-spin"></span> Showing Result
+                    }
+                    else
+                    {
+                        @:<span class="fas i fa-search"></span> Show Result
+                    }
+                </button>
+
+                <button type="button" class="btn btn-sm btn-success me-2" disabled="@(isSearching || isExporting)" @onclick="DownloadExcelDocument" title="Export">
+                    @if (isExporting)
+                    {
+                        @:<span class="fas i fa-spinner fa-spin"></span> Exporting
+                    }
+                    else
+                    {
+                        @:<span class="fas i fa-file-export"></span> Export
+                    }
+                </button>
+            </div>
+
+        </div>
+
+        @if (showProgressBar)
+        {
+            <RadzenProgressBar Value="progressBarCurrentValue" Max="100" />
+        }
+
+        @*<RadzenDataGrid @ref="grid" TItem="IDictionary<string, object>" @bind-Value=@selectedProducts LoadData="@LoadData" Count="@count"*@
+
+        @if (selectedDynamicReportInfoId > 0)
+        {
+
+            <div class="d-flex justify-content-start mb-1">
+                @*  <RadzenDropDown @bind-Value=@selectedCompletenessId Style="width:200px;" TextProperty="Name" ValueProperty="Id"
+            AllowFiltering="true" Data="@completenessList"  FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"/>
+            <button type="button" class="btn btn-sm btn-sm-nopadding btn-primary" @onclick="ShowCompletenessSetupPopup" title="Manage Completeness"><span class="fas fa-save"></span> Manage</button>
+            *@
+                <RadzenDropDown @bind-Value=@dynamicReportPagePropertyVM.selectedGridViewSetupId Style="width:270px;" TextProperty="DisplayName" ValueProperty="Id"
+                                Change=@OnGridViewChange AllowFiltering="true" Data="@gridViewSetups" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
+
+                <RadzenDropDown @bind-Value=@dynamicReportPagePropertyVM.selectedTableColumnIds Style="width:180px; margin-left:2px" TextProperty="DisplayName" ValueProperty="Id"
+                                AllowFiltering="true" Change=@OnSelectedTableColumnChange Data="@dynamicReportPagePropertyVM.tableColumns" Multiple="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
+
+                <AuthorizeView Roles="GT.OT.M">
+                    <button type="button" class="btn btn-sm btn-sm-nopadding btn-primary ms-1 me-2" @onclick="openGridViewTemplateManage" title="Save Grid View Template"><span class="fas fa-save"></span> Save View</button>
+                </AuthorizeView>
+
+                <RadzenDropDown @bind-Value=@dynamicReportPagePropertyVM.selectedGridViewFilterId Style="width:270px;" TextProperty="DisplayName" ValueProperty="Id"
+                                Change=@OnGridViewFilterChange AllowFiltering="true" Data="@dynamicReportPagePropertyVM.gridViewFilters" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
+
+                <AuthorizeView Roles="GF.OF.M">
+                    <button type="button" class="btn btn-sm btn-sm-nopadding btn-warning ms-1" @onclick="SaveGridViewFilter" title="Save Grid View Template"><span class="fas fa-save"></span> Save Filter</button>
+                </AuthorizeView>
+            </div>
+
+            <RadzenCard class="mb-3 top-filter-container">
+
+                <button type="button" class="btn btn-sm btn-warning btn-apply-top-filter" @onclick="@(async args => await ApplyFilterClicked())" title="Apply Filter">
+                    <span class="fas fa-search"></span> Apply Filter
+                </button>
+
+                <button type="button" class="btn btn-sm btn-secondary btn-showhide-top-filter" @onclick="(async () => await ShowHideTopFilter_Click())" title="Show/Hide Filter">
+                    @if (isShowTopFilter)
+                    {
+                        <span class="fas fa-check-square"></span>
+                    }
+                    else
+                    {
+                        <span class="fas fa-square"></span>
+                    }
+                    Show Filter
+                </button>
+
+                <RadzenDataFilter @ref="dynamicReportPagePropertyVM.dataFilter" Auto="false" Data="mainProducts" TItem="IDictionary<string, object>">
+                    <Properties>
+                        @* <RadzenDataFilterProperty TItem="IDictionary<string, object>" Property="FeeTextSearch" FilterOperator="FilterOperator.Contains" Title="Free Text Search" /> *@
+                        @if (dynamicReportPagePropertyVM.tableColumns != null)
+                        {
+                            foreach (var prop in dynamicReportPagePropertyVM.tableColumns.Where(f => f.Id != 1 && f.Id != 4).OrderBy(f => f.DisplayName))
+                            {
+                                <RadzenDataFilterProperty TItem="IDictionary<string, object>" Type="_dynamicReportPageViewFilterService.GetTypeByString(prop.FieldTypeEnum)" Property="@_dynamicReportPageViewFilterService.GetColumnPropertyExpression(prop.FieldName, _dynamicReportPageViewFilterService.GetTypeByString(prop.FieldTypeEnum))" Title="@prop.DisplayName" />
+                            }
+                        }
+                    </Properties>
+                </RadzenDataFilter>
+            </RadzenCard>
+
+            <RadzenDataGrid @ref="grid" IsLoading=@(isLoading) TItem="IDictionary<string, object>"
+                            Count="@count"
+                            Data="@mainProducts"
+                            LoadData="@LoadData"
+                            AllowColumnResize="true"
+                            AllowColumnReorder="true"
+                            AllowSorting="@selectDynamicReportInfo.AllowSorting"
+                            AllowFiltering="@selectDynamicReportInfo.AllowFiltering"
+                            FilterMode="FilterMode.SimpleWithMenu"
+                            FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                            AllowPaging="@selectDynamicReportInfo.AllowPaging"
+                            PageSize="@selectDynamicReportInfo.PageSize"
+                            PagerHorizontalAlign="HorizontalAlign.Center"
+                            PageSizeOptions="@pageSizeOptions"
+                            ShowPagingSummary="true"
+                            PagingSummaryFormat="@pagingSummaryFormat"
+                            AllowGrouping="true"
+                            Render="@OnGridRender">
+                <Columns>
+                    @foreach (var column in dynamicReportPagePropertyVM.tableColumns.Where(f => dynamicReportPagePropertyVM.selectedTableColumnIds.Any(o => o == f.Id)))
+                    {
+                        <RadzenDataGridColumn TItem="IDictionary<string, object>" Title="@column.DisplayName" Type="_dynamicReportPageViewFilterService.GetTypeByString(column.FieldTypeEnum)"
+                                              Property="@_dynamicReportPageViewFilterService.GetColumnPropertyExpression(column.FieldName, _dynamicReportPageViewFilterService.GetTypeByString(column.FieldTypeEnum))"
+                                              Filterable="@column.Filterable" Groupable="@column.Groupable" Sortable="@column.Sortable" Width="@column.WidthWithPx" TextAlign="(TextAlign)column.TextAlign">
+                            <Template>
+                                @if (context.TryGetValue(@column.FieldName, out object colValue))
+                                {
+                                    if (column.FieldTypeEnum == TableFieldTypeSm.Integer
+                                    || column.FieldTypeEnum == TableFieldTypeSm.Decimal
+                                    || column.FieldTypeEnum == TableFieldTypeSm.Date)
+                                    {
+                                        <div style="background-color:@column.BackgroundColor;color:@column.TextColor">@string.Format("{0:" + column.DispalyFormat + "}", @context[@column.FieldName])</div>
+                                    }
+                                    else if (column.FieldTypeEnum == TableFieldTypeSm.Boolean)
+                                    {
+                                        var value = context[@column.FieldName];
+                                        @if (value is Boolean valueAsTest && valueAsTest == true)
+                                        {
+                                            <div style="background-color:#158419;color:#FFFFFF">YES</div>
+                                        }
+                                        else
+                                        {
+                                            <div style="background-color:#F30F0F;color:#FFFFFF">NO</div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        var bgColor = "";
+                                        var fieldValue = context[@column.FieldName];
+                                        if (!string.IsNullOrEmpty(column.BackgroundColorRules))
+                                        {
+                                            if (column.BackgroundColorRules.Contains("="))
+                                            {
+                                                //YES=#158419,NO=#F30F
+                                                //bgColor = StringHelper.GetColorValueUsingKeyFormString(header.BackgroundColorRules, formattedValue);
+                                                bgColor = $"background-color:{StringHelper.GetColorValueUsingKeyFormString(column.BackgroundColorRules, fieldValue?.ToString())}";
+                                            }
+                                        }
+                                        else if (!string.IsNullOrEmpty(column.BackgroundColor))
+                                        {
+                                            bgColor = $"background-color:{column.BackgroundColor}";
+                                        }
+
+                                        <div style="@bgColor;color:@column.TextColor">@context[@column.FieldName]</div>
+                                    }
+                                }
+                            </Template>
+
+                            <FooterTemplate>
+                                @if (mainProducts!=null && (column.ShowFooterTotal || column.ShowFooterAverage) && (column.FieldTypeEnum == TableFieldTypeSm.Integer || column.FieldTypeEnum == TableFieldTypeSm.Decimal))
+                                {
+                                    decimal sum = 0;
+                                    int count = 0;
+
+                                    if (column.FieldTypeEnum == TableFieldTypeSm.Integer)
+                                    {
+                                        foreach (var item in mainProducts)
+                                        {
+                                            if (item.ContainsKey(column.FieldName) && item[column.FieldName] != null)
+                                            {
+                                                sum += item[column.FieldName] is int decimalValue ? decimalValue : 0;
+                                                // sum += (decimal)item[column.FieldName];
+                                                count++;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        foreach (var item in mainProducts)
+                                        {
+                                            if (item.ContainsKey(column.FieldName) && item[column.FieldName] != null)
+                                            {
+                                                sum += item[column.FieldName] is decimal decimalValue ? decimalValue : 0;
+                                                // sum += (decimal)item[column.FieldName];
+                                                count++;
+                                            }
+                                        }
+                                    }
+
+                                    var seperator = "";
+                                    if (column.ShowFooterTotal)
+                                    {
+                                        if (!string.IsNullOrEmpty(column.FooterTotalLabel))
+                                        {
+                                            @:@column.FooterTotalLabel: @string.Format("{0:" + column.DispalyFormat + "}", sum)
+                                        }
+                                        else
+                                        {
+                                            @:Total: @string.Format("{0:" + column.DispalyFormat + "}", sum)
+                                        }
+
+                                        seperator = ", ";
+                                    }
+
+                                    if (column.ShowFooterAverage && count > 0)
+                                    {
+                                        if (!string.IsNullOrEmpty(column.FooterAverageLabel))
+                                        {
+                                            @:@column.FooterAverageLabel: @string.Format("{0:" + column.DispalyFormat + "}", sum / count)
+                                        }
+                                        else
+                                        {
+                                            @:@seperator Average: @string.Format("{0:" + column.DispalyFormat + "}", sum / count)
+                                        }
+                                    }
+                                }
+
+                            </FooterTemplate>
+                            <GroupFooterTemplate>
+                                @if (column.ShowGroupTotal)
+                                {
+                                    decimal sum = context.Data.Items.Cast<IDictionary<string, object>>().Sum(o => Convert.ToDecimal(o[column.FieldName]));
+                                    @:Total: @sum.ToString(column.DispalyFormat)
+                                }
+                            </GroupFooterTemplate>
+
+                        </RadzenDataGridColumn>
+                    }
+                </Columns>
+            </RadzenDataGrid>
+        }
+    </div>
+</div>
+
+@if (isShowManageGridViewTemplate)
+{
+    <GridViewTemplateSetup selectedGridViewSetup=@dynamicReportPagePropertyVM.selectedGridViewSetup selectedGridViewSetupColumn=@selectedGridViewSetupColumn confirmationGridViewTemplateUpdate=@UpdateConfirmGridViewTemplate_Click></GridViewTemplateSetup>
+}
+
+@if (isShowManageGridViewFilterTemplate)
+{
+    <GridViewFilterSetup selectedGridViewFilter=@dynamicReportPagePropertyVM.selectedGridViewFilter confirmationGridViewTemplateUpdate=@UpdateConfirmGridViewFilter_Click></GridViewFilterSetup>
+}

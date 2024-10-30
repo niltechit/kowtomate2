@@ -1,0 +1,90 @@
+﻿@using CutOutWiz.Data.Common
+@using CutOutWiz.Data.HR
+@using CutOutWiz.Data.Security
+@using static CutOutWiz.Core.Utilities.Enums
+
+<div class="mb-2 row">
+    <label for="FirstName" class="col-sm-4 col-form-label fw-bold">First Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="contact.FirstName"></InputText>
+        <ValidationMessage For="@(() => contact.FirstName)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="LastName" class="col-sm-4 col-form-label fw-bold">Last Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="contact.LastName"></InputText>
+        <ValidationMessage For="@(() => contact.LastName)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="CompanyId" class="col-sm-4 col-form-label fw-bold">Company</label>
+    <div class="col-sm-8">
+         <RadzenDropDown AllowClear="true" TValue="int"  @bind-Value="contact.CompanyId" AllowVirtualization="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowFiltering="true" Class="w-100" 
+                            Placeholder="- Select -" Data=@companies TextProperty="Name" ValueProperty="Id"/>
+        <ValidationMessage For="@(() => contact.CompanyId)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Designation" class="col-sm-4 col-form-label fw-bold">Designation</label>
+    <div class="col-sm-8">
+         <RadzenDropDown AllowClear="true" TValue="int"  @bind-Value="contact.DesignationId" AllowVirtualization="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowFiltering="true" Class="w-100" 
+                            Placeholder="- Select -" Data=@designations TextProperty="Name" ValueProperty="Id"/>
+
+        <ValidationMessage For="@(() => contact.DesignationId)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Email" class="col-sm-4 col-form-label fw-bold">Email</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="contact.Email"></InputText>
+        <ValidationMessage For="@(() => contact.Email)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Phone" class="col-sm-4 col-form-label fw-bold">Phone</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="contact.Phone"></InputText>
+        <ValidationMessage For="@(() => contact.Phone)" />
+    </div>
+</div>
+
+@*<div class="mb-2 row">
+    <label for="ProfileImageUrl" class="col-sm-4 col-form-label fw-bold">ProfileImageUrl</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="contact.ProfileImageUrl"></InputText>
+        <ValidationMessage For="@(() => contact.ProfileImageUrl)" />
+    </div>
+</div>*@
+
+<div class="mb-2 row">
+    <label for="AccountHeadType" class="col-sm-4 col-form-label fw-bold">Status</label>
+    <div class="col-sm-8">
+          <InputSelect @bind-Value="contact.Status" class="form-select">
+            <option value="0">- Select -</option>
+            @foreach (var headType in Enum.GetValues(typeof(GeneralStatus)))
+            {
+                <option value="@((int)headType)">@headType</option>
+            }
+         </InputSelect>
+        <ValidationMessage For="@(() => contact.Status)" />
+    </div>
+</div>
+
+
+
+@code {
+    [Parameter]
+    public Contact contact { get; set; }
+
+    [Parameter]
+    public List<Designation> designations { get; set; }
+
+    [Parameter]
+    public List<Company> companies { get; set; }
+}

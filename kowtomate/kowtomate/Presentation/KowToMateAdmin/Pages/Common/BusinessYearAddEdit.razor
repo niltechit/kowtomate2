@@ -1,0 +1,42 @@
+﻿@using Accounting.Data.Models.Master
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Name</label>
+    <div class="col-sm-8">
+      <InputText class="form-control" @bind-Value="businessYear.Name"></InputText>
+        <ValidationMessage For="@(() => businessYear.Name)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="Start Date" class="col-sm-4 col-form-label fw-bold">Start Date</label>
+    <div class="col-sm-8">      
+       <InputDate class="form-control" @bind-Value="businessYear.StartDate"></InputDate>
+        <ValidationMessage For="@(() => businessYear.StartDate)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for=">EndDate" class="col-sm-4 col-form-label fw-bold">End Date</label>
+    <div class="col-sm-8">
+       <InputDate class="form-control" @bind-Value="businessYear.EndDate"></InputDate>
+        <ValidationMessage For="@(() => businessYear.EndDate)" />
+    </div>
+</div>
+
+<div class="row">
+    <label for="IsActive" class="col-sm-4 col-form-label fw-bold">Status</label>
+    <div class="col-sm-8">
+        <div class="form-check mt-2">
+             <InputCheckbox @bind-Value="businessYear.IsActive" id="IsActive" class="form-check-input"></InputCheckbox>       
+             <label class="form-check-label" for="IsActive">
+                Is Active
+             </label>
+        </div>
+      
+       <ValidationMessage For="@(() => businessYear.IsActive)" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public BusinessYearModel businessYear { get; set; }
+}

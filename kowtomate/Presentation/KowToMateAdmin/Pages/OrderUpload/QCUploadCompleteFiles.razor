@@ -1,0 +1,1155 @@
+﻿@page "/QCUploadCompleteFiles/{objectId}"
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.ClientOrders
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.Models.OrderAndOrderItemStatusChangeLog
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.ClientOrders
+@using CutOutWiz.Services.Logs;
+@using CutOutWiz.Services.Models.FileUpload
+@using CutOutWiz.Services.OrderItemStatusChangeLogService
+@using CutOutWiz.Services.OrderAndOrderItemStatusChangeLogServices
+@using CutOutWiz.Services.Security
+@using CutOutWiz.Services.StorageService
+@using FluentFTP
+@using KowToMateAdmin.Helper
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Models;
+@using KowToMateAdmin.Services;
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IJSRuntime js
+@inject IFileServerManager _fileServerService
+@inject ICompanyManager _companyService
+@inject IWorkContext _workContext
+@inject IFtpService _ftpService
+@inject IClientOrderService _orderService
+@inject IClientOrderItemService _orderFileService
+@inject IContactManager _contactManager
+@inject IClientOrderItemService _clientOrderItemService
+@inject NavigationManager UriHelper
+@inject IOrderStatusChangeLogService _orderStatusChangeLogService
+@inject IOrderItemStatusChangeLogService _orderItemStatusChangeLogService
+@inject IFluentFtpService _fluentFtpService
+@inject ICompanyTeamManager _companyTeamService
+@inject IFtpFilePathService _ftpFilePathService
+@inject ILogServices _activityLogService
+@inject IAcitivityLogCommonMethodService _activityLogCommonMethodService
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Order : @order.OrderNumber
+                @*<span>(@filteredStandardServices.Count)</span>*@
+            </h4>
+            <div class="page-title-right">
+                @*<ol class="breadcrumb m-0">
+                <li class="breadcrumb-item"><a emailef="javascript: void(0);">Invoices</a></li>
+                <li class="breadcrumb-item active">Invoice List</li><span class="fas fa-pencil-alt"></span><i class="fa-solid fa-backward"></i><i class="fa-solid fa-circle-arrow-left"></i>
+                </ol>*@
+                <a type="button" class="btn btn-sm btn-warning" href="/order/Details/@objectId"><span class="fas fa-angle-double-left"></span> Back</a>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+<EditForm Model=@order OnValidSubmit="@UploadCompletedFiles">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    <DataAnnotationsValidator />
+                    <div>
+                        <div class="mb-3">
+                            <label class="d-block mb-3" style="text-align:center;font:bold;color:blue"><h4 style="color:blue">QC Upload Completed Files</h4></label>
+                        </div>
+                        <div class="mb-3">
+                            <label class="d-block mb-3">Select Upload Option</label>
+
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" @onclick="ShowFolder" type="radio" name="outer-group[0][inlineRadioOptions]" id="inlineRadio1" checked="1" value="option1">
+                                <label class="form-check-label" for="inlineRadio1">Folder Upload</label>
+                            </div>
+                            @*<div class="form-check form-check-inline">
+                            <input class="form-check-input" @onclick="ShowFile" type="radio" name="outer-group[0][inlineRadioOptions]" id="inlineRadio2" value="option2">
+                            <label class="form-check-label" for="inlineRadio2">File Upload</label>
+                            </div>*@
+                        </div>
+
+                        @*						<form action="#" class="dropzone">
+                        <div class="fallback">*@
+                        @*<inputFile name="file" OnChange="OnInputFileChange" type="file" multiple="multiple"></inputFile>*@
+                        @if (AllowFolderUpload)
+                        {
+                            <InputFile id="myCompleteQCFileUpload" OnChange="@LoadFolder" webkitdirectory directory multiple disabled=@isUploadDisabled />
+                        }
+                        else
+                        {
+                            <InputFile OnChange="@LoadFiles" multiple disabled=@isUploadDisabled />
+                        }
+                        @*							</div>
+                        </form>*@
+                        @if (isProgressbar)
+                        {
+                            @if (CurrentValue > 0)
+                            {
+                                <div class="row">
+                                    <div class="col-lg-10">
+                                        <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Secondary" Value="CurrentValue" Max="100" Style="margin-top:20px;background-color:aquamarine" />
+                                    </div>
+                                    @*<div class="col-lg-2 mt-3">
+                            <button type="button" class="btn btn-danger btn-sm btn-rounded" @onclick="UploadItemCancel">Cancel Upload</button>
+                            </div>*@
+                                </div>
+                            }
+                        }
+                        @if (order.orderItems != null)
+                        {
+                            <table class="table table-bordered table-sm">
+
+                                @foreach (var item in order.orderItems)
+                                {
+                                    <tr>
+                                        @if (!string.IsNullOrEmpty(item.InternalFileOutputPath))
+                                        {
+                                            string[] paths = item.InternalFileOutputPath.Split(new[] { order.OrderNumber }, StringSplitOptions.None);
+
+                                            @*<td>
+                                @paths[1].Trim('/')
+                                </td>*@
+                                        }
+                                        <td>
+                                            @item.FileName
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-tbl-action text-danger" @onclick="() => DeleteImagesOnPreview(item)">
+                                                <span class="fas fa-times"></span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </table>
+                        }
+
+                        @*<div class="mb-3 mt-3">
+                        <button type="submit" class="btn btn-primary me-2" disabled="@isSubmitting">Upload Completed Files</button>
+                        </div>*@
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</EditForm>
+@if (spinShow)
+{
+    @*<div class="spinner"></div>*@
+    <div class="loader">
+        <Grid />
+    </div>
+}
+@code {
+
+    [Parameter]
+    public string objectId { get; set; }
+    private ClientOrderModel order = new ClientOrderModel();
+    private IReadOnlyList<IBrowserFile> loadedFiles { get; set; }
+    bool isSubmitting;
+    private LoginUserInfoViewModel loginUser = null;
+    //Progress Bar
+    private double maxValue;
+    private double CurrentValue = 0;
+    // For Hide Control
+    private bool AllowFolderUpload = true;
+    private List<string> ItemPathList = new List<string>();
+    private string extensionName = "default";
+
+    CompanyModel company = new CompanyModel();
+    ContactModel contactInfo = new ContactModel();
+    FileServerModel serverInfo = new FileServerModel();
+
+    DateTimeConfiguration _dateTime = new DateTimeConfiguration();
+    bool isUploadDisabled = false;
+    bool isProgressbar = false;
+    bool spinShow = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+        order = await _orderService.GetByObjectId(objectId);
+        company = await _companyService.GetById(order.CompanyId);
+        serverInfo = await _fileServerService.GetById((int)order.FileServerId);
+        contactInfo = await _contactManager.GetById(loginUser.ContactId);
+    }
+
+    private async Task UploadCompletedFiles()
+    {
+        if (order.orderItems.Count == 0)
+        {
+            await js.DisplayMessage($"Upload at least one file !");
+            return;
+        }
+        //Upload Folder with files
+        if (order.orderItems != null || !order.orderItems.Any())
+        {
+            ClientOrderItemModel fileExists = new ClientOrderItemModel();
+            foreach (var file in order.orderItems)
+            {
+                await UpdateOrderItemStatus(order, file);
+            }
+        }
+        if (ItemPathList.Count > 0)
+        {
+            await js.DisplayMessage($"File Uploaded Successfully");
+            UriHelper.NavigateTo("/order/Details" + "/" + objectId);
+        }
+    }
+    private async void LoadFiles(InputFileChangeEventArgs args)
+    {
+        //await Task.Yield();
+        isUploadDisabled = true;
+        spinShow = true;
+        this.StateHasChanged();
+        loadedFiles = args.GetMultipleFiles(maximumFileCount: 100000000);
+        maxValue = args.GetMultipleFiles(maximumFileCount: 100000000).Count();
+        await Task.Yield();
+
+        var clientItemFile = await _orderFileService.GetByIdOrderId((int)order.Id);
+        ClientOrderItemModel fileExists = new ClientOrderItemModel();
+        List<ClientOrderItemModel> checkListFile = new List<ClientOrderItemModel>();
+        List<ClientOrderItemModel> NotInQCFileList = new List<ClientOrderItemModel>();
+        isProgressbar = true;
+        if (isProgressbar)
+        {
+            spinShow = false;
+            this.StateHasChanged();
+            CurrentValue = 0.1;
+        }
+        var count = 0;
+        var fileServerViewModel = new FileServerViewModel()
+            {
+                Host = serverInfo.Host,
+                UserName = serverInfo.UserName,
+                Password = serverInfo.Password,
+            };
+        using (var ftp = await _fluentFtpService.CreateFtpClient(fileServerViewModel))
+        {
+            ftp.Config.EncryptionMode = FtpEncryptionMode.Auto;
+            ftp.Config.ValidateAnyCertificate = true;
+            await ftp.AutoConnect();
+            foreach (var file in loadedFiles)
+            {
+                try
+                {
+                    FileUploadModel modell = new FileUploadModel();
+
+                    var orderItemFile = new ClientOrderItemModel();
+                    orderItemFile.FileName = file.Name;
+                    orderItemFile.ClientOrderId = order.Id;
+
+                    if (orderItemFile != null)
+                    {
+                        var fileExistList = await _orderFileService.GetByFileByOrderIdAndFileNameList(orderItemFile);
+                        if (fileExistList.Count > 1)
+                        {
+                            await js.DisplayMessage($"The {file.Name} File have too many, SO Please Contact Team Lead or Management or Software Team");
+                            isUploadDisabled = false;
+                            isProgressbar = false;
+                            StateHasChanged();
+                            return;
+                        }
+                        fileExists = fileExistList.FirstOrDefault();
+                    }
+                    if (fileExists.Status == (byte)InternalOrderItemStatus.ProductionDone || fileExists.Status == (byte)InternalOrderItemStatus.ReworkDone)
+                    {
+                        NotInQCFileList.Add(fileExists);
+                        break;
+                    }
+                    if (fileExists != null)
+                    {
+                        await _dateTime.DateTimeConvert(order.CreatedDate);
+
+                        modell.ReturnPath = $"{company.Code}/{_dateTime.year}/{_dateTime.month}/{_dateTime.date}/Completed/";
+
+                        var destination = $"{modell.ReturnPath}\\{order.OrderNumber}\\{file.Name}";
+                        if (!string.IsNullOrWhiteSpace(serverInfo.SubFolder))
+                        {
+                            destination = $"{serverInfo.SubFolder}/{destination}";
+                        }
+                        if (!string.IsNullOrWhiteSpace(serverInfo.SubFolder))
+                        {
+                            await ftp.UploadStream(file.OpenReadStream(maxAllowedSize: file.Size * 1024), $"{serverInfo.SubFolder}\\{destination}", FtpRemoteExists.Overwrite, true);
+                        }
+                        else
+                        {
+                            await ftp.UploadStream(file.OpenReadStream(maxAllowedSize: file.Size * 1024), destination, FtpRemoteExists.Overwrite, true);
+                        }
+
+                        orderItemFile.CompanyId = fileExists.CompanyId;
+                        orderItemFile.FileName = file.Name;
+                        orderItemFile.PartialPath = fileExists.PartialPath;
+                        orderItemFile.InternalFileOutputPath = $"{modell.ReturnPath}/{fileExists.PartialPath}/{file.Name}".Replace("//", "/");
+
+
+
+                        //modell.UploadDirectory = await _ftpService.CreateFtpFolder(modell);
+
+                        orderItemFile.FileName = file.Name;
+                        orderItemFile.File = file;
+                        //
+                        orderItemFile.Id = fileExists.Id;
+                        orderItemFile.ObjectId = fileExists.ObjectId;
+                        orderItemFile.CreatedByContactId = loginUser.ContactId;
+                        orderItemFile.FileName = file.Name;
+                        orderItemFile.FileType = file.ContentType;
+                        orderItemFile.FileSize = (byte)file.Size;
+
+                        await _orderFileService.UpdateItemByQC(orderItemFile);
+                        order.orderItems.Add(orderItemFile);
+
+                    }
+                    if (fileExists == null)
+                    {
+                        checkListFile.Add(orderItemFile);
+                    }
+
+                }
+                catch (Exception exception)
+                {
+
+                }
+                count++;
+                CurrentValue = Math.Round((float)((100 / maxValue) * count), 2);
+                this.StateHasChanged();
+            }
+            await ftp.Disconnect();
+        }
+        if (CurrentValue == 100)
+        {
+            CurrentValue = 0;
+            isProgressbar = false;
+            spinShow = true;
+            this.StateHasChanged();
+        }
+        if (checkListFile.Count > 0)
+        {
+            var text = await CreateTextFileName(checkListFile);
+            await js.DisplayMessage($"This Image File is not for this Order {order.OrderNumber}\n{text}");
+            spinShow = false;
+            isUploadDisabled = false;
+            this.StateHasChanged();
+            return;
+        }
+        if (NotInQCFileList.Count > 0)
+        {
+            var text = await CreateTextFileName(NotInQCFileList);
+            await js.DisplayMessage($"This Image File is not InQC Status. So that files not update.\n{text}");
+            spinShow = false;
+            isUploadDisabled = false;
+            this.StateHasChanged();
+        }
+        if (order.orderItems.Count > 0)
+        {
+            foreach (var orderItem in order.orderItems)
+            {
+                await UpdateOrderItemStatus(order, orderItem);
+            }
+            await js.DisplayMessage($"File Uploaded Successfully");
+            UriHelper.NavigateTo("/order/Details" + "/" + objectId);
+        }
+        isUploadDisabled = false;
+        this.StateHasChanged();
+    }
+    #region Folder Upload Model
+    private static List<FileForUploadDetails> _CompleteQCselectedFileFromJs = new List<FileForUploadDetails>();
+    private List<IBrowserFile> loadedFiless = new();
+    private string baseFolder = "";
+    public class FileForUploadDetails
+    {
+        public string Name { get; set; }
+
+        public string Path { get; set; }
+    }
+
+    [JSInvokable]
+    public static Task GetCompleteQCSelectedFileDetails(List<FileForUploadDetails> files)
+    {
+        _CompleteQCselectedFileFromJs = files;
+        return Task.CompletedTask;
+    }
+    protected override void OnAfterRender(bool firstRender)
+    {
+        js.InvokeVoidAsync("completeattachQCFileUploadHandler");
+    }
+    private async Task LoadFolder(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            spinShow = true;
+            this.StateHasChanged();
+            isUploadDisabled = true;
+            loadedFiless = e.GetMultipleFiles(maximumFileCount: 100000000).ToList();
+            maxValue = e.GetMultipleFiles(maximumFileCount: 100000000).Count();
+            bool replaceResult = false;
+            var clientItemFile = await _orderFileService.GetByIdOrderId((int)order.Id);
+            ClientOrderItemModel fileExists = new ClientOrderItemModel();
+            List<ClientOrderItemModel> checkListFile = new List<ClientOrderItemModel>();
+            List<ClientOrderItemModel> NotInQCFileList = new List<ClientOrderItemModel>();
+            List<ClientOrderItemModel> ftpCheckingFile = new List<ClientOrderItemModel>();
+            FileUploadModel modell = new FileUploadModel();
+            isProgressbar = true;
+            if (isProgressbar)
+            {
+                spinShow = false;
+                this.StateHasChanged();
+                CurrentValue = 0.1;
+            }
+            var count = 0;
+            var fileServerViewModel = new FileServerViewModel()
+                {
+                    Host = serverInfo.Host,
+                    UserName = serverInfo.UserName,
+                    Password = serverInfo.Password,
+                };
+            using (var ftp = await _fluentFtpService.CreateFtpClient(fileServerViewModel))
+            {
+                var clientOrder = await _orderService.GetById((int)order.Id);
+                var isAllowExtraOutputFileUpload = clientOrder.AllowExtraOutputFileUpload;
+
+                var takeFirstFileFromUploadedFiles = _CompleteQCselectedFileFromJs[0].Path;
+                var takeOrderNumberFromUploadFilePath = takeFirstFileFromUploadedFiles.Split("/")[0];
+                if (takeOrderNumberFromUploadFilePath.ToLower() == order.OrderNumber.ToLower())
+                {
+                    int uploadingFile = 1;
+
+                    ftp.Config.EncryptionMode = FtpEncryptionMode.Auto;
+                    ftp.Config.ValidateAnyCertificate = true;
+                    await ftp.AutoConnect();
+                    for (int i = 0; i < loadedFiless.Count; i++)
+                    {
+                        if (uploadingFile > 10)
+                        {
+                            await ftp.Disconnect();
+                            ftp.Config.EncryptionMode = FtpEncryptionMode.Auto;
+                            ftp.Config.ValidateAnyCertificate = true;
+                            await ftp.AutoConnect();
+                            uploadingFile = 1;
+                        }
+
+                        var completefilePath = _CompleteQCselectedFileFromJs[i].Path;
+                        var file = loadedFiless[i];
+
+                        fileExists = new ClientOrderItemModel();
+                        var orderItemFile = new ClientOrderItemModel();
+                        orderItemFile.FileName = file.Name;
+                        orderItemFile.FileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.Name);
+                        orderItemFile.ClientOrderId = order.Id;
+                        orderItemFile.CompanyId = company.Id;
+                        var filepath = Path.GetDirectoryName(completefilePath);
+
+
+                        // Thumb File Uplaod Prevent
+                        if (Path.GetExtension(orderItemFile.FileName) == ".db")
+                        {
+                            count++;
+                            CurrentValue = Math.Round((float)((100 / maxValue) * count), 2);
+                            StateHasChanged();
+                            continue;
+                        }
+
+                        if (!string.IsNullOrEmpty(filepath))
+                        {
+                            var takeOrderNumberFromUploadPath = filepath.Split("\\")[0];
+                            if (takeOrderNumberFromUploadPath == order.OrderNumber)
+                            {
+                                var replaceString = filepath.Replace($"\\", @"/");
+                                orderItemFile.PartialPath = @"/" + replaceString /*+ @"/"*/;
+                            }
+                            else
+                            {
+                                var replaceString = filepath.Replace($"\\", @"/");
+                                orderItemFile.PartialPath = $"/{order.OrderNumber}/{replaceString}";
+                            }
+
+                        }
+
+                        if (!string.IsNullOrEmpty(orderItemFile.FileName) && !string.IsNullOrEmpty(orderItemFile.PartialPath))
+                        {
+
+                            if (isAllowExtraOutputFileUpload)
+                            {
+                                fileExists = await _orderFileService.GetByFileByOrderIdAndFileNameAndPath(orderItemFile);
+                                if (fileExists == null)
+                                {
+                                    var filesExistList = await _orderFileService.GetFileListByOrderIdAndFileName(orderItemFile);
+
+
+                                    if (filesExistList == null || !filesExistList.Any())
+                                    {
+                                        var addItemResponse = await AddOrderItem(orderItemFile, file);
+                                        if (addItemResponse.Result > 0)
+                                        {
+                                            fileExists = await _orderFileService.GetById(addItemResponse.Result);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (filesExistList.Count == 1)
+                                        {
+                                            fileExists = filesExistList.FirstOrDefault();
+                                            if (fileExists.Status == (byte)InternalOrderItemStatus.ReadyToDeliver)
+                                            {
+                                                var lastIndexOfOrderNumber = fileExists.InternalFileOutputPath.LastIndexOf(order.OrderNumber);
+                                                var existingFileFolderPath = Path.GetDirectoryName("/" + fileExists.InternalFileOutputPath.Substring(lastIndexOfOrderNumber));
+                                                existingFileFolderPath = existingFileFolderPath.Replace("\\", "/");
+                                                if (existingFileFolderPath != orderItemFile.PartialPath)
+                                                {
+                                                    var addItemResponse = await AddOrderItem(orderItemFile, file);
+                                                    if (addItemResponse.Result > 0)
+                                                    {
+                                                        fileExists = await _orderFileService.GetById(addItemResponse.Result);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            //
+                                            List<string> temporyOutPutFolderPathList = new();
+                                            foreach (var item in filesExistList)
+                                            {
+                                                if (item.InternalFileOutputPath != null)
+                                                {
+                                                    var lastIndexOfOrderNumber = item.InternalFileOutputPath.LastIndexOf(order.OrderNumber);
+                                                    var existingFileFolderPath = Path.GetDirectoryName("/" + item.InternalFileOutputPath.Substring(lastIndexOfOrderNumber));
+                                                    existingFileFolderPath = existingFileFolderPath.Replace("\\", "/");
+                                                    temporyOutPutFolderPathList.Add(existingFileFolderPath);
+                                                }
+
+                                            }
+                                            if (!temporyOutPutFolderPathList.Contains(orderItemFile.PartialPath))
+                                            {
+                                                var addItemResponse = await AddOrderItem(orderItemFile, file);
+                                                if (addItemResponse.Result > 0)
+                                                {
+                                                    fileExists = await _orderFileService.GetById(addItemResponse.Result);
+                                                }
+                                            }
+                                            else
+                                            {
+                                                var indexOfOutPutFolderMatchingPath = temporyOutPutFolderPathList.IndexOf(orderItemFile.PartialPath);
+                                                fileExists = filesExistList[indexOfOutPutFolderMatchingPath];
+                                            }
+
+                                        }
+                                    }
+
+                                }
+                            }
+                            else
+                            {
+                                fileExists = await _orderFileService.GetByFileByOrderIdAndFileNameAndPath(orderItemFile);
+                            }
+
+                            if (fileExists != null)
+                            {
+                                orderItemFile.Id = (int)fileExists.Id;
+                            }
+                            //fileExists = await _orderFileService.GetByFileByOrderIdAndFileNameAndPath(orderItemFile);
+                        }
+
+                        if (fileExists != null)
+                        {
+                            if (fileExists != null && fileExists.Status == (byte)InternalOrderItemStatus.ProductionDone || fileExists.Status == (byte)InternalOrderItemStatus.ReworkDone)
+                            {
+                                NotInQCFileList.Add(fileExists);
+                                break;
+                            }
+                            await _dateTime.DateTimeConvert(order.CreatedDate);
+
+                            modell.ReturnPath = $"{company.Code}/{_dateTime.year}/{_dateTime.month}/{_dateTime.date}/Completed";
+
+                            modell.file = file;
+                            modell.OrderNumber = order.OrderNumber;
+                            modell.FtpUrl = serverInfo.Host;
+                            modell.userName = serverInfo.UserName;
+                            modell.password = serverInfo.Password;
+                            modell.SubFolder = serverInfo.SubFolder;
+                            modell.FolderName = filepath;
+
+                            var fileFtpChecking = await _fluentFtpService.FileExists(modell);
+
+                            if (fileFtpChecking)
+                            {
+                                fileExists.File = file;
+                                fileExists.ExternalFileOutputPath = $"{modell.ReturnPath}\\{modell.FolderName}\\{modell.file.Name}";
+                                fileExists.InternalFileOutputPath = $"{modell.ReturnPath}\\{orderItemFile.PartialPath}\\{file.Name}";
+                                ftpCheckingFile.Add(fileExists);
+                            }
+
+                            else
+                            {
+                                if (!string.IsNullOrWhiteSpace(serverInfo.SubFolder))
+                                {
+                                    await ftp.UploadStream(file.OpenReadStream(maxAllowedSize: file.Size * 1024), $"{serverInfo.SubFolder}\\{modell.ReturnPath}\\{orderItemFile.PartialPath}\\{file.Name}", FtpRemoteExists.Overwrite, true);
+                                }
+                                else
+                                {
+                                    await ftp.UploadStream(file.OpenReadStream(maxAllowedSize: file.Size * 1024), $"{modell.ReturnPath}\\{orderItemFile.PartialPath}\\{file.Name}", FtpRemoteExists.Overwrite, true);
+                                }
+                                uploadingFile += 1;
+
+                                orderItemFile.CompanyId = fileExists.CompanyId;
+                                orderItemFile.FileName = file.Name;
+                                orderItemFile.InternalFileOutputPath = $"{modell.ReturnPath}/{orderItemFile.PartialPath}/{file.Name}".Replace("//", "/");
+                                orderItemFile.FileName = file.Name;
+                                orderItemFile.File = file;
+                                orderItemFile.Id = fileExists.Id;
+                                orderItemFile.ObjectId = fileExists.ObjectId;
+                                orderItemFile.CreatedByContactId = loginUser.ContactId;
+                                orderItemFile.FileName = file.Name;
+                                orderItemFile.FileType = file.ContentType;
+                                orderItemFile.FileSize = (byte)file.Size;
+                                await _orderFileService.UpdateItemByQC(orderItemFile);
+                                await UpdateOrderItemStatus(order, orderItemFile);
+                                //order.orderItems.Add(orderItemFile);
+                                await InsertQcUploadActivityLog(orderItemFile, completefilePath);
+                            }
+                        }
+                        if (fileExists == null)
+                        {
+                            checkListFile.Add(orderItemFile);
+                        }
+                        count++;
+                        CurrentValue = Math.Round((float)((100 / maxValue) * count), 2);
+                        this.StateHasChanged();
+                    }
+                }
+                else
+                {
+                    CurrentValue = 0;
+                    spinShow = false;
+                    await js.DisplayMessage($"Please Provide With Folder Name Like Order Number {order.OrderNumber}");
+                    this.StateHasChanged();
+                }
+                await ftp.Disconnect();
+            }
+            if (CurrentValue == 100)
+            {
+                CurrentValue = 0;
+                spinShow = true;
+                this.StateHasChanged();
+            }
+
+            if (ftpCheckingFile.Count > 0)
+            {
+                var text = await CreateTextFileName(ftpCheckingFile);
+                maxValue = ftpCheckingFile.Count();
+                count = 0;
+                spinShow = false;
+                this.StateHasChanged();
+                if (await js.ReplaceConfirmation("", $"Are you want to replace this files {order.OrderNumber}\n{text}", SweetAlertTypeMessagee.question))
+                {
+                    spinShow = true;
+                    this.StateHasChanged();
+                    isProgressbar = true;
+                    if (isProgressbar)
+                    {
+                        spinShow = false;
+                        this.StateHasChanged();
+                        CurrentValue = 0.1;
+                        this.StateHasChanged();
+                    }
+
+                    using (var ftp = await _fluentFtpService.CreateFtpClient(fileServerViewModel))
+                    {
+                        ftp.Config.EncryptionMode = FtpEncryptionMode.Auto;
+                        ftp.Config.ValidateAnyCertificate = true;
+                        await ftp.AutoConnect();
+                        foreach (var file in ftpCheckingFile)
+                        {
+                            var orderItemFile = new ClientOrderItemModel();
+
+                            //Why we do not upload using qc upload path wise.
+
+                            //if (string.IsNullOrWhiteSpace(file.InternalFileOutputPath))
+                            //{
+                            //    if (!string.IsNullOrWhiteSpace(file.ProductionDoneFilePath))
+                            //    {
+                            //        var firstPath = file.ProductionDoneFilePath.Split("In Progress")[0];
+                            //        var secoundPath = file.ProductionDoneFilePath.Split("Production Done")[1];
+                            //        if (!string.IsNullOrWhiteSpace(modell.SubFolder))
+                            //        {
+                            //            file.InternalFileOutputPath = $"{modell.SubFolder}/{firstPath}/Completed/{secoundPath}";
+                            //        }
+                            //        else
+                            //        {
+                            //            file.InternalFileOutputPath = $"{firstPath}/Completed/{secoundPath}";
+                            //        }
+                            //    }
+                            //    else
+                            //    {
+                            //        continue;
+                            //    }
+
+                            //    //file.InternalFileOutputPath = Path.GetDirectoryName(thirdPath);
+                            //}
+
+                            if (!string.IsNullOrEmpty(serverInfo.SubFolder))
+                            {
+                                // No need file delete reason for always overwrite file
+                                //await ftp.DeleteFile(serverInfo.SubFolder+"\\"+file.InternalFileOutputPath);
+                                string uploadPath = serverInfo.SubFolder + "\\" + file.InternalFileOutputPath;
+                                await ftp.UploadStream(file.File.OpenReadStream(maxAllowedSize: file.File.Size * 1024), uploadPath, FtpRemoteExists.Overwrite, true);
+                            }
+                            else
+                            {
+                                //await ftp.DeleteFile(file.InternalFileOutputPath);
+                                //if (!string.IsNullOrWhiteSpace(serverInfo.SubFolder))
+                                //{
+                                //    string uploadPath = $"{serverInfo.SubFolder}\\{file.InternalFileOutputPath}";
+                                //    await ftp.UploadStream(file.File.OpenReadStream(maxAllowedSize: file.File.Size * 1024), uploadPath, FtpRemoteExists.Overwrite, true);
+                                //}
+                                //else
+                                //{
+                                  await ftp.UploadStream(file.File.OpenReadStream(maxAllowedSize: file.File.Size * 1024), file.InternalFileOutputPath, FtpRemoteExists.Overwrite, true);
+                                //}
+                            }
+
+                            orderItemFile.PartialPath = file.PartialPath;
+                            orderItemFile.InternalFileOutputPath = file.InternalFileOutputPath;
+
+                            orderItemFile.Id = file.Id;
+                            var name = file.File.Name.ToString();
+                            orderItemFile.FileName = name;
+                            orderItemFile.File = file.File;
+                            orderItemFile.ObjectId = Guid.NewGuid().ToString();
+                            orderItemFile.CreatedByContactId = loginUser.ContactId;
+                            orderItemFile.FileName = file.File.Name;
+                            orderItemFile.FileType = file.File.ContentType;
+                            orderItemFile.FileSize = (byte)file.File.Size;
+                            orderItemFile.CompanyId = file.CompanyId;
+                            orderItemFile.ClientOrderId = file.ClientOrderId;
+                            orderItemFile.PartialPath = file.PartialPath;
+                            await _clientOrderItemService.UpdateItemByQC(orderItemFile);
+                            await UpdateOrderItemStatus(order, orderItemFile);
+                            //order.orderItems.Add(orderItemFile);
+                            count++;
+                            CurrentValue = Math.Round((float)((100 / maxValue) * count), 2);
+                            replaceResult = true;
+                            this.StateHasChanged();
+                        }
+                        await ftp.Disconnect();
+                        if (CurrentValue == 100)
+                        {
+                            CurrentValue = 0;
+                            spinShow = true;
+                            this.StateHasChanged();
+                        }
+                    }
+                }
+                UriHelper.NavigateTo("/order/Details" + "/" + objectId);
+            }
+            if (checkListFile.Count > 0)
+            {
+                var text = await CreateTextFileName(checkListFile);
+                spinShow = false;
+                StateHasChanged();
+                await js.DisplayMessage($"This Image File is not for this Order {order.OrderNumber}\n{text}");
+                StateHasChanged();
+                CurrentValue = 0;
+                isUploadDisabled = false;
+                UriHelper.NavigateTo("/order/Details" + "/" + objectId);
+                return;
+
+            }
+            if (NotInQCFileList.Count > 0)
+            {
+                var text = await CreateTextFileName(NotInQCFileList);
+                await js.DisplayMessage($"This Image File is not InQC Status. So that files not update.\n{text}");
+                spinShow = false;
+                isUploadDisabled = false;
+                this.StateHasChanged();
+            }
+            //if (checkListFile.Count == 0 && NotInQCFileList.Count == 0 && ftpCheckingFile.Count == 0 && order.orderItems.Count>0)
+            //{
+            spinShow = false;
+            this.StateHasChanged();
+            await js.DisplayMessage($"File Uploaded Successfully");
+            UriHelper.NavigateTo("/order/Details" + "/" + objectId);
+            //}
+            if (replaceResult)
+            {
+                await js.DisplayMessage($"File Uploaded Successfully");
+                UriHelper.NavigateTo("/order/Details" + "/" + objectId);
+            }
+            spinShow = false;
+            isUploadDisabled = false;
+            this.StateHasChanged();
+        }
+
+        catch (Exception ex)
+        {
+            CommonActivityLogViewModel activity = new CommonActivityLogViewModel()
+                {
+                    PrimaryId = (int)order.Id,
+                    ActivityLogFor = (int)ActivityLogForConstants.Order,
+                    loginUser = loginUser,
+                    ErrorMessage = ex.Message,
+                    MethodName = "LoadFolder",
+                    RazorPage = "QCUploadCompleteFiles.razor",
+                    Category = (int)ActivityLogCategory.QcUploadCompletedFileError,
+                };
+            await _activityLogCommonMethodService.InsertErrorActivityLog(activity);
+            await js.DisplayMessage($"{ex.Message}");
+        }
+    }
+    #endregion
+    private void ShowFolder()
+    {
+        AllowFolderUpload = true;
+    }
+    private void ShowFile()
+    {
+        AllowFolderUpload = false;
+    }
+
+    private async Task UpdateOrderItemStatus(ClientOrderModel order, ClientOrderItemModel clientOrderItem)
+    {
+        try
+        {
+            var orderItem = await _clientOrderItemService.GetById((int)clientOrderItem.Id);
+
+            if (orderItem != null)
+            {
+                orderItem.Status = (byte)InternalOrderItemStatus.ReadyToDeliver;
+                orderItem.ExternalStatus = (byte)EnumHelper.ExternalOrderItemStatusChange(InternalOrderItemStatus.ReadyToDeliver);
+                await _clientOrderItemService.UpdateClientOrderItemStatus(orderItem);
+
+                await AddOrderItemStatusChangeLog(orderItem, (InternalOrderItemStatus)orderItem.Status);
+
+                var orderAllItem = await _clientOrderItemService.GetAllOrderItemByOrderId((int)order.Id);
+                UpdateOrder(order, await GetInternalOrderStatus(orderAllItem));//Todo:RakibStatus
+            }
+        }
+        catch (Exception ex)
+        {
+
+            CommonActivityLogViewModel activity = new CommonActivityLogViewModel()
+                {
+                    PrimaryId = (int)order.Id,
+                    ActivityLogFor = (int)ActivityLogForConstants.Order,
+                    loginUser = loginUser,
+                    ErrorMessage = ex.Message,
+                    MethodName = "UpdateOrderItemStatus",
+                    RazorPage = "QCUploadCompleteFiles.razor",
+                    Category = (int)ActivityLogCategory.UpdateOrderItemStatusError,
+                };
+
+            await _activityLogCommonMethodService.InsertErrorActivityLog(activity);
+            await js.DisplayMessage(ex.Message);
+        }
+
+    }
+
+    private async void UpdateOrder(ClientOrderModel clientOrder, InternalOrderStatus status)
+    {
+        try
+        {
+            if (status == InternalOrderStatus.AssignedForSupport)
+            {
+                status = InternalOrderStatus.Assigned;
+            }
+            clientOrder.InternalOrderStatus = (byte)status;
+            clientOrder.ExternalOrderStatus = (byte)(EnumHelper.ExternalOrderStatusChange(status));
+            await _orderService.UpdateClientOrderStatus(clientOrder);
+
+            await AddOrderStatusChangeLog(clientOrder, status);
+        }
+        catch (Exception ex)
+        {
+            CommonActivityLogViewModel activity = new CommonActivityLogViewModel()
+                {
+                    PrimaryId = (int)order.Id,
+                    ActivityLogFor = (int)ActivityLogForConstants.Order,
+                    loginUser = loginUser,
+                    ErrorMessage = ex.Message,
+                    MethodName = "UpdateOrder",
+                    RazorPage = "QCUploadCompleteFiles.razor",
+                    Category = (int)ActivityLogCategory.UpdateOrderError,
+                };
+            await _activityLogCommonMethodService.InsertErrorActivityLog(activity);
+            await js.DisplayMessage($"{ex.Message}");
+        }
+
+    }
+
+    private async Task<InternalOrderStatus> GetInternalOrderStatus(List<ClientOrderItemModel> clientOrderItems)
+    {
+        try
+        {
+            await Task.Yield();
+            ClientOrderItemStatus clientOrderItemMinStatus = await _clientOrderItemService.GetOrderItemMinStatusByOrderId((int)order.Id);
+            InternalOrderStatus internalOrderItemStatus = (InternalOrderStatus)clientOrderItemMinStatus.Status;
+            return internalOrderItemStatus;
+        }
+        catch (Exception ex)
+        {
+            CommonActivityLogViewModel activity = new CommonActivityLogViewModel()
+                {
+                    PrimaryId = (int)order.Id,
+                    ActivityLogFor = (int)ActivityLogForConstants.Order,
+                    loginUser = loginUser,
+                    ErrorMessage = ex.Message,
+                    MethodName = "GetInternalOrderStatus",
+                    RazorPage = "QCUploadCompleteFiles.razor",
+                    Category = (int)ActivityLogCategory.GetInternalOrderStatusError,
+                };
+            await _activityLogCommonMethodService.InsertErrorActivityLog(activity);
+            await js.DisplayMessage($"{ex.Message}");
+
+            return 0;//TODO:Rakib , Aminul vai see
+        }
+
+
+    }
+
+    public async Task AddOrderStatusChangeLog(ClientOrderModel clientOrder, InternalOrderStatus internalOrderStatus)
+    {
+        try
+        {
+            var previousLog = await _orderStatusChangeLogService.OrderStatusLastChangeLogByOrderId((int)clientOrder.Id);
+            if (previousLog.NewInternalStatus != (byte)internalOrderStatus)
+            {
+                OrderStatusChangeLogModel orderStatusChangeLog = new OrderStatusChangeLogModel
+                    {
+                        OrderId = (int)clientOrder.Id,
+                        NewInternalStatus = (byte)internalOrderStatus,
+                        NewExternalStatus = (byte)EnumHelper.ExternalOrderStatusChange(internalOrderStatus),
+                        ChangeByContactId = loginUser.ContactId,
+                        ChangeDate = DateTime.Now
+                    };
+
+                if (previousLog != null)
+                {
+                    orderStatusChangeLog.OldExternalStatus = previousLog.NewExternalStatus;
+                    orderStatusChangeLog.OldInternalStatus = previousLog.NewInternalStatus;
+                    orderStatusChangeLog.TimeDurationInMinutes = (int)(orderStatusChangeLog.ChangeDate.Subtract(previousLog.ChangeDate).TotalMinutes);
+                }
+                await _orderStatusChangeLogService.Insert(orderStatusChangeLog);
+            }
+        }
+
+        catch (Exception ex)
+        {
+            CommonActivityLogViewModel activity = new CommonActivityLogViewModel()
+                {
+                    PrimaryId = (int)order.Id,
+                    ActivityLogFor = (int)ActivityLogForConstants.Order,
+                    loginUser = loginUser,
+                    ErrorMessage = ex.Message,
+                    MethodName = "AddOrderStatusChangeLog",
+                    RazorPage = "QCUploadCompleteFiles.razor",
+                    Category = (int)ActivityLogCategory.AddOrderStatusChangeLogError,
+                };
+            await _activityLogCommonMethodService.InsertErrorActivityLog(activity);
+            await js.DisplayMessage($"{ex.Message}");
+
+        }
+    }
+
+    public async Task AddOrderItemStatusChangeLog(ClientOrderItemModel clientOrderItem, InternalOrderItemStatus internalOrderItemStatus)
+    {
+        try
+        {
+            var previousLog = await _orderItemStatusChangeLogService.OrderItemStatusLastChangeLogByOrderFileId((int)clientOrderItem.Id);
+            if (previousLog != null && previousLog.NewInternalStatus != (byte)internalOrderItemStatus)
+            {
+                OrderItemStatusChangeLogModel orderItemStatusChangeLog = new OrderItemStatusChangeLogModel
+                    {
+                        OrderFileId = (int)clientOrderItem.Id,
+                        NewInternalStatus = (byte)internalOrderItemStatus,
+                        NewExternalStatus = (byte)EnumHelper.ExternalOrderItemStatusChange(internalOrderItemStatus),
+                        ChangeByContactId = loginUser.ContactId,
+                        ChangeDate = DateTime.Now
+                    };
+                if (previousLog != null)
+                {
+                    orderItemStatusChangeLog.OldExternalStatus = previousLog.NewExternalStatus;
+                    orderItemStatusChangeLog.OldInternalStatus = previousLog.NewInternalStatus;
+                    orderItemStatusChangeLog.TimeDurationInMinutes = (int)(orderItemStatusChangeLog.ChangeDate.Subtract(previousLog.ChangeDate).TotalMinutes);
+
+                }
+                await _orderItemStatusChangeLogService.Insert(orderItemStatusChangeLog);
+            }
+
+            else
+            {
+                OrderItemStatusChangeLogModel orderStatusChangeLog = new OrderItemStatusChangeLogModel
+                    {
+                        OrderFileId = (int)clientOrderItem.Id,
+                        NewInternalStatus = (byte)internalOrderItemStatus,
+                        NewExternalStatus = (byte)EnumHelper.ExternalOrderItemStatusChange(internalOrderItemStatus),
+                        ChangeByContactId = loginUser.ContactId,
+                        ChangeDate = DateTime.Now
+                    };
+                await _orderItemStatusChangeLogService.Insert(orderStatusChangeLog);
+            }
+        }
+
+        catch (Exception ex)
+        {
+            CommonActivityLogViewModel activity = new CommonActivityLogViewModel()
+                {
+                    PrimaryId = (int)order.Id,
+                    ActivityLogFor = (int)ActivityLogForConstants.Order,
+                    loginUser = loginUser,
+                    ErrorMessage = ex.Message,
+                    MethodName = "AddOrderItemStatusChangeLog",
+                    RazorPage = "QCUploadCompleteFiles.razor",
+                    Category = (int)ActivityLogCategory.AddOrderItemStatusChangeLogError,
+                };
+            await _activityLogCommonMethodService.InsertErrorActivityLog(activity);
+            await js.DisplayMessage($"{ex.Message}");
+
+        }
+    }
+    private async Task<string> CreateTextFileName(List<ClientOrderItemModel> files)
+    {
+        var text = "";
+        var fileName = "";
+        var filesArray = files.ToArray();
+        for (int i = 0; i < filesArray.ToList().Count; i++)
+        {
+            fileName += $"{i}) {filesArray[i].FileName}\n";
+        }
+        text = $"File Names : \n {fileName}\n";
+        return text;
+    }
+    private async void DeleteImagesOnPreview(ClientOrderItemModel file)
+    {
+        try
+        {
+            await Task.Yield();
+            order.orderItems.RemoveAll(f => f.ObjectId == file.ObjectId);
+            StateHasChanged();
+            await _clientOrderItemService.DeleteFileFromFtpByID((int)file.Id);
+        }
+        catch (Exception ex)
+        {
+            CommonActivityLogViewModel activity = new CommonActivityLogViewModel()
+                {
+                    PrimaryId = (int)order.Id,
+                    ActivityLogFor = (int)ActivityLogForConstants.Order,
+                    loginUser = loginUser,
+                    ErrorMessage = ex.Message,
+                    MethodName = "DeleteImagesOnPreview",
+                    RazorPage = "QCUploadCompleteFiles.razor",
+                    Category = (int)ActivityLogCategory.DeleteImagesOnPreviewError,
+                };
+            await _activityLogCommonMethodService.InsertErrorActivityLog(activity);
+            await js.DisplayMessage($"{ex.Message}");
+
+        }
+    }
+
+    private async Task<Response<long>> AddOrderItem(ClientOrderItemModel orderItem, IBrowserFile file)
+    {
+        var addItemResponse = new Response<long>();
+        try
+        {
+            var companyTeam = await _companyTeamService.GetTeamByCompanyId(order.CompanyId);
+            var clientOrderItem = new ClientOrderItemModel
+                {
+                    FileName = file.Name,
+                    FileType = file.ContentType,
+                    FileSize = file.Size,
+                    ClientOrderId = order.Id,
+                    CompanyId = order.CompanyId,
+                    PartialPath = orderItem.PartialPath,
+                    IsDeleted = false,
+                    ObjectId = Guid.NewGuid().ToString(),
+                    CreatedByContactId = loginUser.ContactId,
+                    FileGroup = (int)OrderItemFileGroup.Work,
+                @*Status = (byte)InternalOrderItemStatus.ProductionDone,
+				ExternalStatus = (byte)(EnumHelper.ExternalOrderItemStatusChange(InternalOrderItemStatus.ProductionDone)),*@
+                TeamId = companyTeam.TeamId,
+                IsExtraOutPutFile = true
+
+            };
+
+            addItemResponse = await _clientOrderItemService.Insert(clientOrderItem, (int)order.Id);
+
+            if (addItemResponse.IsSuccess)
+            {
+                clientOrderItem.Id = addItemResponse.Result;
+                @*await AddOrderItemStatusChangeLog(clientOrderItem, InternalOrderItemStatus.ProductionDone);*@
+            }
+
+        }
+
+        catch (Exception ex)
+        {
+            CommonActivityLogViewModel activity = new CommonActivityLogViewModel()
+                {
+                    PrimaryId = (int)order.Id,
+                    ActivityLogFor = (int)ActivityLogForConstants.Order,
+                    loginUser = loginUser,
+                    ErrorMessage = ex.Message,
+                    MethodName = "AddOrderItem",
+                    RazorPage = "QCUploadCompleteFiles.razor",
+                    Category = (int)ActivityLogCategory.AddOrderItemError,
+                };
+            await _activityLogCommonMethodService.InsertErrorActivityLog(activity);
+            await js.DisplayMessage($"{ex.Message}");
+        }
+        return addItemResponse;
+    }
+
+    private async Task InsertQcUploadActivityLog(ClientOrderItemModel clientOrderItem, string editorFilePath)
+    {
+        try
+        {
+            ActivityLogModel activityLog = new ActivityLogModel();
+            activityLog.ActivityLogFor = ActivityLogForConstants.OrderItem;
+            activityLog.PrimaryId = (int)clientOrderItem.Id;
+            activityLog.Description = $"File ‘{clientOrderItem.FileName}' Uploaded Path '{editorFilePath}' by {loginUser.FirstName} on {DateTime.Now}";
+            activityLog.CreatedDate = DateTime.Now;
+            activityLog.CreatedByContactId = loginUser.ContactId;
+            activityLog.ObjectId = Guid.NewGuid().ToString();
+            activityLog.CompanyObjectId = loginUser.CompanyObjectId;
+            activityLog.ContactObjectId = loginUser.UserObjectId;
+
+            await _activityLogService.Insert(activityLog);
+        }
+        catch (Exception ex)
+        {
+            await js.DisplayMessage(ex.Message);
+        }
+    }
+
+    private async Task InsertQcUploadErrorActivityLog(int orderId, string methodName, string errorMessage, byte category)
+    {
+        try
+        {
+            ActivityLogModel activityLog = new ActivityLogModel();
+            activityLog.ActivityLogFor = ActivityLogForConstants.Order;
+            activityLog.PrimaryId = orderId;
+            activityLog.Description = $"Page: 'QCUploadCompletedFiles.razor', Method: '{methodName}', Error: {errorMessage} on {DateTime.Now}";
+            activityLog.CreatedDate = DateTime.Now;
+            activityLog.CreatedByContactId = loginUser.ContactId;
+            activityLog.ObjectId = Guid.NewGuid().ToString();
+            activityLog.CompanyObjectId = loginUser.CompanyObjectId;
+            activityLog.ContactObjectId = loginUser.UserObjectId;
+            activityLog.Category = category;
+            activityLog.Type = (byte)ActivityLogType.Error;
+
+            await _activityLogService.Insert(activityLog);
+        }
+        catch (Exception ex)
+        {
+            await js.DisplayMessage(ex.Message);
+        }
+    }
+}

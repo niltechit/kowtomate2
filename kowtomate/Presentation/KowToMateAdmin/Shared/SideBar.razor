@@ -1,0 +1,71 @@
+﻿@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Security
+
+@inject IMenuService _menuService
+@inject IWorkContext _workContext
+
+<div class="vertical-menu" style="background:#122e20
+">
+    <div data-simplebar class="h-100">
+        <!--- Sidemenu -->
+        <div id="sidebar-menu">
+            <!-- Left Menu Start -->
+            <ul class="metismenu list-unstyled" id="side-menu">
+                <li class="menu-title" key="t-menu">Menu</li>
+
+                 @foreach (var parent in parentMenus)    
+                {
+                    var childMenus = menus.Where(f => f.ParentId == parent.Id).OrderBy(o => o.DisplayOrder).ToList();
+                    if (childMenus != null && childMenus.Any())
+                    {
+                        <li >
+                            <a href="javascript: void(0);" class="has-arrow waves-effect">
+                                <i class="@parent.Icon"></i>
+                                <span key="t-@parent.Name.ToLower().Replace(" ","")">@parent.Name</span>
+                            </a>
+                            <ul class="sub-menu" aria-expanded="false">
+                                @foreach(var menu in childMenus)
+                                {
+                                    <li><a href="@menu.MenuUrl" key="t-@parent.Name.ToLower().Replace(" ","")">@menu.Name</a></li>
+                                }
+                            </ul>
+                        </li>
+                    }
+                    else
+                    {
+                        @if (!string.IsNullOrWhiteSpace(parent.MenuUrl))
+                        {
+                            <li>
+                                <a href="@parent.MenuUrl" class="waves-effect">
+                                    <i class="@parent.Icon"></i>
+                                    <span key="t-@parent.Name.ToLower().Replace(" ","")">@parent.Name</span>
+                                </a>
+                            </li>
+                        }
+                    }
+                }
+            </ul>
+        </div>
+        <!-- Sidebar -->
+    </div>
+</div>
+
+@code {
+   
+    private List<SideMenuListModel> menus = new List<SideMenuListModel>();
+    private List<SideMenuListModel> parentMenus = new List<SideMenuListModel>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var loginUser = _workContext.LoginUserInfo;       
+        menus = await _menuService.GetSideMenuByUserObjectId(loginUser.UserObjectId);
+
+        if (menus != null)
+        {
+            parentMenus = menus.Where(f => f.ParentId == null).OrderBy(o => o.DisplayOrder).ToList();
+        }
+
+        //Load permission ids from database by Menu Id using menuservice
+        //selectedMenuPermissons = new List<short> { 2,3,4,5 }; //make it dynamic  list menu perssionlist.Select(f>f.Permisisonid).ToList();
+    }
+}

@@ -1,0 +1,26 @@
+﻿CREATE TABLE [dbo].[Security_User] (
+    [Id]                    INT            IDENTITY (1, 1) NOT NULL,
+    [CompanyId]             INT            NOT NULL,
+    [ContactId]             INT            NOT NULL,
+    [RoleId]                SMALLINT       NOT NULL,
+    [Username]              NVARCHAR (100) NOT NULL,
+    [ProfileImageUrl]       NVARCHAR (250) NULL,
+    [PasswordHash]          NVARCHAR (100) NULL,
+    [PasswordSalt]          NVARCHAR (100) NULL,
+    [RegistrationToken]     NVARCHAR (50)  NULL,
+    [PasswordResetToken]    NVARCHAR (50)  NULL,
+    [LastLoginDateUtc]      DATETIME       NULL,
+    [LastLogoutDateUtc]     DATETIME       NULL,
+    [LastPasswordChangeUtc] DATETIME       NULL,
+    [Status]                INT            NOT NULL,
+    [CreatedDate]           DATETIME       NOT NULL,
+    [CreatedByContactId]    INT            NOT NULL,
+    [UpdatedDate]           DATETIME       NULL,
+    [UpdatedByContactId]    INT            NULL,
+    [ObjectId]              VARCHAR (40)   NULL,
+    CONSTRAINT [PK_User] PRIMARY KEY CLUSTERED ([Id] ASC),
+    CONSTRAINT [FK_User_Company] FOREIGN KEY ([CompanyId]) REFERENCES [dbo].[Common_Company] ([Id]),
+    CONSTRAINT [FK_User_Contact] FOREIGN KEY ([ContactId]) REFERENCES [dbo].[Security_Contact] ([Id]),
+    CONSTRAINT [FK_User_Role] FOREIGN KEY ([RoleId]) REFERENCES [dbo].[Security_Role] ([Id])
+);
+

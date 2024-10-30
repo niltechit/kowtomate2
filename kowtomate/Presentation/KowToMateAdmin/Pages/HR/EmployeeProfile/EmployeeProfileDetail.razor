@@ -1,0 +1,111 @@
+﻿@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.Models.HR
+@using CutOutWiz.Services.Models.Security
+
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Salary</label>
+    <div class="col-sm-8">
+        <InputNumber class="form-control" @bind-Value="profile.MonthlySalary"></InputNumber>
+        <ValidationMessage For="@(() => profile.MonthlySalary)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Yearly Bonus</label>
+    <div class="col-sm-8">
+        <InputNumber class="form-control" @bind-Value="profile.YearlyBonus"></InputNumber>
+        <ValidationMessage For="@(() => profile.YearlyBonus)" />
+    </div>
+</div>
+
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Hire Date</label>
+    <div class="col-sm-8">
+        <InputDate class="form-control" @bind-Value="profile.HireDate"></InputDate>
+        <ValidationMessage For="@(() => profile.HireDate)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Date Of Birth</label>
+    <div class="col-sm-8">
+        <InputDate class="form-control" @bind-Value="profile.DateOfBirth"></InputDate>
+        <ValidationMessage For="@(() => profile.DateOfBirth)" />
+    </div>
+</div>
+
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Address</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="profile.FullAddress"></InputText>
+        <ValidationMessage For="@(() => profile.FullAddress)" />
+    </div>
+</div>
+
+
+<div class="row">
+    <h4>Select Day Off</h4>
+    <div class="col-xl-6">
+        <div class="form-group">
+            <InputCheckbox @bind-Value="profile.DayOffSaturday" class="form-check-input" type="checkbox" id="dayOffSaturday"></InputCheckbox>
+            <label class="form-check-label" for="dayOffSaturday">
+                Day Of Saturday
+            </label>
+        </div>
+        <div class="form-group">
+            <InputCheckbox @bind-Value="profile.DayOffMonday" class="form-check-input" type="checkbox" id="dayOffMonday"></InputCheckbox>
+            <label class="form-check-label" for="dayOffMonday">
+                Day Of Monday
+            </label>
+        </div>
+
+    </div>
+    <div class="col-xl-6">
+        <div class="form-group">
+            <InputCheckbox @bind-Value="profile.DayOffSunday" class="form-check-input" type="checkbox" id="dayOffSunday"></InputCheckbox>
+            <label class="form-check-label" for="dayOffSunday">
+                Day Of Sunday
+            </label>
+        </div>
+        <div class="form-group">
+            <InputCheckbox @bind-Value="profile.DayOffTuesday" class="form-check-input" type="checkbox" id="dayOffTuesday"></InputCheckbox>
+            <label class="form-check-label" for="dayOffTuesday">
+                Day Of Tuesday
+            </label>
+        </div>
+
+    </div>
+</div>
+<div class="row">
+    <div class="col-xl-6">
+        <div class="form-group">
+            <InputCheckbox @bind-Value="profile.DayOffWednesday" class="form-check-input" type="checkbox" id="dayOffWednesday"></InputCheckbox>
+            <label class="form-check-label" for="dayOffWednesday">
+                Day Of Wednesday
+            </label>
+        </div>
+
+        <div class="form-group">
+            <InputCheckbox @bind-Value="profile.DayOffFriday" class="form-check-input" type="checkbox" id="dayOffFriday"></InputCheckbox>
+            <label class="form-check-label" for="dayOffFriday">
+                Day Of Friday
+            </label>
+        </div>
+
+    </div>
+    <div class="col-xl-6">
+        <div class="form-group">
+            <InputCheckbox @bind-Value="profile.DayOffThursday" class="form-check-input" type="checkbox" id="dayOffThursday"></InputCheckbox>
+            <label class="form-check-label" for="dayOffThursday">
+                Day Of Thursday
+            </label>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EmployeeProfileModel profile { get; set; }
+}

@@ -1,0 +1,710 @@
+﻿@page "/common/companies"
+
+@attribute [Authorize(Roles = "Company.ViewList")]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.Models.EmailModels
+@using CutOutWiz.Core.Management
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Email
+@using CutOutWiz.Services.EmailMessage
+@using CutOutWiz.Services.Management
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Helper
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject ICompanyManager _companyService
+@inject ICountryManager _countryService
+@inject IFileServerManager _fileServerService
+@inject NavigationManager NavigationManager
+@inject IContactManager _contactManager
+@inject IUserService _userService
+@inject IOperationEmailService _operationEmailService
+@inject IConfiguration _configuration
+@inject IWorkflowEmailService _workflowEmailService
+@inject IJSRuntime js
+@inject NavigationManager UriHelper
+@inject ICompanyTeamManager _companyTeamService
+@inject ITeamService _teamService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Companies
+            </h4>
+
+            <div class="page-title-right">
+                <AuthorizeView Roles="Company.Add">
+                    <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New Company"><span class="fas fa-plus"></span> Add New</button>
+                </AuthorizeView>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Companies
+            </h4>
+
+            <div class="page-title-right">
+                <AuthorizeView Roles="Company.Add">
+                    <button type="button" class="btn btn-sm btn-primary" @onclick="ChangeFtpSetting" title="Add New Company"><span class="fas fa-plus"></span> Change Ftp Settings</button>
+                </AuthorizeView>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+
+<div class="row">
+    <div class="col-lg-12">
+        <RadzenDataGrid @ref="grid" Data="@companys" IsLoading="isLoading" TItem="CompanyModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        AllowColumnPicking="true" AllowColumnReorder="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))" @bind-Value="@selectedCompanies"
+                        AllowRowSelectOnRowClick=@allowRowSelectOnRowClick SelectionMode="DataGridSelectionMode.Multiple">
+            <Columns>
+
+                <RadzenDataGridColumn TItem="CompanyModel" TextAlign="TextAlign.Center" Width="30px" Frozen="true" Sortable="false"
+                                      Filterable="false" Groupable="false" Reorderable="false" Pickable="false">
+                    <HeaderTemplate>
+                        <RadzenCheckBox TriState="false" TValue="bool" Value="@(companys == null ? false : companys.Any(i => selectedCompanies != null && selectedCompanies.Contains(i)))"
+                                        Change="@(args => selectedCompanies = args && companys != null ? companys.Skip(grid.CurrentPage * grid.PageSize).Take(grid.PageSize).ToList() : null)" />
+                    </HeaderTemplate>
+                    <Template Context="data">
+                        <RadzenCheckBox TriState="false" Value="@(selectedCompanies != null && selectedCompanies.Contains(data))"
+                                        TValue="bool" Change=@(args => { if(!allowRowSelectOnRowClick) { grid.SelectRow(data); }}) />
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="CompanyModel" Property="Name" Title="Company Name" SortOrder="SortOrder.Ascending" Width="200px">
+                    <Template Context="data">
+                        <a href="/company/details/@data.ObjectId" title="Company Details">@data.Name</a>
+                    </Template>
+                </RadzenDataGridColumn>
+                @if (loginUser.CompanyType != (int)CompanyType.Client)
+                {
+                    <RadzenDataGridColumn TItem="CompanyModel" Property="CompanyType" Title="Type" FilterValue="@filterCompanyType" TextAlign="TextAlign.Center" Width="110x">
+                        <FilterTemplate>
+                            <RadzenDropDown @bind-Value=@filterCompanyType Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                                            Data="@(companyTypes)" AllowClear="true" />
+                        </FilterTemplate>
+                        <Template Context="data">
+                            @((CompanyType)data.CompanyType)
+                        </Template>
+                    </RadzenDataGridColumn>
+                }
+                <RadzenDataGridColumn TItem="CompanyModel" Property="Telephone" Title="Telephone" />
+                <RadzenDataGridColumn TItem="CompanyModel" Property="Email" Title="Email" />
+                <RadzenDataGridColumn TItem="CompanyModel" Property="DeliveryDeadlineInMinute" Title="Delivery Time" />
+
+                <RadzenDataGridColumn TItem="CompanyModel" Property="Status" Title="Status" FilterValue="@filterStatus" TextAlign="TextAlign.Center" Width="100x">
+                    <FilterTemplate>
+                        <RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                                        Data="@(statuses)" AllowClear="true" />
+                    </FilterTemplate>
+                    <Template Context="data">
+                        @if (data.Status == (int)GeneralStatus.Active)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Inactive</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="CompanyModel" Property="CreatedDate" Title="Created Date" TextAlign="TextAlign.Center" Filterable="false" />
+                <RadzenDataGridColumn Width="120px" TItem="CompanyModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <AuthorizeView Roles="Company.ViewCompanyDetails">
+                            <a class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="() => GoToDetails(data.ObjectId)">
+                                <span class="fas fa-info-circle"></span>
+                            </a>
+                        </AuthorizeView>
+                        <AuthorizeView Roles="Company.Edit">
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.ObjectId))">
+                                <span class="fas fa-pencil-alt"></span>
+                            </button>
+                        </AuthorizeView>
+
+                        <AuthorizeView Roles="Company.Delete">
+                            @*	<button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.ObjectId,data.Name)">
+                            <span class="fas fa-times"></span>
+                            </button>*@
+                        </AuthorizeView>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@company OnValidSubmit="@InsertOrUpdateCompany" class="needs-validation">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Company</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <CompanyAddEdit company="company" countries="countries" FileServers="fileServers" Teams="teams" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    @if (spinShow)
+                    {
+                        <div class="spinner"></div>
+                    }
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @if (!string.IsNullOrWhiteSpace(company.ObjectId))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(company.ObjectId,company.Name)">Delete</button>
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@if (changeFtpSettingPopup)
+{
+    if (selectedCompanies != null && selectedCompanies.Any())
+    {
+        @* 	<EditForm Model=@company OnValidSubmit="@InsertOrUpdateCompany" class="needs-validation"> *@
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Change Ftps File Server Setup</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="ChangeFtpSettingClose"></button>
+                    </div>
+                    <div class="modal-body">
+@*                         <DataAnnotationsValidator /> *@
+                        <div class="row">
+                            <KowToMateAdmin.Pages.Switch.SwitchComponent companies="@selectedCompanies.ToList()"></KowToMateAdmin.Pages.Switch.SwitchComponent>
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    @* 	</EditForm> *@
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<CompanyModel> companys;
+    IList<CompanyModel> selectedCompanies;
+    RadzenDataGrid<CompanyModel> grid;
+    private List<FileServerModel> fileServers = null;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    private CompanyModel company = new CompanyModel();
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private string selectedObjectId = "";
+    private List<CountryModel> countries = null;
+    private List<TeamModel> teams = null;
+    List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+    private byte? filterStatus;
+
+    List<CustomEnumTypes> companyTypes = new List<CustomEnumTypes>();
+    private byte? filterCompanyType;
+    bool spinShow = false;
+    bool allowRowSelectOnRowClick = true;
+    bool changeFtpSettingPopup = false;
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+        await LoadCompanys();
+        countries = await _countryService.GetAll();
+        teams = await _teamService.GetAll();
+        fileServers = await _fileServerService.GetAll();
+        //Populate Status
+        foreach (GeneralStatus item in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+
+        //Populate Status
+        foreach (CompanyType item in Enum.GetValues(typeof(CompanyType)))
+        {
+            companyTypes.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+        isLoading = false;
+    }
+
+    private async Task LoadCompanys()
+    {
+        if (loginUser.CompanyType == (int)CompanyType.Client)
+        {
+            companys = await _companyService.GetCompaniesById(loginUser.CompanyId);
+        }
+        else
+        {
+            companys = await _companyService.GetAll();
+        }
+    }
+
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<CompanyModel> args)
+    {
+        await Edit(args.Data.ObjectId);
+    }
+
+    string StatusText()
+    {
+        if (company.Status == (int)GeneralStatus.Active)
+        {
+            return "<span class='badge bg-success'>Active</span>";
+        }
+
+        return "<span class='badge bg-info text-dark'>Inactive</span>";
+    }
+
+    void AddNew()
+    {
+        company = new CompanyModel { Status = (int)GeneralStatus.Active };
+
+        var defaultFileServer = fileServers.FirstOrDefault(f => f.IsDefault == true);
+        if (defaultFileServer != null)
+        {
+            company.FileServerId = defaultFileServer.Id;
+        }
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+    void ChangeFtpSetting()
+    {
+        changeFtpSettingPopup = true;
+        isSubmitting = false;
+        StateHasChanged();
+    }
+    void ChangeFtpSettingClose()
+    {
+        changeFtpSettingPopup = false;
+        isSubmitting = false;
+        StateHasChanged();
+    }
+
+    private async Task Edit(string objectId)
+    {
+        company = await _companyService.GetByObjectId(objectId);
+        // Fetch The Existing Contact Name
+        var contactList = await _contactManager.GetByCompanyId(company.Id);
+        var FetchingContact = contactList.FirstOrDefault();
+        company.FirstName = FetchingContact.FirstName;
+        company.LastName = FetchingContact.LastName;
+        company.ContactId = FetchingContact.Id;
+        var user = await _userService.GetUserByCompanyId(company.Id);
+        company.UserName = user.Username;
+        // Fetch the Existing Team
+        var result = await _teamService.GetTeamName(objectId);
+        if (result != null)
+        {
+            company.TeamId = result.Id;
+        }
+        // Set The Default Team : TODO : Zakir
+        else
+        {
+            //company.TeamId=
+        }
+        //teams=await _teamService.ge
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the company \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _companyService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadCompanys();
+                company = new CompanyModel();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+
+        isSubmitting = false;
+    }
+
+    private void GoToDetails(string objectId)
+    {
+        NavigationManager.NavigateTo($"/company/details/{objectId}", true);
+    }
+
+    #region Company Registration and Default Permission
+
+    private async Task InsertOrUpdateCompany()
+    {
+        spinShow = true;
+        isSubmitting = true;
+        if (company.Id == 0)
+        {
+            // Create Company
+            var existingCompanyName = await _companyService.GetByCompanyName(company.Name);
+            if (existingCompanyName != null)
+            {
+                isSubmitting = false;
+                await js.DisplayMessage($"Company Name already exist. Please try another one.");
+                spinShow = false;
+                return;
+            }
+
+            var existingCompanyCode = await _companyService.GetByCompanyCode(company.Code);
+            if (existingCompanyCode != null)
+            {
+                isSubmitting = false;
+                await js.DisplayMessage($"Company Code already exist. Please try another one.");
+                spinShow = false;
+                return;
+            }
+
+            //Check email
+            var existUser = await _userService.GetUserByUsername(company.Email);
+            if (existUser != null)
+            {
+                isSubmitting = false;
+                await js.DisplayMessage($"Email already exist. Please try another one.");
+                spinShow = false;
+                return;
+            }
+            //Check Username
+            var existUserName = await _userService.GetUsername(company.UserName);
+
+            if (existUserName != null)
+            {
+                isSubmitting = false;
+                await js.DisplayMessage($"Username already exist. Please try another one.");
+                spinShow = false;
+                return;
+            }
+
+            company.ObjectId = Guid.NewGuid().ToString();
+            company.CompanyType = (int)CompanyType.Client;
+            company.Status = 1;
+            company.CreatedByContactId = loginUser.ContactId;
+
+            var addResponse = await _companyService.Insert(company);
+
+            var companyId = addResponse.Result;
+            if (addResponse.IsSuccess)
+            {
+                if (company.TeamId > 0)
+                {
+                    // Team Assing for Company
+                    List<CompanyTeamModel> listCompanyTeam = new List<CompanyTeamModel>();
+
+                    var companyTeam = new CompanyTeamModel();
+                    companyTeam.UpdatedByContactId = loginUser.ContactId;
+                    companyTeam.TeamId = company.TeamId;
+                    companyTeam.CompanyId = addResponse.Result;
+                    companyTeam.ObjectId = Guid.NewGuid().ToString();
+                    companyTeam.Status = 1;
+                    listCompanyTeam.Add(companyTeam);
+
+                    var respons = await _companyTeamService.Insert(listCompanyTeam);
+                }
+                // Create Contact
+                var contact = new ContactModel
+                    {
+                        Email = company.Email,
+                        FirstName = company.FirstName,
+                        LastName = company.LastName,
+                        Phone = company.Telephone,
+                        ObjectId = Guid.NewGuid().ToString(),
+                        CompanyId = addResponse.Result,
+                        Status = (int)GeneralStatus.Active
+                    };
+
+
+                var resutl = await _contactManager.Insert(contact);
+
+                var salt = _userService.CreateRandomSalt();
+                var hashedPassword = _userService.GetHashPassword(company.Password, salt);
+                // Create User
+
+                var userVM = new UserModel
+                    {
+                        Username = company.UserName,
+                        CompanyId = addResponse.Result,
+                        ContactId = resutl.Result,
+                        CreatedByContactId = loginUser.ContactId,
+                        ObjectId = Guid.NewGuid().ToString(),
+                        PasswordHash = hashedPassword,
+                        PasswordSalt = salt,
+                        Status = (int)(GeneralStatus.Active),
+                        SelectedUserRoles = null,
+                    };
+
+
+                var responseResult = await _userService.Insert(userVM);
+
+                if (resutl.IsSuccess && responseResult.IsSuccess)
+                {
+                    SignUpViewModel model = new SignUpViewModel();
+                    model.NewCompanyObjectId = company.ObjectId;
+                    model.CompanyId = addResponse.Result;
+                    model.NewUserContactId = resutl.Result;
+                    model.CreatedByContactId = resutl.Result;
+                    model.BaseCompanyCode = CompanyCodeConstants.BaseClientCompany;
+                    model.UserOBjectId = userVM.ObjectId;
+                    var responses = await _companyService.SignupInsertCompany(model);
+                    await SendMailToAllOperation("Add", company);
+                    //await SendMailToRegistrationUserNameAndPassword("Add", contact, userVM, company.Password);
+                }
+            }
+
+            if (!addResponse.IsSuccess)
+            {
+                isSubmitting = false;
+                await js.DisplayMessage($"Your Account Cannot Register Successfully !!");
+                spinShow = false;
+                return;
+            }
+            CloseAddEditPopup();
+            company = new CompanyModel();
+            spinShow = false;
+            await js.DisplayMessage($"Your Account Created Successfully");
+            companys = await _companyService.GetAll();
+            StateHasChanged();
+            //Todo:Rakib
+            //if(loginUser.CompanyType != (int)CompanyType.Admin){
+            //    CloseAddEditPopup();
+            //}
+            //else
+            //{
+            //    UriHelper.NavigateTo("/login");
+            //    isSubmitting = false;
+            //}
+        }
+        else
+        {
+            var existingCompanyName = await _companyService.GetByCompanyName(company.Name);
+
+            if (existingCompanyName != null)
+            {
+                if (existingCompanyName.Id == company.Id)
+                {
+                    company.Name = company.Name;
+                }
+                else
+                {
+                    isSubmitting = false;
+                    await js.DisplayMessage($"Company Name already exist. Please try another one.");
+                    spinShow = false;
+                    return;
+                }
+            }
+            else
+            {
+                company.Name = company.Name;
+            }
+            // Check Company Email
+            var existingCompanyEmail = await _companyService.GetByCompanyEmail(company.Email);
+            if (existingCompanyEmail != null)
+            {
+                if (existingCompanyEmail.Id == company.Id)
+                {
+                    company.Email = company.Email;
+                }
+                else
+                {
+                    isSubmitting = false;
+                    await js.DisplayMessage($"Email already exist. Please try another one.");
+                    spinShow = false;
+                    return;
+                }
+            }
+            else
+            {
+                company.Email = company.Email;
+            }
+
+            //Check email For User
+            var existUser = await _userService.GetUserByUsername(company.Email);
+
+            if (existUser != null)
+            {
+                if (existUser.Id == company.UserId)
+                {
+                    company.UserName = company.UserName;
+                }
+                else
+                {
+                    isSubmitting = false;
+                    await js.DisplayMessage($"Username already exist. Please try another one.");
+                    spinShow = false;
+                    return;
+                }
+            }
+            else
+            {
+                company.UserName = company.UserName;
+            }
+
+            var addResponse = await _companyService.Update(company);
+
+            var contact = await _contactManager.GetById(company.ContactId);
+
+            var contactVM = new ContactModel()
+                {
+                    FirstName = company.FirstName,
+                    LastName = company.LastName,
+                    Id = contact.Id,
+                    Email = company.Email,
+                    Phone = company.Telephone,
+                    ObjectId = contact.ObjectId,
+                    DesignationId = contact.DesignationId,
+                    Status = contact.Status,
+                    UpdatedByContactId = loginUser.ContactId,
+                    EmployeeId = contact.EmployeeId
+                };
+
+            var contactUpdateResponse = await _contactManager.Update(contactVM);
+
+            // User Changes for Edit
+            var user = await _userService.GetUserByCompanyId(company.Id);
+            var userVM = new UserModel
+                {
+                    Id = user.Id,
+                    Username = company.UserName,
+                    UpdatedByContactId = loginUser.ContactId,
+                    Status = (int)(GeneralStatus.Active),
+                    CompanyId = user.CompanyId,
+                    ContactId = user.ContactId,
+                    ProfileImageUrl = user.ProfileImageUrl,
+                    PasswordHash = user.PasswordHash,
+                    PasswordSalt = user.PasswordSalt,
+                    RegistrationToken = user.RegistrationToken,
+                    PasswordResetToken = user.PasswordResetToken,
+                    LastLoginDateUtc = user.LastLoginDateUtc,
+                    LastLogoutDateUtc = user.LastLogoutDateUtc,
+                    LastPasswordChangeUtc = user.LastPasswordChangeUtc,
+                };
+            //var responseResult = await _userService.Update(userVM);
+
+            // Team Assing for Company
+            var companyTeam = new CompanyTeamModel();
+            companyTeam.UpdatedByContactId = loginUser.ContactId;
+            companyTeam.TeamId = company.TeamId;
+            companyTeam.CompanyId = company.Id;
+
+            var respons = await _companyTeamService.Update(companyTeam);
+            if (respons.IsSuccess && contactUpdateResponse.IsSuccess)
+            {
+                await SendMailToAllOperation("Update", company);
+                await SendMailToRegistrationUserNameAndPassword("Update", contactVM, userVM, company.Password);
+            }
+
+            spinShow = false;
+            isSubmitting = false;
+            CloseAddEditPopup();
+            company = new CompanyModel();
+            await js.DisplayMessage($"Your Company Information Updated Successfully");
+            companys = await _companyService.GetAll();
+            StateHasChanged();
+        }
+        spinShow = false;
+        isSubmitting = false;
+    }
+    #region Mail Sending
+    private async Task SendMailToAllOperation(string callerType, CompanyModel company)
+    {
+        var userList = await _operationEmailService.GetUserListByCompanyIdAndPermissionName(Convert.ToInt32(_configuration["CompanyId"]), PermissionConstants.SendMailCompanyCreateForOPeration);
+        foreach (var user in userList)
+        {
+            var detailUrl = $"{_configuration["AppMainUrl"]}/company/details/{company.ObjectId}";
+
+            var newCompanySignUpNotification = new NewCompanySignUpNotification
+                {
+                    NewCompanyName = company.Name,
+                    DetailUrl = detailUrl,
+                    ToEmail = user.Email,
+                    ToEmailName = user.FirstName,
+                    CompanyEmail = company.Email,
+                    CreateByUserName = loginUser.FirstName,
+                    ContactId = loginUser.ContactId
+                };
+
+            newCompanySignUpNotification.MailType = callerType;
+            await _workflowEmailService.SendCompanyAddUpdateDeleteNotificationForCompanyOperationsTeam(newCompanySignUpNotification);
+        }
+    }
+
+    private async Task SendMailToRegistrationUserNameAndPassword(string callerType, ContactModel contact, UserModel user, string password)
+    {
+        var newCompanySignUpNotification = new NewCompanySignUpNotification
+            {
+                ClientFirstName = contact.FirstName,
+                UserName = user.Username,
+                Password = password,
+                LoginUrl = $"{_configuration["AppMainUrl"]}",
+                ContactId = loginUser.ContactId,
+                ToEmail = contact.Email,
+            };
+
+        newCompanySignUpNotification.MailType = callerType;
+        await _workflowEmailService.SendCompanyUsernameAndPassword(newCompanySignUpNotification);
+
+    }
+    #endregion
+    #endregion
+}

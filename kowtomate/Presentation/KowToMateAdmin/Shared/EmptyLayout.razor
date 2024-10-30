@@ -1,0 +1,18 @@
+﻿@inherits LayoutComponentBase
+@inject IJSRuntime js
+
+<PageTitle>KowToMate ERP</PageTitle>
+
+@Body
+
+@code{
+    //protected bool isLoggedIn = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await js.InvokeVoidAsync("initUi");
+        }
+    }
+}

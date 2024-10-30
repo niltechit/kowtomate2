@@ -1,0 +1,54 @@
+﻿@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.Security
+@using static CutOutWiz.Core.Utilities.Enums
+
+<div class="mb-2 row">
+    <label for="Permissions" class="col-sm-4 col-form-label fw-bold">Modules</label>
+    <div class="col-sm-8">
+       <RadzenDropDown AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                            @bind-Value=@permission.SelectedModules Multiple="true" Placeholder="Select..." Data=@modules TextProperty="Name" ValueProperty="ObjectId" Class="w-100" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Permissions" class="col-sm-4 col-form-label fw-bold">Company Types</label>
+    <div class="col-sm-8">
+       <RadzenDropDown AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                            @bind-Value=@permission.SelectedCompanyTypes Multiple="true" Placeholder="Select..." Data=@companyTypes TextProperty="Name" ValueProperty="Value" Class="w-100" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Display Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="permission.DisplayName"></InputText>
+        <ValidationMessage For="@(() => permission.DisplayName)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Value" class="col-sm-4 col-form-label fw-bold">Permission Value</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="permission.PermissionValue"></InputText>
+        <ValidationMessage For="@(() => permission.PermissionValue)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="DisplayOrder" class="col-sm-4 col-form-label fw-bold">Display Order</label>
+    <div class="col-sm-8">
+        <InputNumber class="form-control" @bind-Value="permission.DisplayOrder"></InputNumber>
+        <ValidationMessage For="@(() => permission.DisplayOrder)" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public PermissionModel permission { get; set; }
+
+    [Parameter]
+    public List<ModuleModel> modules { get; set; }
+
+    [Parameter]
+    public List<KeyValuePairCustomModel> companyTypes { get; set; }
+}

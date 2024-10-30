@@ -1,0 +1,218 @@
+﻿@page "/cpanel/storage/info"
+@using CutOutWiz.Core.Models.CpanelStorage;
+@using CutOutWiz.Services.Models.Dashboard;
+@using CutOutWiz.Services.CpanelStorageInfoServices;
+
+@attribute [Authorize(Roles = "CpanelStorageInfo.ViewAll")]
+
+@inject ICpanelStorageInfoService _cpanelStorageService
+
+
+@if (storageInfo != null)
+{
+    <div class="col-xl-12">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card mini-stats-wid">
+                    <div class="card-body">
+                        <div class="d-flex">
+                            <div class="flex-grow-1">
+                                <!--!--><p class="text-muted fw-medium">Total Memory</p>
+                                <h4 class="mb-0">
+
+                                    @storageInfo.total
+
+                                </h4>
+                            </div><!--!-->
+                            <!--!--><div class="flex-shrink-0 align-self-center"><div class="mini-stat-icon avatar-sm rounded-circle bg-primary"><span class="avatar-title"><i class="bx bx-copy-alt font-size-24"></i></span></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div><!--!-->
+            <div class="col-md-3">
+                <div class="card mini-stats-wid">
+                    <div class="card-body">
+                        <div class="d-flex">
+                            <div class="flex-grow-1">
+                                <!--!--><p class="text-muted fw-medium">Total Used Memory</p>
+                                <h4 class="mb-0">
+                                    @storageInfo.used
+                                </h4>
+                            </div><!--!-->
+                            <!--!--><div class="flex-shrink-0 align-self-center "><div class="avatar-sm rounded-circle bg-primary mini-stat-icon"><span class="avatar-title rounded-circle bg-primary"><i class="bx bx-archive-in font-size-24"></i></span></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div><!--!-->
+            <div class="col-md-3">
+                <div class="card mini-stats-wid">
+                    <div class="card-body">
+                        <div class="d-flex">
+                            <div class="flex-grow-1">
+                                <!--!--><p class="text-muted fw-medium">Total Available Memory</p>
+                                <h4 class="mb-0">
+                                    @storageInfo.available
+                                </h4>
+                            </div><!--!-->
+                            <!--!--><div class="flex-shrink-0 align-self-center"><div class="avatar-sm rounded-circle bg-primary mini-stat-icon"><span class="avatar-title rounded-circle bg-primary"><i class="bx bx-purchase-tag-alt font-size-24"></i></span></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div><!--!-->
+
+            <div class="col-md-3">
+                <div class="card mini-stats-wid">
+                    <div class="card-body">
+                        <div class="d-flex">
+                            <div class="flex-grow-1">
+                                <!--!--><p class="text-muted fw-medium">Total Used Percentage</p>
+                                <h4 class="mb-0">
+                                    @storageInfo.used_percentage
+
+                                </h4>
+                            </div><!--!-->
+                            <!--!--><div class="flex-shrink-0 align-self-center"><div class="avatar-sm rounded-circle bg-primary mini-stat-icon"><span class="avatar-title rounded-circle bg-primary"><i class="bx bx-purchase-tag-alt font-size-24"></i></span></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div><!--!-->
+        </div><!--!-->
+    </div>
+}
+@* @if (revenue != null)
+{
+    <div class="container">
+        <div class="row">
+            <div class="col-sm-12 col-lg-6 offset-lg-3 my-5">
+                <RadzenCard class="w-100 mb-4">
+                    <RadzenCheckBox @bind-Value="@showDataLabels" Name="dataLabels"></RadzenCheckBox>
+                    <RadzenLabel Text="Show Data Labels" Component="dataLabels" Style="margin-left: 8px; vertical-align: middle;" />
+                </RadzenCard>
+                <RadzenChart SeriesClick=@OnSeriesClick>
+                    <RadzenPieSeries Data="@revenue" Title="Revenue" CategoryProperty="Quarter" ValueProperty="Revenue">
+                        <RadzenSeriesDataLabels Visible="@showDataLabels" />
+                    </RadzenPieSeries>
+                </RadzenChart>
+            </div>
+        </div>
+    </div>
+} *@
+
+@* @if (revenue!=null)
+{
+    <div Class="rz-p-0 rz-p-md-12">
+        <RadzenChart>
+            <RadzenColumnSeries Data="@revenue" CategoryProperty="Quarter" ValueProperty="Revenue" />
+        </RadzenChart>
+    </div>
+}
+ *@
+
+@using System.Globalization
+
+<div class="container">
+    <div class="row">
+        <div class="col-sm-12 my-5">
+            <RadzenCard class="w-100 mb-4">
+                <RadzenCheckBox @bind-Value="@showDataLabels" Name="dataLabels"></RadzenCheckBox>
+                <RadzenLabel Text="Show Data Labels" Component="dataLabels" Style="margin-left: 8px; vertical-align: middle;" />
+            </RadzenCard>
+            <h4 style="align-self:center">Project Wise Storage Size (Size In GB)</h4>
+            <RadzenChart>
+                <RadzenColumnSeries Data="@revenue" CategoryProperty="Quarter" Title="@DateTime.Now.Year.ToString()" LineType="LineType.Dashed" ValueProperty="Revenue">
+                    <RadzenSeriesDataLabels Visible="@showDataLabels" />
+                </RadzenColumnSeries>
+                <RadzenColumnOptions Radius="5" />
+                <RadzenValueAxis Formatter="@StringFormatToUS">
+                    <RadzenGridLines Visible="true" />
+                    <RadzenAxisTitle Text="Storage Size in GB" />
+                </RadzenValueAxis>
+            </RadzenChart>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    bool showDataLabels = false;
+
+    string StringFormatToUS(object value)
+    {
+        return ((double)value).ToString("N0", CultureInfo.CreateSpecificCulture("en-US"));
+    }
+
+    void OnSeriesClick(SeriesClickEventArgs args)
+    {
+        //console.Log(args);
+    }
+    class DataItem
+    {
+        public string Quarter { get; set; }
+        public double Revenue { get; set; }
+    }
+
+    DataItem[] revenue = new DataItem[] { };
+
+    List<DataItem> revenue2 = new List<DataItem>();
+    CpanelStorageInfoViewModel storageInfo = new CpanelStorageInfoViewModel();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var response = await _cpanelStorageService.GetCpanelStorageInfo();
+        var projectWiseResponse = await _cpanelStorageService.GetCpanelStorageByProjectWise();
+        if (response.Result != null)
+        {
+            storageInfo = response.Result;
+        }
+        if (projectWiseResponse.Result == null)
+        {
+            return;
+        }
+
+        foreach (var item in projectWiseResponse.Result)
+        {
+            var convertedData = ConvertGBToBytes(item.used);
+
+            var dataItem = new DataItem
+            {
+                Quarter = item.projectname,
+                Revenue = convertedData,
+
+            };
+            revenue2.Add(dataItem);
+        }
+       revenue = revenue2.ToArray();
+
+        StateHasChanged();
+
+    }
+
+    public double ConvertGBToBytes(string inputString)
+    {
+        double result = 3.00;
+        if (inputString.Contains("G"))
+        {
+            var result1 = Convert.ToDouble(inputString.TrimEnd('G'));
+            result = result1 ;
+        }
+        else if (inputString.Contains("M"))
+        {
+            var result1 = Convert.ToDouble(inputString.TrimEnd('M'));
+            result = result1 / 1024;
+        }
+        else if (inputString.Contains("K"))
+        {
+            var result1 = Convert.ToDouble(inputString.TrimEnd('K'));
+            result =  result1 / 1024 /1024;
+
+        }
+        else if (inputString.Contains("T"))
+        {
+            long bytesInTerabyte = 1024;
+            var result1 = Convert.ToDouble(inputString.TrimEnd('T'));
+            result = bytesInTerabyte * result1;
+        }
+
+        return result;
+    }
+}

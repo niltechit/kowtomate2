@@ -1,0 +1,226 @@
+﻿@page "/internalmessage/template/{objectId}"
+@page "/internalmessage/template"
+
+@*@attribute [Authorize(Roles = "Email.ManageTemplates")]*@
+
+@using CutOutWiz.Services.Models.Email
+@using CutOutWiz.Core.Message
+@using CutOutWiz.Services.Email
+@using CutOutWiz.Services.InternalMessage
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IInternalMessageTemplateService _messageTemplateService
+@inject IEmailSenderAccountService _senderAccountService
+@inject NavigationManager UriHelper
+
+<!-- start page title -->
+<div class="row">
+	<div class="col-12">
+		<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+			@if (template.ObjectId == null)
+			{
+				<div class="row">
+					<h4 class="mb-sm-0 font-size-18"> Add Internal Message Template</h4>
+				</div>
+			}
+			else
+			{
+				<div class="row">
+					<h4 class="mb-sm-0 font-size-18">Edit Internal Message Template</h4>
+				</div>
+			}
+			<div class="page-title-right">
+				<AuthorizeView Roles="SOPTemplate.Add">
+					<a href="/internalMessage/templates" class="btn btn-sm btn-secondary" title="Back To List"><span class="fas fa-arrow-left"></span> Back To List</a>
+				</AuthorizeView>
+			</div>
+		</div>
+	</div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+	<div class="col-lg-12">
+		<div class="card">
+			<div class="card-body">
+
+				<EditForm Model=@template OnValidSubmit="@InsertUpdateTemplate">
+
+					<div class="mb-3 mt-3">
+						<label for="Name" class="fw-bold">Name</label>
+						<div class="form-group">
+							<InputText class="form-control" @bind-Value="template.Name"></InputText>
+							<ValidationMessage For="@(() => template.Name)" />
+						</div>
+					</div>
+
+					<div class="mb-3 mt-3">
+						<label for="SenderAccountId" class="fw-bold">Sender Account</label>
+						<div class="form-group">
+							<InputSelect @bind-Value="template.SenderAccountId" class="form-select">
+								<option value="0">- Select -</option>
+								@foreach (var senderAccount in senderAccounts)
+								{
+									<option value="@((int)senderAccount.Id)">@senderAccount.Name</option>
+								}
+							</InputSelect>
+							<ValidationMessage For="@(() => template.SenderAccountId)" />
+						</div>
+					</div>
+
+					<div class="mb-3 mt-3">
+						<label for="AccessCode" class="fw-bold">Access Code</label>
+						<div class="form-group">
+							<InputText class="form-control" @bind-Value="template.AccessCode"></InputText>
+							<ValidationMessage For="@(() => template.AccessCode)" />
+						</div>
+					</div>
+				  <div class="mb-3 mt-3">
+						<label for="Subject" class="fw-bold">Subject</label>
+						<div class="form-group">
+							<InputText class="form-control" @bind-Value="template.Subject"></InputText>
+							<ValidationMessage For="@(() => template.Subject)" />
+						</div>
+					</div>
+
+					<div class="mb-3 mt-3">
+						<label for="elm1" class="fw-bold">Body</label>
+						<div class="form-group">
+							<RadzenHtmlEditor @bind-Value=@template.Body style="height: 500px; margin-bottom: 1rem;" />
+							<ValidationMessage For="@(() => template.Body)" />
+						</div>
+					</div>
+
+					<div class="mb-3 mt-3">
+						<label for="Status" class="fw-bold">Status</label>
+						<div class="form-group">
+							<InputSelect @bind-Value="template.Status" class="form-select">
+								<option value="0">- Select -</option>
+								@foreach (var status in Enum.GetValues(typeof(GeneralStatus)))
+								{
+									<option value="@((int)status)">@status</option>
+								}
+							</InputSelect>
+							<ValidationMessage For="@(() => template.Status)" />
+						</div>
+					</div>
+
+					<br />
+
+					<div class="mb-3 mt-3">
+						<button type="submit" class="btn btn-primary me-2" disabled="@isSubmitting">Save Changes</button>
+						@if (!string.IsNullOrWhiteSpace(template.ObjectId))
+						{
+							<button type="button" class="btn btn-danger ms-2" disabled="@isSubmitting" @onclick="() => Delete(template.ObjectId,template.Name)">Delete</button>
+						}
+					</div>
+
+				</EditForm>
+			</div>
+		</div>
+	</div>
+</div>
+
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+	protected ModalNotification ModalNotification { get; set; }
+	[Parameter]
+	public string objectId { get; set; }
+
+	protected bool isSubmitting;
+
+	protected InternalMessageTemplate template = new InternalMessageTemplate();
+	private LoginUserInfoViewModel loginUser = null;
+	protected List<EmailSenderAccountModel> senderAccounts = new List<EmailSenderAccountModel>();
+
+	protected override async Task OnInitializedAsync()
+	{
+		loginUser = _workContext.LoginUserInfo;
+		await LoadTemplate();
+		senderAccounts = await _senderAccountService.GetAll();
+	}
+
+	private async Task LoadTemplate()
+	{
+		if (string.IsNullOrWhiteSpace(objectId) == false)
+		{
+			template = await _messageTemplateService.GetByObjectId(objectId);
+		}
+		else
+		{
+			template = new InternalMessageTemplate { Status = (int)GeneralStatus.Active };
+		}
+
+	}
+
+	private async Task InsertUpdateTemplate()
+	{
+		isSubmitting = true;
+
+		if (template.Id == 0)
+		{
+			template.CreatedByContactId = loginUser.ContactId;
+			template.ObjectId = Guid.NewGuid().ToString();
+		
+			var addResponse = await _messageTemplateService.Insert(template);
+
+			if (!addResponse.IsSuccess)
+			{
+				ModalNotification.ShowMessage("Error", addResponse.Message);
+				isSubmitting = false;
+				return;
+			}
+		}
+		else
+		{
+			template.UpdatedByContactId = loginUser.ContactId;
+			var updateResponse = await _messageTemplateService.Update(template);
+
+			if (!updateResponse.IsSuccess)
+			{
+				ModalNotification.ShowMessage("Error", updateResponse.Message);
+				isSubmitting = false;
+				return;
+			}
+		}
+
+		template = new InternalMessageTemplate();
+		isSubmitting = false;
+
+		UriHelper.NavigateTo("/internalMessage/templates");
+	}
+
+
+	protected void Delete(string objectId, string name)
+	{
+		var msg = $"Are you sure you want to delete the template \"{name}\"?";
+		ModalNotification.ShowConfirmation("Confirm Delete", msg);
+	}
+
+	protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+	{
+		if (deleteConfirmed)
+		{
+			var deleteResponse = await _messageTemplateService.Delete(objectId);
+
+			if (deleteResponse.IsSuccess)
+			{
+				await LoadTemplate();
+				template = new InternalMessageTemplate();
+			}
+			else
+			{
+				ModalNotification.ShowMessage("Error", deleteResponse.Message);
+			}
+		}
+
+		isSubmitting = false;
+		UriHelper.NavigateTo("/email/templates");
+	}
+}

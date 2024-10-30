@@ -1,0 +1,366 @@
+﻿@page "/hr/employeeleave"
+
+@attribute [Authorize(Roles = PermissionConstants.HR_ViewEmployeeLeave)]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.Models.HR
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.ClaimManagementService
+@using CutOutWiz.Services.HR
+@using CutOutWiz.Services.MapperHelper
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IEmployeeLeaveService _employeeService
+@inject IShiftManager _shiftService
+@inject ILeaveTypeService _leaveTypeService
+@inject IContactManager _contactManager
+@inject IMapperHelperService _mapperService
+@inject NavigationManager NavigationManager
+@inject IClaimsService _claimsService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                @if (employeeLeaves?.Any() == true)
+                {
+                    @:Leaves(@employeeLeaves.Count)
+                }
+                else
+                {
+                    @:Leaves
+                }
+            </h4>
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New Designation"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+        <RadzenDataGrid Data="@employeeLeaves" IsLoading="isLoading" TItem="CutOutWiz.Services.Models.HR.EmployeeLeaveViewModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+                <RadzenDataGridColumn TItem="CutOutWiz.Services.Models.HR.EmployeeLeaveViewModel" Property="EmployeeId" Title="Employee Id" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="CutOutWiz.Services.Models.HR.EmployeeLeaveViewModel" Property="Name" Title="Name" SortOrder="SortOrder.Ascending" />
+
+                <RadzenDataGridColumn Width="200px" TItem="EmployeeLeaveViewModel" Property="LeaveStartRequestDate" Title="Request Date" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        @((data.LeaveStartRequestDate != null) ? data.LeaveStartRequestDate.ToString("dd-MMM-yyyy hh:mm tt") : string.Empty)
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn Width="200px" TItem="EmployeeLeaveViewModel" Property="LeaveEndRequestDate" Title="End Date" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        @((data.LeaveEndRequestDate != null) ? data.LeaveEndRequestDate.ToString("dd-MMM-yyyy hh:mm tt") : string.Empty)
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="EmployeeLeaveViewModel" Property="EmployeeNote" Title="Employee Note" Filterable="false" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="EmployeeLeaveViewModel" Property="HRNote" Title="HR Note" Filterable="false" SortOrder="SortOrder.Ascending" />
+
+                <RadzenDataGridColumn Width="200px" TItem="EmployeeLeaveViewModel" Property="LeaveStatus" Title="Status" Filterable="true" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        @data.LeaveStatus
+                        @if (data.LeaveStatus == CutOutWiz.Core.Utilities.LeaveStatus.Approved)
+                        {
+                            <RadzenDataGridColumn Width="200px" TItem="EmployeeLeaveViewModel" Property="LeaveApprovedStartDate" Title="Approved Date" Filterable="false" OrderIndex="3" Sortable="false" TextAlign="TextAlign.Center">
+                                <Template Context="data1">
+                                    @((data1.LeaveApprovedStartDate.HasValue) ? data1.LeaveApprovedStartDate.Value.ToString("dd-MMM-yyyy hh:mm tt") : string.Empty)
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <RadzenDataGridColumn Width="200px" TItem="EmployeeLeaveViewModel" Property="LeaveApprovedEndDate" Title="Appr End Date" Filterable="false" OrderIndex="3" Sortable="false" TextAlign="TextAlign.Center">
+                                <Template Context="data1">
+                                    @((data1.LeaveApprovedEndDate.HasValue) ? data1.LeaveApprovedEndDate.Value.ToString("dd-MMM-yyyy hh:mm tt") : string.Empty)
+                                </Template>
+                            </RadzenDataGridColumn>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn Width="140px" TItem="CutOutWiz.Services.Models.HR.EmployeeLeaveViewModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await ShowDetail(data.Id))">
+                            <span class="fas fa-eye"></span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.Id.ToString()))">
+                            <span class="fas fa-pencil-alt"></span>
+                        </button>
+                        <AuthorizeView Roles="@PermissionConstants.HR_ApprovedButtonShow">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Approved(data.Id.ToString()))">
+                            Approved
+                        </button>
+                        </AuthorizeView>
+                        @* <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.Id.ToString(),data.Id.ToString())">
+                            <span class="fas fa-times"></span>
+                        </button> *@
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@employeeLeave OnValidSubmit="@InsertUpdateEmployeeLeave">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Employee Leave</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <EmployeeLeaveAddOrEdit EmployeeLeaveModel="employeeLeave" LeaveTypes="leaveTypes" isAddNewFormOpen="isAddNewFormOpen" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+@if (isDetail)
+{
+    <EditForm Model=@employeeLeave>
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Employee Leave Detail</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseDetailPopup"></button>
+                    </div>
+                    <div class="modal-body">
+
+                        <div class="row">
+                            <EployeeLeaveDetail EmployeeLeaveModel="employeeLeave" LeaveTypes="leaveTypes" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+@*                         <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Approved</button> *@
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseDetailPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<CutOutWiz.Services.Models.HR.EmployeeLeaveViewModel> employeeLeaves;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    private CutOutWiz.Services.Models.HR.EmployeeLeaveViewModel employeeLeave = new EmployeeLeaveViewModel();
+    bool isPopupVisible = false;
+    bool isDetail = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private string selectedObjectId = "";
+    List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+    private byte? filterStatus;
+
+    private List<ShiftModel> shifts = new List<ShiftModel>();
+    private List<ContactModel> contacts = new List<ContactModel>();
+    private List<CutOutWiz.Services.Models.HR.LeaveTypeModel> leaveTypes { get; set; } = new List<LeaveTypeModel>();
+    private bool isAddNewFormOpen { get; set; } = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var claims = await _claimsService.GetClaimsAsync();
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+        await LoadEmployeeLeaves();
+
+        foreach (GeneralStatus item in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+        shifts = await _shiftService.GetAll();
+        contacts = await _contactManager.GetAll();
+        contacts = contacts.Where(x => !string.IsNullOrWhiteSpace(x.EmployeeId)).ToList();
+        leaveTypes = await _leaveTypeService.GetAll();
+
+        isLoading = false;
+    }
+
+    private async Task LoadEmployeeLeaves()
+    {
+        employeeLeaves = await _employeeService.GetAll<EmployeeLeaveViewModel>();
+        // Check Permisson for See all leaves
+        var claims = await _claimsService.GetClaimsAsync();
+
+        if (claims.Where(x => x.Value.Contains(PermissionConstants.HR_ViewAllLeaves)).Count() == 0)
+        {
+            employeeLeaves = employeeLeaves.Where(x => x.LeaveForContactId == loginUser.ContactId).ToList();
+        }
+    }
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<CutOutWiz.Services.Models.HR.EmployeeLeaveViewModel> args)
+    {
+        await Edit(args.Data.Id.ToString());
+    }
+
+    private async Task InsertUpdateEmployeeLeave()
+    {
+        isSubmitting = true;
+
+        if (employeeLeave.Id == 0)
+        {
+            employeeLeave.LeaveForContactId = loginUser.ContactId;
+            employeeLeave.LeaveRequestByContactId = loginUser.ContactId;
+            employeeLeave.LeaveStatus = CutOutWiz.Core.Utilities.LeaveStatus.Pending;
+
+            var employeeLeaves = await _mapperService.MapToSingleAsync<EmployeeLeaveViewModel, EmployeeLeaveModel>(employeeLeave);
+
+            var addResponse = await _employeeService.Insert(employeeLeaves);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+        else
+        {
+            //designation.UpdatedByContactId = loginUser.ContactId;
+            var employeeLeaves = await _mapperService.MapToSingleAsync<EmployeeLeaveViewModel, EmployeeLeaveModel>(employeeLeave);
+
+            var updateResponse = await _employeeService.Update(employeeLeaves);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+
+        employeeLeave = new CutOutWiz.Services.Models.HR.EmployeeLeaveViewModel();
+        isSubmitting = false;
+        isAddNewFormOpen = false;
+
+        await LoadEmployeeLeaves();
+        CloseAddEditPopup();
+    }
+
+    void AddNew()
+    {
+        employeeLeave = new CutOutWiz.Services.Models.HR.EmployeeLeaveViewModel { };
+
+        isSubmitting = false;
+        isAddNewFormOpen = true;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(string objectId)
+    {
+        employeeLeave = new EmployeeLeaveViewModel();
+        var leave = await _employeeService.GetById(Convert.ToInt32(objectId));
+        var employeeLeaveView = await _mapperService.MapToSingleAsync<EmployeeLeaveModel, EmployeeLeaveViewModel>(leave);
+        employeeLeaveView.LeaveApprovedStartDate = employeeLeaveView.LeaveStartRequestDate;
+        employeeLeaveView.LeaveApprovedEndDate = employeeLeaveView.LeaveEndRequestDate;
+        employeeLeave = employeeLeaveView;
+        isAddNewFormOpen = true;
+        ShowAddEditPopup();
+    }
+    private async Task Approved(string objectId)
+    {
+        employeeLeave = new EmployeeLeaveViewModel();
+        var leave = await _employeeService.GetById(Convert.ToInt32(objectId));
+        var employeeLeaveView = await _mapperService.MapToSingleAsync<EmployeeLeaveModel, EmployeeLeaveViewModel>(leave);
+        employeeLeaveView.LeaveApprovedStartDate = employeeLeaveView.LeaveStartRequestDate;
+        employeeLeaveView.LeaveApprovedEndDate = employeeLeaveView.LeaveEndRequestDate;
+        employeeLeave = employeeLeaveView;
+        isAddNewFormOpen = false;
+        ShowAddEditPopup();
+    }
+    private async Task ShowDetail(int id)
+    {
+        var leave = await _employeeService.GetById(id);
+        var employeeLeaves = await _mapperService.MapToSingleAsync<EmployeeLeaveModel, EmployeeLeaveViewModel>(leave);
+        employeeLeave = employeeLeaves;
+        ShowDetailPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+    void ShowDetailPopup()
+    {
+        isDetail = true;
+    }
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+        isAddNewFormOpen = false;
+    }
+    void CloseDetailPopup()
+    {
+        isDetail = false;
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the employee profile \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _employeeService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadEmployeeLeaves();
+                employeeLeave = new CutOutWiz.Services.Models.HR.EmployeeLeaveViewModel();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+
+        isSubmitting = false;
+    }
+}

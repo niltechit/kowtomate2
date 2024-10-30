@@ -1,0 +1,218 @@
+﻿@page "/common/countries"
+
+@attribute [Authorize(Roles = "Common.ManageCountries")]
+
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.Common
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject ICountryManager _countryService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Countries </h4>
+            <div class="page-title-right">
+                 <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New Country"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+
+        <RadzenDataGrid Data="@countrys" IsLoading="isLoading" TItem="CountryModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+                <RadzenDataGridColumn TItem="CountryModel" Property="Name" Title="Country Name" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="CountryModel" Property="Code" Title="Country Code" />
+
+                <RadzenDataGridColumn TItem="CountryModel" Property="CreatedDate" Title="Created Date" TextAlign="TextAlign.Center" Filterable="false"/>
+                <RadzenDataGridColumn Width="120px" TItem="CountryModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <AuthorizeView Roles="Role.Edit">
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.ObjectId))">
+                                <span class="fas fa-pencil-alt"></span>
+                            </button>
+                        </AuthorizeView>
+
+                        <AuthorizeView Roles="Role.Delete">
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.ObjectId,data.Name)">
+                                <span class="fas fa-times"></span>
+                            </button>
+                        </AuthorizeView>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@country OnValidSubmit="@InsertUpdateCountry" >
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Country</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <CountryAddEdit country="country" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @if (!string.IsNullOrWhiteSpace(country.ObjectId))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(country.ObjectId,country.Name)">Delete</button>
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<CountryModel> countrys;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    private CountryModel country = null;
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private string selectedObjectId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+        await LoadCountrys();
+        isLoading = false;
+    }
+
+    private async Task LoadCountrys()
+    {
+        countrys = await _countryService.GetAll();
+    }
+
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<CountryModel> args)
+    {
+        await Edit(args.Data.ObjectId);
+    }
+
+    private async Task InsertUpdateCountry()
+    {
+        isSubmitting = true;
+
+        if (country.Id == 0)
+        {
+            country.CreatedByContactId = loginUser.ContactId;
+            country.ObjectId = Guid.NewGuid().ToString();
+
+            var addResponse = await _countryService.Insert(country);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error",addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+        else
+        {
+            country.UpdatedByContactId = loginUser.ContactId;
+            var updateResponse = await _countryService.Update(country);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error",updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+
+        country = new CountryModel();
+        isSubmitting = false;
+
+        await LoadCountrys();
+        CloseAddEditPopup();
+    }
+
+    void AddNew()
+    {
+        country = new CountryModel { /*Status = (int)GeneralStatus.Active*/ };
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(string objectId)
+    {
+        country = await _countryService.GetByObjectId(objectId);
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the country \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete",msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _countryService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadCountrys();
+                country = new CountryModel();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                 ModalNotification.ShowMessage("Error",deleteResponse.Message);
+            }
+        }
+
+         isSubmitting = false;
+    }
+}

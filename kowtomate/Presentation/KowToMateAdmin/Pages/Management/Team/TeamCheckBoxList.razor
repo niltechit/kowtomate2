@@ -1,0 +1,33 @@
+﻿@using CutOutWiz.Core.Management
+
+<div>
+      <label for="Teams" class="col-sm-4 col-form-label fw-bold">Teams</label>
+      <RadzenDropDown Multiple="true" Chips="true" MaxSelectedLabels="20"  Data=@teams @bind-Value=@selectedTeams
+                       Placeholder="Select Team..."  TextProperty="Name" ValueProperty="Id"  Change=@(args => OnChangeDisabled(args, "DropDown with multiple selection")) Class="w-100" />
+</div>
+@code {
+    [Parameter]
+    public List<TeamModel> teams { get; set; }
+   
+    [Parameter]
+    public EventCallback<List<int>> OnAssignedTeam { get; set; }
+    [Parameter]
+    public List<int> selectedTeams { get; set; }
+
+    //When select all button need to convertion other wise it will get error 
+    protected async Task OnChangeDisabled(object value, string name)
+    {
+        var str = value is IEnumerable<int> ? string.Join(", ", (IEnumerable<int>)value) : value;
+        var seletedTeamId = str.ToString().Split(",");
+        List<int> teamIds = new List<int>();
+        for (int i = 0; i< seletedTeamId.Length; i++)
+        {
+            if (!string.IsNullOrEmpty(seletedTeamId[i]))
+            {
+               teamIds.Add(Convert.ToInt32(seletedTeamId[i]));  
+            }
+        }
+        await OnAssignedTeam.InvokeAsync(teamIds);
+    }
+}
+

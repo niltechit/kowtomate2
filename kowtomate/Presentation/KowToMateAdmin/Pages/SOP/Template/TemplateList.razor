@@ -1,0 +1,421 @@
+﻿@page "/sop/templates"
+@page "/sop/templates/{paramCompanyObjectId}"
+@attribute [Authorize(Roles = "SOPTemplate.ViewList")]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.Models.EmailModels
+@using CutOutWiz.Core.Message
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Models.SOP
+@using CutOutWiz.Services.EmailMessage
+@using CutOutWiz.Services.InternalMessage
+@using CutOutWiz.Services.Logs
+@using CutOutWiz.Services.Models.Message
+@using CutOutWiz.Services.SOP
+@using CutOutWiz.Services.Security
+@using CutOutWiz.Services.StorageService
+@using KowToMateAdmin.Helper
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using System.Diagnostics
+@using Microsoft.AspNetCore.Mvc
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IOrderSOPTemplateService _templateService
+@inject IFileServerManager _fileServerService
+@inject ICompanyManager _companyService
+@inject ILogServices _activityLogService
+@inject IContactManager _contactManager
+@inject IInternalMessageService _internalMessageService
+@inject IWorkflowEmailService _workflowEmailService
+@inject ILocalFileService _localFileService
+@inject NavigationManager NavigationManager
+@inject IUserService _userService
+@inject IRoleManager _roleManager
+@inject IConfiguration _configuration
+@inject IJSRuntime js
+@inject AuthenticationStateProvider _authenticationStateProvider
+
+<!-- start page title -->
+<div class="row">
+	<div class="col-12">
+		<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+			<h4 class="mb-sm-0 font-size-18">
+				SOP Templates
+			</h4>
+			<div class="page-title-right">
+				<AuthorizeView Roles="SOPTemplate.Add">
+					<a href="/sop/template" class="btn btn-sm" style="background-color:#7da52f;color:white" title="Add New Template"><span class="fas fa-plus"></span> Add New</a>
+					@* <a href="/Log/Logs" class="btn btn-sm btn-secondary" title="Add New Template"><span class="fas fa-history"></span>Activities</a> *@
+				</AuthorizeView>
+			</div>
+		</div>
+	</div>
+</div>
+<!-- end page title -->
+
+
+<div class="row">
+	<div class="col-lg-12">
+		<RadzenDataGrid Data="@templates" IsLoading="isLoading" TItem="SOPTemplateModel"
+						AllowFiltering="true" AllowColumnResize="true"
+						FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+						AllowSorting="true" AllowPaging="true" PageSize="20"
+						PagerHorizontalAlign="HorizontalAlign.Center"
+						ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+						RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+			<Columns>
+				<RadzenDataGridColumn TItem="SOPTemplateModel" Property="Name" Title="Name" SortOrder="SortOrder.Ascending" />
+
+				@if (canSeePrice)
+				{
+					<RadzenDataGridColumn TItem="SOPTemplateModel" Property="UnitPrice" Title="Unit Price">
+
+						<Template Context="template">
+							@if (template.Status != (int)SopStatus.RequestByOpsForApprove)
+							{
+								<span>@template.UnitPrice</span>
+							}
+							else
+							{
+								<span></span>
+							}
+						</Template>
+
+					</RadzenDataGridColumn>
+				}
+				<RadzenDataGridColumn TItem="SOPTemplateModel" Property="Status" Title="Status" FilterValue="@filterStatus" TextAlign="TextAlign.Center">
+					<FilterTemplate>
+						<RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+										Data="@(statuses)" AllowClear="true" />
+					</FilterTemplate>
+					<Template Context="template">
+
+						@if (template.Status == (int)SopStatus.New)
+						{
+							<AuthorizeView Roles="SOPTemplate.Add">
+								<a href="/sop/templates/Details/@template.ObjectId"><span class="badge bg-success">New Sop</span></a>
+							</AuthorizeView>
+						}
+						else if (template.Status == (int)SopStatus.ReviewPriceByOps || template.Status == (int)SopStatus.ReviewPriceByClient || template.Status == (int)SopStatus.RequestByOpsForApprove)
+						{
+							<a href="/sop/templates/Details/@template.ObjectId"><span class="badge bg-warning text-dark">Price Review</span></a>
+						}
+						else if (template.Status == (int)SopStatus.PriceApproved)
+						{
+							<a href="/sop/templates/Details/@template.ObjectId"><span class="badge bg-warning text-dark">Price Approved</span></a>
+						}
+					</Template>
+				</RadzenDataGridColumn>
+
+				<RadzenDataGridColumn TItem="SOPTemplateModel" Property="CreatedDate" Title="Created Date" TextAlign="TextAlign.Center" Filterable="false" />
+				<RadzenDataGridColumn Width="270px" TItem="SOPTemplateModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+					<Template Context="template">
+						<AuthorizeView Roles="SOPTemplate.Edit">
+							<a href="/sop/template/@template.ObjectId" class="btn btn-sm btn-outline-primary btn-tbl-action">
+								<span class="fas fa-pencil-alt"></span>
+							</a>
+						</AuthorizeView>
+						<a href="/sop/templates/Details/@template.ObjectId" class="btn btn-sm btn-outline-primary btn-tbl-action">
+							<i class="fas fa-eye"></i>
+						</a>
+						<AuthorizeView Roles="SOPTemplate.Delete">
+							<button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(template)">
+								<span class="fas fa-times"></span>
+							</button>
+						</AuthorizeView>
+
+						<AuthorizeView Context="cancelorAcceptApproval" Roles="Sop.ViewReviewPriceActionForOperation">
+							@if (template.Status == (int)SopStatus.RequestByOpsForApprove)
+							{
+								<button type="button" class="btn btn-outline-info sop-list-action-btn" @onclick="()=>UpdateSopTemplateStatus(template,(int)SopStatus.ReviewPriceByOps)">
+									Request For Approval
+								</button>
+							}
+							else if (template.Status == (int)SopStatus.ReviewPriceByClient || template.Status == (int)SopStatus.ReviewPriceByOps)
+							{
+								<button type="button" class="btn btn-outline-success sop-list-action-btn" @onclick="()=>UpdateSopTemplateStatus(template,(int)SopStatus.PriceApproved)">
+									Approved
+								</button>
+								<a href="/sop/template/@template.ObjectId" class="btn btn-sm btn-outline-primary btn-tbl-action">
+									<span>
+										Review Price
+									</span>
+								</a>
+							}
+						</AuthorizeView>
+						<AuthorizeView Context="requestForApproval" Roles="Sop.ViewReviewPriceActionForClient">
+							@if (template.Status == (int)SopStatus.ReviewPriceByOps || template.Status == (int)SopStatus.ReviewPriceByClient)
+							{
+								<button type="button" class="btn btn-outline-success sop-list-action-btn" @onclick="()=>UpdateSopTemplateStatus(template,(int)SopStatus.PriceApproved)">
+									Approved
+								</button>
+								<a href="/sop/template/@template.ObjectId" class="btn btn-sm btn-outline-primary btn-tbl-action">
+									<span>
+										Review Price
+									</span>
+								</a>
+							}
+						</AuthorizeView>
+					</Template>
+				</RadzenDataGridColumn>
+			</Columns>
+		</RadzenDataGrid>
+	</div>
+</div>
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+	[Parameter]
+	public string paramCompanyObjectId { get; set; }
+
+	protected ModalNotification ModalNotification { get; set; }
+	IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+	bool isLoading = false;
+	private List<SOPTemplateModel> templates;
+	private LoginUserInfoViewModel loginUser = null;
+	private string selectedObjectId = "";
+	private SOPTemplateModel sOPTemplate { get; set; }
+	List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+	private byte? filterStatus;
+
+	private bool canSeePrice = false;
+
+	protected override async Task OnInitializedAsync()
+	{
+		isLoading = true;
+		loginUser = _workContext.LoginUserInfo;
+		await LoadTemplates();
+		foreach (SopStatus item in Enum.GetValues(typeof(SopStatus)))
+		{
+			statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+		}
+
+		var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+
+		if (authState.User.IsInRole(PermissionConstants.SOP_CanViewPrice))
+		{
+			canSeePrice = true;
+		}
+
+		isLoading = false;
+	}
+
+	private async Task LoadTemplates()
+	{
+		if (loginUser.CompanyType == (int)CompanyType.Client)
+		{
+			templates = await _templateService.GetAllByCompany(loginUser.CompanyId);
+		}
+		else
+		{
+			if (string.IsNullOrWhiteSpace(paramCompanyObjectId))
+			{
+				templates = await _templateService.GetAll();
+			}
+			else
+			{
+				var companySelectedOnParam = await _companyService.GetByObjectId(paramCompanyObjectId);
+
+				if (companySelectedOnParam == null)
+				{
+					NavigationManager.NavigateTo("/", true);
+					return;
+				}
+
+				templates = await _templateService.GetAllByCompany(companySelectedOnParam.Id);
+			}
+		}
+	}
+	private async Task RowDoubleClick(DataGridRowMouseEventArgs<SOPTemplateModel> args)
+	{
+		await Task.Yield();
+		NavigationManager.NavigateTo($"/sop/template/{args.Data.ObjectId}", true);
+	}
+	private async Task Edit(string objectId)
+	{
+		await Task.Yield();
+		NavigationManager.NavigateTo($"/sop/template/{objectId}", true);
+	}
+
+	protected void Delete(SOPTemplateModel template)
+	{
+		sOPTemplate = template;
+		selectedObjectId = template.ObjectId;
+		var msg = $"Are you sure you want to delete the template \"{template.Name}\"?";
+		ModalNotification.ShowConfirmation("Confirm Delete", msg);
+	}
+
+	protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+	{
+		if (deleteConfirmed)
+		{
+			var deleteResponse = await _templateService.Delete(selectedObjectId);
+			var templateFile = await _templateService.GetSopTemplateFilesBySopTemplateId(sOPTemplate.Id);
+			var temFile = templateFile.FirstOrDefault();
+			if (temFile != null)
+			{
+				var RootFolder = temFile.RootFolderPath;
+				await _localFileService.DeleteFiles(RootFolder);
+			}
+
+			if (deleteResponse.IsSuccess)
+			{
+				InsertSopActivityLog();
+				await SendInternalMessage();
+				await SendMailToAllClient();
+				await LoadTemplates();
+				await js.DisplayMessage("Successfully Deleted");
+			}
+			else
+			{
+				ModalNotification.ShowMessage("Error", deleteResponse.Message);
+			}
+		}
+	}
+
+	private async Task SendMailToAllClient()
+	{
+		var contactList = await _contactManager.GetByCompanyId(loginUser.CompanyId);
+
+		SOPAddUpdateNotification sOPAddUpdateNotification = new SOPAddUpdateNotification
+			{
+				Contacts = contactList,
+				DetailUrl = "",//TODO:RAkib please check aminul vai
+				CreatedByContactId = loginUser.ContactId
+			};
+
+		sOPAddUpdateNotification.MailType = "Delete";
+		await _workflowEmailService.SendSopAddUpdateDeleteNotificationForCompanyAllUsers(sOPAddUpdateNotification);
+	}
+
+	private async void InsertSopActivityLog()
+	{
+		try
+		{
+			CompanyModel company = await _companyService.GetById(sOPTemplate.CompanyId);
+			ActivityLogModel activityLog = new ActivityLogModel();
+			activityLog.ActivityLogFor = ActivityLogForConstants.SOPTemplate;
+			activityLog.PrimaryId = sOPTemplate.Id;
+			activityLog.Description = $"Deleted SOP '{sOPTemplate.Name}' by {loginUser.FullName} on {DateTime.Now}";
+			activityLog.CreatedDate = DateTime.Now;
+			activityLog.CreatedByContactId = company.Id;
+			activityLog.ObjectId = Guid.NewGuid().ToString();
+
+			await _activityLogService.Insert(activityLog);
+		}
+
+		catch
+		{
+
+		}
+	}
+	private async Task SendInternalMessage()
+	{
+		var contactList = await _contactManager.GetByCompanyId(loginUser.CompanyId);
+		InternalMessageNotification internalMessageNotification = new InternalMessageNotification
+			{
+				Contacts = contactList,
+				SenderContactId = loginUser.ContactId,
+				MessageType = "Delete",
+				TemplateName = sOPTemplate.Name
+			};
+		await _internalMessageService.Insert(internalMessageNotification);
+
+	}
+	private async Task UpdateSopTemplateStatus(SOPTemplateModel template, byte status)
+	{
+		template.Status = status;
+		await _templateService.Update(template);
+		var user = await _userService.GetUserByContactId(loginUser.ContactId);
+		List<string> roleNames = await _roleManager.GetUserRoleByUserObjectId(user.ObjectId);
+		var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+
+		if (template.Status == (int)SopStatus.RequestByOpsForApprove)
+		{
+			if (authState.User.IsInRole(PermissionConstants.CanEditPriceByOps))
+			{
+				await SendMailToAllClient(template, "PriceUpdateByOperation");
+				await SendInternalMessage(template, "PriceUpdateByOperation");
+			}
+		}
+		if (template.Status == (int)SopStatus.PriceApproved)
+		{
+			if (!authState.User.IsInRole(PermissionConstants.CanEditPriceByOps))
+			{
+				await SendMailToAllOperation(template, "PriceApprovedByClient");
+				await SendInternalMessage(template, "PriceApprovedByClient");
+			}
+			else
+			{
+				await SendMailToAllClient(template, "PriceApprovedByOperation");
+				await SendInternalMessage(template, "PriceApprovedByOperation");
+			}
+
+		}
+
+	}
+
+	private async Task SendMailToAllClient(SOPTemplateModel template, string callerType)
+	{
+		var contactList = await _contactManager.GetByCompanyId(loginUser.CompanyId);
+		var detailUrl = $"{_configuration["AppMainUrl"]}/sop/templates/Details/{template.ObjectId}";
+		SOPAddUpdateNotification sOPAddUpdateNotification = new SOPAddUpdateNotification
+			{
+				Contacts = contactList,
+				DetailUrl = detailUrl,
+				CreatedByContactId = loginUser.ContactId,
+				TemplateName = template.Name
+			};
+		sOPAddUpdateNotification.MailType = callerType;
+		await _workflowEmailService.SendSopAddUpdateDeleteNotificationForCompanyAllUsers(sOPAddUpdateNotification);
+	}
+
+	private async Task SendInternalMessage(SOPTemplateModel template, string callerType)
+	{
+		var contactList = await _contactManager.GetByCompanyId(loginUser.CompanyId);
+		InternalMessageNotification internalMessageNotification = new InternalMessageNotification
+			{
+				Contacts = contactList,
+				SenderContactId = loginUser.ContactId,
+				TemplateName = template.Name
+			};
+
+		internalMessageNotification.MessageType = callerType;
+		await _internalMessageService.Insert(internalMessageNotification);
+	}
+
+	private async Task SendMailToAllOperation(SOPTemplateModel template, string callerType)
+	{
+		var company = await _companyService.GetByObjectId(_configuration["CompanyObjectId"]);
+		var role = await _roleManager.GetAll(company.ObjectId);
+		//var singleRole = role.Where(x => x.Name.Contains("Operation")).FirstOrDefault();
+		var singleRole = role.Where(x => x.Name.Contains("Operation")).ToList();
+		foreach (var singlerole in singleRole)
+		{
+			var userList = await _roleManager.GetAllUserRole(singlerole.ObjectId);
+			foreach (var user in userList)
+			{
+				var userInfo = await _userService.GetByObjectId(user.UserObjectId);
+				var contactInfo = await _contactManager.GetById(userInfo.ContactId);
+				var detailUrl = $"{_configuration["AppMainUrl"]}/sop/templates/Details/{template.ObjectId}";
+				SOPAddUpdateNotification sOPAddUpdateNotification = new SOPAddUpdateNotification
+					{
+						Contact = contactInfo,
+						DetailUrl = detailUrl,
+						CreatedByContactId = loginUser.ContactId,
+						TemplateName = template.Name
+					};
+				sOPAddUpdateNotification.MailType = callerType;
+				await _workflowEmailService.SendSopAddUpdateDeleteNotificationForCompanyOperationsTeam(sOPAddUpdateNotification);
+			}
+		}
+	}
+
+}

@@ -1,0 +1,58 @@
+﻿@using CutOutWiz.Services.Models.HR
+@using static CutOutWiz.Core.Utilities.Enums
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="leaveSubType.Name"></InputText>
+        <ValidationMessage For="@(() => leaveSubType.Name)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="IsActive" class="col-sm-4 col-form-label fw-bold">Leave Type</label>
+    <div class="col-sm-8">
+        <InputSelect @bind-Value="leaveSubType.LeaveTypeId" class="form-select">
+            <option value="0">- Select -</option>
+            @foreach (var leaveType in leaveTypes)
+            {
+                <option value="@leaveType.Id">@leaveType.Name</option>
+            }
+        </InputSelect>
+        <ValidationMessage For="@(() => leaveSubType.LeaveTypeId)" />
+    </div>
+</div>
+
+@* <div class="mb-2 row">
+    <label for="IsActive" class="col-sm-4 col-form-label fw-bold">IsActive</label>
+    <div class="col-sm-8">
+      <InputSelect @bind-Value="leaveSubType.IsActive" class="form-select">
+           <option value="0">- Select -</option>
+        @foreach (var status in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            <option value="@((int)status)">@status</option>
+        }
+         </InputSelect>
+        <ValidationMessage For="@(() => leaveSubType.IsActive)" />
+    </div>
+</div> *@
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Is Active</label>
+    <div class="col-sm-8">
+        <label class="form-check-label mt-2" for="IsActive">
+            <InputCheckbox @bind-Value="leaveSubType.IsActive" id="IsActive" class="form-check-input"></InputCheckbox>
+        </label>
+        <ValidationMessage For="@(() =>leaveSubType.IsActive)" />
+    </div>
+</div>
+
+
+
+@code {
+    [Parameter]
+    public LeaveSubTypeModel leaveSubType { get; set; }
+
+    [Parameter]
+    public List<LeaveTypeModel> leaveTypes { get; set; }
+}

@@ -1,0 +1,611 @@
+﻿@page "/teamstatusdashboard/teammemberassignimageandorder/{teamId}/{contactId}"
+@using CutOutWiz.Core.Utilities;
+@using CutOutWiz.Services.Models.ClientOrders;
+@using CutOutWiz.Core;
+
+@using CutOutWiz.Core.Management;
+@using CutOutWiz.Services.Models.OrderAndOrderItemStatusChangeLog;
+@using CutOutWiz.Services.Models.OrderAssignedImageEditors;
+@using CutOutWiz.Services.Models.Security;
+@using CutOutWiz.Services.BLL.OrderStatusAndOrderItemStatus;
+@using CutOutWiz.Services.BLL.UpdateOrderItem;
+@using CutOutWiz.Services.ClientOrders;
+@using CutOutWiz.Services.Management;
+@using CutOutWiz.Services.OrderItemStatusChangeLogService;
+@using CutOutWiz.Services.OrderTeamServices;
+@using CutOutWiz.Services.Security;
+@using KowToMateAdmin.Models.Security;
+@using static CutOutWiz.Core.Utilities.Enums;
+
+
+@inject IClientOrderItemService _clientOrderItemService
+@inject IOrderItemStatusChangeLogService _orderItemStatusChangeLogService
+@inject ITeamService _teamService
+@inject ITeamMemberService _teamMemberService
+@inject IOrderAssignedImageEditorService _orderAssignedImageEditorService
+@inject IUpdateOrderItemBLLService _updateOrderItemBLLService
+@inject IOrderStatusService _orderStatusService;
+@inject IContactManager _contactManager
+@inject ITeamService _teamService
+
+<div>
+	<h3>Name: <span style="font-weight:bold;color:crimson">@contact.FirstName @contact.LastName</span></h3>
+</div>
+
+
+<div class="row">
+
+	<div class="col-12">
+		<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+			<h4 class="mb-sm-0 font-size-18">
+				
+
+			</h4>
+			
+			<div class="page-title-right">
+				@*<button type="button" class="btn btn-sm btn-primary btn-space" @onclick="AssignToEditor" title="Assign Order To Editor"><span class="fas fa-plus"></span> AOTE</button>*@
+			</div>
+		</div>
+	</div>
+</div>
+<div class="row">
+	<div class="col-xl-12">
+		<div class="card">
+			<div class="card-body">
+				<!-- Nav tabs -->
+				<ul class="nav nav-tabs" role="tablist">
+					<li class="nav-item">
+						<a class="nav-link active" data-bs-toggle="tab" href="#orderImages" role="tab">
+							<span class="d-block d-sm-none"><i class="far fa-user"></i></span>
+							<span class="d-none d-sm-block">Order Items</span>
+						</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link " data-bs-toggle="tab" href="#orderInfo" role="tab">
+							<span class="d-block d-sm-none"><i class="fas fa-home"></i></span>
+							<span class="d-none d-sm-block">Order List</span>
+						</a>
+					</li>
+					
+				</ul>
+				
+				<!-- Tab panes -->
+					<div class="tab-content p-3 text-muted">
+					<div class="tab-pane active" id="orderImages" role="tabpanel">
+						<RadzenDataGrid @ref="grid" Data="@clientOrderItems" IsLoading="isLoading" TItem="ClientOrderItemModel"
+										AllowFiltering="true" AllowColumnResize="true"
+										FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+										AllowSorting="true" AllowPaging="true" PageSize="12"
+										PagerHorizontalAlign="HorizontalAlign.Center"
+										SelectionMode="DataGridSelectionMode.Multiple"
+										ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+										AllowRowSelectOnRowClick=@allowRowSelectOnRowClick
+										@bind-Value="@selectedFiles" ColumnWidth="150px" RowRender="@OnRowRender">
+							<Columns>
+								<RadzenDataGridColumn TItem="ClientOrderItemModel" TextAlign="TextAlign.Center" Width="30px" Frozen="true" Sortable="false"
+													  Filterable="false" Groupable="false" Reorderable="false" Pickable="false">
+									<HeaderTemplate>
+										<RadzenCheckBox TriState="false" TValue="bool" Value="@(clientOrderItems == null ? false : clientOrderItems.Any(i => selectedFiles != null && selectedFiles.Contains(i)))"
+														Change="@(args => selectedFiles = args && clientOrderItems != null ? clientOrderItems.Where(f=> (filterStatus == null || f.Status == filterStatus) && (string.IsNullOrWhiteSpace(filterFileName) ||  f.FileName.Contains(filterFileName, StringComparison.InvariantCultureIgnoreCase))).Skip(grid.CurrentPage * grid.PageSize).Take(grid.PageSize).ToList() : null)" />
+									
+									
+									</HeaderTemplate>
+									<Template Context="data">
+										<RadzenCheckBox TriState="false" Value="@(selectedFiles != null && selectedFiles.Contains(data))"
+														TValue="bool" Change=@(args => { if(!allowRowSelectOnRowClick) { grid.SelectRow(data); }}) />
+									</Template>
+								</RadzenDataGridColumn>
+
+								<RadzenDataGridColumn TItem="ClientOrderItemModel" OrderIndex=1 Property="FileName" Title="File Name" SortOrder="SortOrder.Ascending" Resizable="true" Width="250px" Frozen="true">
+                                </RadzenDataGridColumn>
+								<RadzenDataGridColumn TItem="ClientOrderItemModel" OrderIndex=2 Property="Status" Title="Status" FilterValue="@filterStatus" TextAlign="TextAlign.Center" Width="200px" Frozen="true">
+									<FilterTemplate>
+										<RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+														Data="@(internalOrderItemStatusList)" AllowClear="true" />
+									</FilterTemplate>
+									<Template Context="contact">
+
+										@if (contact.Status != null)
+										{
+											<span class=@cssHelper.GivenBackgroundColorForStatus((int)contact.Status)>
+												@(
+													(InternalOrderItemStatus)contact.Status
+													)
+											</span>
+										}
+										else
+										{
+											<span>N/A</span>
+										}
+									</Template>
+								</RadzenDataGridColumn>
+								<RadzenDataGridColumn TItem="ClientOrderItemModel" OrderIndex=3 Property="Id" Title="Actions" Filterable="false" Sortable="false" Pickable="false" TextAlign="TextAlign.Center" Width="200px">
+									<Template Context="orderItem">
+										<button class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(e)=>ViewOrderItemStatusLog((int)orderItem.Id)">
+											<i class="fas fa-eye">Logs</i>
+										</button>
+									</Template>
+								</RadzenDataGridColumn>
+								<RadzenDataGridColumn TItem="ClientOrderItemModel" OrderIndex=4 Property="TimeLeft" Title="Time Left" Resizable="true" TextAlign="TextAlign.Center" Width="150px">
+									<Template Context="orderItem">
+										<span>
+											@if (@orderItem.ArrivalTime.HasValue)
+											{
+												var arrivalTimePlus1_4Hours = @orderItem.ArrivalTime.Value.AddHours(AutomatedAppConstant.VcDeadLineInHour);
+												var timeLeft = arrivalTimePlus1_4Hours - DateTime.Now;
+												if (timeLeft.TotalMinutes > 0)
+												{
+													@($"{(int)timeLeft.TotalMinutes} Min Left")
+													;
+												}
+												else
+												{
+													<span style="font-weight: bold;">@($"Over Due By {(int)timeLeft.TotalMinutes * (-1)} Min") </span>
+												}
+											}
+											else
+											{
+												<text>N/A</text>
+											}
+										</span>
+									</Template>
+								</RadzenDataGridColumn>
+
+							</Columns>
+						</RadzenDataGrid>
+					</div>
+					<div class="tab-pane" id="orderInfo" role="tabpanel">
+						<p>Coming Soon......</p>
+					</div>
+						</div>
+				
+			</div>
+		</div>
+	</div>
+</div>
+
+@if (isOrderItemChangeLogPopupVisible)
+{
+	<div class="modal" tabindex="-1" style="display:block;">
+		<div class="modal-dialog" style="max-width:631px !important">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5>Order Item Log</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseOrderItemChangeLogPopup"></button>
+				</div>
+				<div class="modal-body">
+					@if (orderItemStatusChangeLogs.Count > 0)
+					{
+						<table class="table table-striped">
+							<thead>
+								<tr>
+									<th>Status</th>
+									<th>Time Duration In Mintues</th>
+									<th>Change By</th>
+									@* <th>Employee Id</th>*@
+									<th>Change Date</th>
+
+								</tr>
+							</thead>
+							<tbody>
+								@foreach (var orderItemStatus in orderItemStatusChangeLogs)
+								{
+									<tr>
+										<td>@((InternalOrderItemStatus)orderItemStatus.NewInternalStatus)</td>
+										<td>@orderItemStatus.TimeDurationInMinutes</td>
+										<td>@(orderItemStatus.ChangeByFullName ?? "N/A")</td>
+										@* <td>@(orderItemStatus.EmployeeId ?? "N/A")</td>*@
+										<td>@orderItemStatus.ChangeDate</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+						<p style="padding-left:147px">Total : <span style="font-weight:bold">@orderItemStatusChangeLogs.Sum(f=>f.TimeDurationInMinutes) Minutes</span></p>
+					}
+					else
+					{
+						<p>No Log Available</p>
+					}
+				</div>
+			</div>
+
+		</div>
+	</div>
+}
+
+@if (isOrderItemsAssignToEditorPopupVisible)
+{
+	//Order AssignToEditor
+
+	<AuthorizeView Context="AssignOrderToEditor" Roles="Order.AssignNewOrderItemToEditor">
+		<EditForm Model="clientOrderItem" OnValidSubmit="InsertAssingOrderToEditor">
+
+			<div class="modal" tabindex="-1" style="display:block;">
+				<div class="modal-dialog">
+					<div class="modal-content">
+						@if (selectedFiles == null || !selectedFiles.Any())
+						{
+							<div class="modal-header">
+								<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAssignOrderItemToEditorPopup"></button>
+							</div>
+							<div class="modal-body">
+								Select at leact One item to assign.
+							</div>
+						}
+						else
+						{
+							<div class="modal-header">
+								<h6>Assign Order to Editor</h6>
+								<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAssignOrderItemToEditorPopup"></button>
+							</div>
+							<div class="modal-body">
+								<div class="row" style="margin-bottom:19px;">
+									<div class="form-group">
+										<label>Select Editor</label>
+										<InputSelect @bind-Value="@selectedTeamMemberIdForAssignFiles" class="form-select form-control">
+											<option value="0">- Select -</option>
+											@foreach (var teamMember in loginUserTeamMembers)
+											{
+												<option value="@((int)teamMember.ContactId)">@teamMember.FirstName</option>
+											}
+										</InputSelect>
+									</div>
+								</div>
+								<div class="row" style="max-height: 300px;overflow: auto;">
+									<div class="col-lg-12">
+										<RadzenDataGrid Data="@selectedFiles" TItem="ClientOrderItemModel"
+												SelectionMode="DataGridSelectionMode.Multiple">
+											<Columns>
+												<RadzenDataGridColumn TItem="ClientOrderItemModel" Property="FileName" Title="FileName" TextAlign="TextAlign.Left" Width="250px" />
+												<RadzenDataGridColumn TItem="ClientOrderItemModel" Property="FileSize" Title="Size" Width="70px">
+													<Template Context="orderItem">
+														@if (orderItem.FileSize <= 0 || orderItem.FileSize == null)
+														{
+															<span>N/A</span>
+														}
+														else
+														{
+															<span>@(orderItem.FileSize * 0.001) KB</span>
+														}
+													</Template>
+												</RadzenDataGridColumn>
+												@if (loginUser.CompanyType == (int)CompanyType.Admin)
+												{
+													<RadzenDataGridColumn TItem="ClientOrderItemModel" Property="Status" Title="Status" TextAlign="TextAlign.Center">
+
+														<Template Context="order">
+
+															@if (order.Status != null)
+															{
+																<span class="badge bg-success">@((InternalOrderItemStatus)order.Status)</span>
+															}
+															else
+															{
+																<span>N/A</span>
+															}
+														</Template>
+
+													</RadzenDataGridColumn>
+												}
+											</Columns>
+										</RadzenDataGrid>
+									</div>
+								</div>
+							</div>
+							<div class="modal-footer">
+								<button type="submit" class="btn btn-primary" disabled="@isAssignOrderSubmitting">Assign Images To Editor</button>
+							</div>
+						}
+					</div>
+				</div>
+			</div>
+		</EditForm>
+	</AuthorizeView>
+}
+
+@if (spinShow)
+{
+	<div class="loader">
+		@*<Chase/>
+	<Circle/>
+	<CircleFade/>
+	<Flow/>*@
+		<Grid />
+		@*<Plane/>*@
+		@*<Pulse/>
+	<Swing/>
+	<Wander/>
+	<Wave/>
+	<Bounce/>
+	<Fold/>*@
+
+	</div>
+}
+
+@code {
+	[Parameter]
+	public string teamId { get; set; }
+	[Parameter]
+	public string contactId { get; set; }
+	private List<ClientOrderItemModel> clientOrderItems = new List<ClientOrderItemModel>();
+	RadzenDataGrid<ClientOrderItemModel> grid;
+	bool isLoading = false;
+	bool isSubmitting = false;
+	IEnumerable<int> pageSizeOptions = new int[] { 10, 12, 15, 20, 50, 100, 500 };
+	bool allowRowSelectOnRowClick = false;
+	IList<ClientOrderItemModel> selectedFiles = new List<ClientOrderItemModel>();
+	List<CustomEnumTypes> internalOrderItemStatusList = new List<CustomEnumTypes>();
+	public CssHelper cssHelper = new CssHelper();
+	private List<OrderItemStatusChangeLogModel> orderItemStatusChangeLogs = new List<OrderItemStatusChangeLogModel>();
+	bool isOrderItemChangeLogPopupVisible = false;
+	private LoginUserInfoViewModel loginUser = new LoginUserInfoViewModel();
+	@inject IWorkContext _workContext;
+	bool isAssignOrderSubmitting = false;
+	List<TeamMemberListModel> loginUserTeamMembers = new List<TeamMemberListModel>();
+	bool isOrderItemsAssignToEditorPopupVisible = false;
+	bool spinShow = false;
+	int selectedTeamMemberIdForAssignFiles = 0;
+	ClientOrderItemModel clientOrderItem = new ClientOrderItemModel();
+	ContactModel contact = new ContactModel();
+	private byte? filterStatus;
+	private string filterFileName;
+
+	protected override async Task OnInitializedAsync()
+	{
+		loginUser = _workContext.LoginUserInfo;
+		foreach (InternalOrderItemStatus item in Enum.GetValues(typeof(InternalOrderItemStatus)))
+		{
+			internalOrderItemStatusList.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+		}
+		await LoadOrderItems();
+		
+
+	}
+
+	private async Task LoadOrderItems()
+	{
+		clientOrderItems = await _clientOrderItemService.GetAllAssignOrderItemByContactIdAndTeamId(Int32.Parse(contactId), Int32.Parse(teamId));
+		contact = await _contactManager.GetById(Int32.Parse(contactId));
+	}
+
+	private async Task ViewOrderItemStatusLog(int orderItemId)
+	{
+		orderItemStatusChangeLogs.Clear();
+		var orderItemChangeLogs = await _orderItemStatusChangeLogService.GetByOrderItemId(orderItemId);
+		orderItemStatusChangeLogs.AddRange(orderItemChangeLogs);
+		isOrderItemChangeLogPopupVisible = true;
+	}
+
+	void CloseOrderItemChangeLogPopup()
+	{
+		isOrderItemChangeLogPopupVisible = false;
+		orderItemStatusChangeLogs.Clear();
+	}
+
+	private void OnRowRender(RowRenderEventArgs<ClientOrderItemModel> args)
+	{
+		if (args.Data.ArrivalTime != null)
+		{
+			var arrivalTimePlus1_4Hours = args.Data.ArrivalTime.Value.AddHours(AutomatedAppConstant.VcDeadLineInHour);
+			var timeLeft = arrivalTimePlus1_4Hours - DateTime.Now;
+			var minLeft = (int)timeLeft.TotalMinutes;
+			if (args.Data.Status < (int)InternalOrderItemStatus.Completed)
+			{
+
+				if (minLeft <= AutomatedAppConstant.VcWarningTime && minLeft > AutomatedAppConstant.VcInDangerTime)
+				{
+					args.Attributes["class"] = "row-warning";
+				}
+				else if (minLeft > 0 && minLeft <= AutomatedAppConstant.VcInDangerTime)
+				{
+					args.Attributes["class"] = "row-warning-danger";
+				}
+				else if (minLeft <= 0)
+				{
+					args.Attributes["class"] = "row-failed";
+				}
+			}
+
+		}
+
+	}
+
+	private async Task AssignToEditor()
+	{
+		isAssignOrderSubmitting = false;
+		await ShowAssignOrderItemsToEditor();
+	
+	}
+
+	public async Task ShowAssignOrderItemsToEditor()
+	{
+		
+		ContactListModel contact = await _teamService.GetByContactId(loginUser.ContactId);
+				if (contact != null)
+				{
+					var teamIdList = await GetTeamIdForOrderToLoadTeamMembers();
+					foreach (var teamId in teamIdList)
+					{
+						loginUserTeamMembers.AddRange(await _teamMemberService.GetTeamMemberListWithDetailsByTeamId(teamId));
+					}
+
+				}
+			
+		isOrderItemsAssignToEditorPopupVisible = true;
+		
+
+	}
+
+	private async Task<List<int>> GetTeamIdForOrderToLoadTeamMembers()
+		{
+			var tempTeamList = new List<int>();
+			@*try
+			{*@
+
+				loginUserTeamMembers = new List<TeamMemberListModel>();
+				tempTeamList = new List<int>();
+				var loginUserTeamIds = await _teamMemberService.GetTeamIdsByContactId(loginUser.ContactId);
+				tempTeamList.Add(Int32.Parse(teamId));				
+			@*}
+			catch (Exception ex)
+			{
+				CommonActivityLogViewModel activity = new CommonActivityLogViewModel()
+				{
+					PrimaryId = (int)order.Id,
+					ActivityLogFor = (int)ActivityLogForConstants.Order,
+					loginUser = loginUser,
+					ErrorMessage = ex.Message,
+					MethodName = "GetTeamIdForOrderToLoadTeamMembers",
+					RazorPage = "OrderDetails.razor.cs",
+					Category = (int)ActivityLogCategory.GetTeamIdForOrderToLoadTeamMembersError,
+				};
+				await _activityLogCommonMethodService.InsertErrorActivityLog(activity);
+				await js.DisplayMessage($"{ex.Message}");
+			}*@
+		return tempTeamList;
+	}
+
+	private async Task InsertAssingOrderToEditor()
+	{
+
+		//try
+		//{
+		spinShow = true;
+		if (selectedTeamMemberIdForAssignFiles <= 0)
+		{
+			spinShow = false;
+			StateHasChanged();
+			//await js.DisplayMessage("Please Select At Least One Editor");
+			return;
+		}
+		await Task.Yield();
+		isAssignOrderSubmitting = true;
+
+		List<OrderAssignedImageEditorModel> assignedImages = new List<OrderAssignedImageEditorModel>();
+		var clientOrderItemIds = new List<string>();
+		
+		await LeaveAssignImage();
+		
+		List<long> orderIds = new List<long>();
+		foreach (var selectedFile in selectedFiles)
+		{
+
+			var orderItem = await _clientOrderItemService.GetById((int)selectedFile.Id);
+
+			OrderAssignedImageEditorModel assignedImage = new OrderAssignedImageEditorModel
+						{
+							OrderId = selectedFile.ClientOrderId,
+							AssignByContactId = loginUser.ContactId,
+							AssignContactId = selectedTeamMemberIdForAssignFiles,
+							Order_ImageId = selectedFile.Id,
+							ObjectId = Guid.NewGuid().ToString(),
+							UpdatedByContactId = loginUser.ContactId
+
+						};
+			assignedImages.Add(assignedImage);
+
+			clientOrderItemIds.Add(selectedFile.Id.ToString());
+
+			if (!orderIds.Contains(selectedFile.ClientOrderId))
+			{
+				orderIds.Add(selectedFile.ClientOrderId);
+			}
+		}
+
+		var addResponse = await _orderAssignedImageEditorService.Insert(assignedImages);
+
+		if (!addResponse.IsSuccess)
+		{
+			//ModalNotification.ShowMessage("Error", addResponse.Message);
+			//Folder Structure Data Update
+			isAssignOrderSubmitting = false;
+			return;
+		}
+
+		//Update Status after assign to editor
+		await _updateOrderItemBLLService.UpdateOrderItemsStatus(selectedFiles.ToList(), InternalOrderItemStatus.Distributed,loginUser.ContactId);
+		
+		
+		foreach (var orderId in orderIds)
+		{
+			await _orderStatusService.UpdateOrderStatusByOrderId(orderId,loginUser.ContactId);
+		}
+
+		selectedFiles = new List<ClientOrderItemModel>();
+		await LoadOrderItems();
+
+
+		//Update Status after assign to editor
+		//await UpdateOrder(order, await GetInternalOrderStatus((int)order.Id)); //ToDo:RakibStatus
+
+		//await LoadOrderItemForLoginUser();
+
+
+		//folderNodeFilesList = folderNodes.Where(f => f.IsFolder == false).ToList().Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+
+		//Update Status after assign to editor
+		isAssignOrderSubmitting = false;
+		CloseAssignOrderItemToEditorPopup();
+		spinShow = false;
+		StateHasChanged();
+		//await js.DisplayMessage("Successfully Assigned");
+		//}
+		//catch (Exception ex)
+		//{
+		//	CommonActivityLogViewModel activity = new CommonActivityLogViewModel()
+		//		{
+		//			PrimaryId = (int)order.Id,
+		//			ActivityLogFor = (int)ActivityLogForConstants.Order,
+		//			loginUser = loginUser,
+		//			ErrorMessage = ex.Message,
+		//			MethodName = "InsertAssingOrderToEditor",
+		//			RazorPage = "OrderDetails.razor.cs",
+		//			Category = (int)ActivityLogCategory.InsertAssingOrderToEditorError,
+		//		};
+		//	await _activityLogCommonMethodService.InsertErrorActivityLog(activity);
+		//	await js.DisplayMessage($"{ex.Message}");
+		//}
+
+
+	}
+
+	void CloseAssignOrderItemToEditorPopup()
+	{
+		isOrderItemsAssignToEditorPopupVisible = false;
+	}
+
+	private async Task LeaveAssignImage()
+	{
+		
+
+			foreach (var orderItem in selectedFiles)
+			{
+				if (orderItem.Status != (int)InternalOrderItemStatus.InProduction && orderItem.Status != (int)InternalOrderItemStatus.Distributed)
+				{
+					//await js.DisplayMessage("One or more of your selected image unable to leave  Due To Permission of Status Protocol");
+					return;
+				}
+			}
+			long orderId = 0;
+			foreach (var orderItem in selectedFiles)
+			{
+
+				orderItem.Status = (byte)InternalOrderItemStatus.Assigned;
+				orderItem.ExternalStatus = (byte)(EnumHelper.ExternalOrderItemStatusChange(InternalOrderItemStatus.Assigned));
+				await _clientOrderItemService.UpdateClientOrderItemStatus(orderItem);
+
+				//await _updateOrderItemBLLService.UpdateOrderItemStatus(new List<ClientOrderItem>{orderItem}, InternalOrderItemStatus.Assigned);
+				orderId = orderItem.ClientOrderId;
+				//await AddOrderItemStatusChangeLog(orderItem, InternalOrderItemStatus.Assigned);
+				await _orderAssignedImageEditorService.Delete((int)orderItem.Id);
+			}
+			await _updateOrderItemBLLService.UpdateOrderItemsStatus(selectedFiles.ToList(), InternalOrderItemStatus.Assigned, loginUser.ContactId);
+			await _orderStatusService.UpdateOrderStatusByOrderId(orderId,loginUser.ContactId);
+			//await UpdateOrder(order, await GetInternalOrderStatus((int)order.Id));
+
+			//selectedFiles = new List<ClientOrderItem>();
+
+			//await LoadOrderItemForLoginUser();
+		//}
+	}
+}

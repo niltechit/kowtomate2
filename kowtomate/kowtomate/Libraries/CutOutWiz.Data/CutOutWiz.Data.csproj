@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Company.cs" />
+    <Compile Remove="Contact.cs" />
+    <Compile Remove="Role.cs" />
+    <Compile Remove="UserModel.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="3.7.7.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CutOutWiz.Core\CutOutWiz.Core.csproj" />
+  </ItemGroup>
+
+</Project>

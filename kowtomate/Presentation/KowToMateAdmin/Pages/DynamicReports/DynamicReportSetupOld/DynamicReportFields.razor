@@ -1,0 +1,334 @@
+﻿@page "/report/dynamicReportSetup/{reportId}"
+
+@attribute [Authorize(Roles = "DynamicReport.CanSetupDynamicReport")]
+
+@using CutOutWiz.Data
+@using CutOutWiz.Data.DynamicReports
+@using CutOutWiz.Services.DynamicReports
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IDynamicReportInfoService _dynamicReportInfoService
+@inject NavigationManager NavigationManager
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Report: @dynamicReportInfo?.Name - Column Setup
+            </h4>
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New Column"><span class="fas fa-plus"></span> Add New Column</button>
+
+                <button type="button" class="btn btn-sm btn-secondary" @onclick="BackToReports" title="Back To Report"><span class="fas fa-list"></span> Back to Reports</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+        <RadzenDataGrid Data="@dynamicReportFields" IsLoading="isLoading" TItem="ReportTableColumn"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+
+                <RadzenDataGridColumn Width="120px" TItem="ReportTableColumn" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.Id))">
+                            <span class="fas fa-pencil-alt"></span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.Id,data.DisplayName)">
+                            <span class="fas fa-times"></span>
+                        </button>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="DisplayName" Title="Display Name" SortOrder="SortOrder.Ascending" Width="120px" />
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="FieldName" Title="Field Name" Width="120px" />
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="FieldWithPrefix" Title="Field With Prefix" Width="120px" />
+
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="FieldType" Title="Field Type" TextAlign="TextAlign.Center" Width="120px">
+                    <Template Context="data">
+                        @((TableFieldType)data.FieldType)
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="Filterable" Title="Filterable" Width="85px" />
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="Sortable" Title="Sortable" Width="80px" />
+
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="DisplayOrder" Title="Display Order" Width="105px" />
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="TextAlign" Title="Text Align" Width="100px" />
+                
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="BackgroundColor" Title="Background Color" Width="140px"/>
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="ShowFooterTotal" Title="Show Footer Total" Width="140px" />
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="FooterTotalLabel" Title="Footer Total" Width="110px"/>
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="ShowFooterAverage" Title="Show Footer Average " Width="140px"/>
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="FooterAverageLabel" Title="Footer Average" Width="120px" />
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="ApplyInFilter1" Title="Apply In Filter1" Width="120px" />
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="ApplyInFilter2" Title="Apply In Filter2" Width="120px"/>
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="ApplyInFilter3" Title="Apply In Filter3" Width="120px" />
+                                                                           
+                <RadzenDataGridColumn TItem="ReportTableColumn" Property="CreatedDate" Title="Created Date" TextAlign="TextAlign.Center" Filterable="false" Width="120px" />
+               
+
+            </Columns>
+        </RadzenDataGrid>
+
+    </div>
+</div>
+
+@if (isReportInfoPopupVisible)
+{
+    <EditForm Model=@dynamicReportInfo OnValidSubmit="@InsertUpdateDynamicReportInfo">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Dynamic Report Info</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <DynamicReportInfoAddEdit dynamicReportInfo="dynamicReportInfo" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+
+}
+@if (isPopupVisible)
+{
+    <EditForm Model=@reportTableColumn OnValidSubmit="@InsertUpdateTableColumn">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Report Field Setup</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <DynamicReportFieldAddEdit reportTableColumn="reportTableColumn" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    #region Paramiters
+    [Parameter]
+    public string reportId { get; set; }
+    #endregion
+
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<ReportTableColumn> dynamicReportFields;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    private ReportTableColumn reportTableColumn = null;
+
+    private DynamicReportInfo dynamicReportInfo = null;
+    bool isReportInfoPopupVisible = false;
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private int selectedTableColumnId = 0;
+    List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+    private byte? filterStatus;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+
+        foreach (GeneralStatus item in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+        isLoading = false;
+
+        dynamicReportInfo = await _dynamicReportInfoService.GetById(Convert.ToInt32(reportId));
+
+        if (dynamicReportInfo == null)
+        {
+            BackToReports();
+            return;
+        }
+
+        await LoadDynamicReportFields(dynamicReportInfo.Id);
+    }
+
+    private async Task LoadDynamicReportFields(int dynamicReportId)
+    {
+        dynamicReportFields = await _dynamicReportInfoService.GetAllTableColumnByDynamicReportInfoId(dynamicReportId);
+    }
+
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<ReportTableColumn> args)
+    {
+        await Edit(args.Data.Id);
+    }
+
+    #region Dynamic Report
+    private async Task EditDynamicReportInfo()
+    {
+        await Task.Yield();
+        //dynamicReportInfo = await _dynamicReportInfoService.GetByObjectId(objectId);
+        isReportInfoPopupVisible = true;
+    }
+
+    private async Task InsertUpdateDynamicReportInfo()
+    {
+        isSubmitting = true;
+
+        if (dynamicReportInfo.Id > 0)
+        {
+            dynamicReportInfo.UpdatedByContactId = loginUser.ContactId;
+            var updateResponse = await _dynamicReportInfoService.Update(dynamicReportInfo);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+
+        isSubmitting = false;
+
+        isReportInfoPopupVisible = false;
+    }
+
+    #endregion
+
+    #region Field Add Edit
+
+    void AddNew()
+    {
+        reportTableColumn = new ReportTableColumn();
+
+        isSubmitting = false;
+        isPopupVisible = true;
+    }
+
+    private async Task Edit(int id)
+    {
+        reportTableColumn = await _dynamicReportInfoService.GetTableColumnByTableColumnId(id);
+        ShowAddEditPopup();
+    }
+
+    private async Task InsertUpdateTableColumn()
+    {
+        isSubmitting = true;
+
+        if (reportTableColumn.Id == 0)
+        {
+            reportTableColumn.DynamicReportInfoId = dynamicReportInfo.Id;
+            reportTableColumn.CreatedByContactId = loginUser.ContactId;
+            reportTableColumn.CreatedDate = DateTime.Now;
+
+            var addResponse = await _dynamicReportInfoService.InsertTableColumn(reportTableColumn);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+        else
+        {
+            reportTableColumn.CreatedByContactId = loginUser.ContactId;
+            reportTableColumn.CreatedDate = DateTime.Now;
+            var updateResponse = await _dynamicReportInfoService.UpdateTableColumn(reportTableColumn);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+
+        reportTableColumn = new ReportTableColumn();
+        isSubmitting = false;
+
+        await LoadDynamicReportFields(dynamicReportInfo.Id);
+
+        CloseAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(int id, string name)
+    {
+        selectedTableColumnId = id;
+        var msg = $"Are you sure you want to delete the column \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _dynamicReportInfoService.DeleteTableColumn(dynamicReportInfo.Id, selectedTableColumnId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadDynamicReportFields(dynamicReportInfo.Id);
+                reportTableColumn = new ReportTableColumn();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+
+        isSubmitting = false;
+    }
+
+    protected void BackToReports()
+    {
+        NavigationManager.NavigateTo($"/report/dynamicreportsconfiguration", true);
+    }
+
+    #endregion
+}

@@ -1,0 +1,265 @@
+﻿@page "/email/senderaccounts"
+
+@attribute [Authorize(Roles = "Email.ManageSenderAccounts")]
+
+@using CutOutWiz.Data.Email
+@using CutOutWiz.Services.Email
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IEmailSenderAccountService _senderAccountService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Email Sender Accounts  
+                <span>(@filteredSenderAccounts.Count)</span>
+            </h4>
+
+            <div class="page-title-right">
+                @*<ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a emailef="javascript: void(0);">Invoices</a></li>
+                    <li class="breadcrumb-item active">Invoice List</li>
+                </ol>*@
+                 <button type="button" class="btn btn-sm btn-secondary" @onclick="AddNew" title="Add New SenderAccount"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-body">
+                @if (senderAccounts is null)
+                {
+                    <p><em>Loading...</em></p>
+                }
+                else
+                {
+                    <div class="row gy-2 gx-3 align-items-center mb-3">                                           
+                        <div class="col-sm-auto">                  
+                            <div class="input-group">
+                                <div class="input-group-text"> <i class="fas fa-search"></i></div>
+                                 <input type="text" class="form-control" @bind-value="searchText" @bind-value:event="oninput" id="txtsearchbox" placeholder="Search..">
+                            </div>
+                        </div>                      
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table mb-0 table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Is Default</th>
+                                    <th>Status</th>
+                                    <th>Created Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <Virtualize Items="filteredSenderAccounts" Context="senderAccount">
+                                    <tr @ondblclick="() => Edit(senderAccount.ObjectId)">
+                                        <td>@senderAccount.Name</td>
+                                        <td>@senderAccount.IsDefault</td>
+                                        <td>
+                                             @if (senderAccount.Status == (int)GeneralStatus.Active)
+                                            {
+                                                <span class="badge bg-success">Active</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning text-dark">Inactive</span>
+                                            }
+                                        </td>
+                                          <td>@senderAccount.CreatedDate.ToShortDateString()</td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(senderAccount.ObjectId))">
+                                                <span class="fas fa-pencil-alt"></span>
+                                            </button>
+
+                                            <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(senderAccount.ObjectId,senderAccount.Name)">
+                                                <span class="fas fa-times"></span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </Virtualize>
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    @* https://www.puresourcecode.com/dotnet/blazor/modal-dialog-component-for-blazor/*@
+    <EditForm Model=@senderAccount OnValidSubmit="@InsertUpdateSenderAccount" >
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Email Sender Account</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <SenderAccountAddEdit senderAccount="senderAccount" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @if (!string.IsNullOrWhiteSpace(senderAccount.ObjectId))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(senderAccount.ObjectId,senderAccount.Name)">Delete</button>   
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<EmailSenderAccount> senderAccounts = new List<EmailSenderAccount>();
+
+    private EmailSenderAccount senderAccount = null;
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private string searchText = "";
+    private string selectedObjectId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+        await LoadSenderAccounts();
+    }
+
+    private async Task LoadSenderAccounts()
+    {
+        senderAccounts = await _senderAccountService.GetAll();
+    }
+
+    private async Task InsertUpdateSenderAccount()
+    {
+        isSubmitting = true;
+
+        if (senderAccount.Id == 0)
+        {
+            senderAccount.CreatedByContactId = loginUser.ContactId;
+            senderAccount.ObjectId = Guid.NewGuid().ToString();
+
+            var addResponse = await _senderAccountService.Insert(senderAccount);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error",addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+        else
+        {
+            senderAccount.UpdatedByContactId = loginUser.ContactId;
+            var updateResponse = await _senderAccountService.Update(senderAccount);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error",updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+
+        senderAccount = new EmailSenderAccount();
+        isSubmitting = false;
+
+        await LoadSenderAccounts();
+        CloseAddEditPopup();
+    }
+
+    string StatusText()
+    {
+        if (senderAccount.Status == (int)GeneralStatus.Active)
+        {
+            return "<span class='badge bg-success'>Active</span>";
+        }
+
+        return  "<span class='badge bg-info text-dark'>Inactive</span>";
+    }
+
+    void AddNew()
+    {
+        senderAccount = new EmailSenderAccount { Status = (int)GeneralStatus.Active };
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(string objectId)
+    {
+        senderAccount = await _senderAccountService.GetByObjectId(objectId);
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the senderAccount \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete",msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _senderAccountService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadSenderAccounts();
+                senderAccount = new EmailSenderAccount();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                 ModalNotification.ShowMessage("Error",deleteResponse.Message);
+            }
+        }
+
+         isSubmitting = false;
+    }
+   
+     List<EmailSenderAccount> filteredSenderAccounts => senderAccounts
+                                        .Where(i => 
+                                                i.Name.ToLower().Contains(searchText.ToLower())
+                                        ).ToList();
+}

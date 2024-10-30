@@ -1,0 +1,656 @@
+﻿@page "/orderImages"
+@using CutOutWiz.Core.Utilities;
+@using CutOutWiz.Services.Models.ClientOrders;
+@using CutOutWiz.Services.BLL.OrderStatusAndOrderItemStatus;
+@using CutOutWiz.Services.BLL.UpdateOrderItem;
+@using CutOutWiz.Services.BLL;
+@using CutOutWiz.Services.ClientOrders;
+@using CutOutWiz.Services.Management;
+@using CutOutWiz.Services.OrderItemStatusChangeLogService;
+@using CutOutWiz.Services.OrderAndOrderItemStatusChangeLogServices;
+@using CutOutWiz.Services.OrderTeamServices;
+@using CutOutWiz.Services.Security;
+@using CutOutWiz.Services.StorageService;
+@using KowToMateAdmin.Services;
+@using static CutOutWiz.Core.Utilities.Enums;
+@using CutOutWiz.Services.AutomationAppServices.FtpOrderProcess;
+@using CutOutWiz.Services.Managers.Common;
+
+@inject AuthenticationStateProvider _authenticationStateProvider
+@inject ITeamMemberService _teamMemberService
+@inject IWorkContext _workContext
+@inject IAcitivityLogCommonMethodService _activityLogCommonMethodService
+@inject IJSRuntime js
+@inject IClientOrderItemService _clientOrderItemService
+@inject IContactManager _contactManager
+@inject ITeamService _teamService
+@inject IUpdateOrderItemBLLService _updateOrderItemBLLService
+@inject IOrderAssignedImageEditorService _orderAssignedImageEditorService
+@inject IOrderStatusService _orderStatusService
+@inject IFileServerManager _fileServerService
+@inject IClientOrderService _clientOrderService
+@inject IFtpService _ftpService
+@inject IActivityAppLogService _activityAppLogService
+@inject IUpdateOrderItemBLLService _updateOrderItemBLLService
+@inject IOrderFileAssignService _assignService
+@inject IFluentFtpService _fluentFtpService
+@inject IOrderItemStatusChangeLogService _orderItemStatusChangeLogService
+@inject IOrderStatusChangeLogService _orderStatusChangeLogService
+@inject IAutoOrderDeliveryService _autoOrderDeliveryService
+
+<h3>Order Images</h3>
+<div class="row">
+
+	<div class="col-12">
+		<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+			<h4 class="mb-sm-0 font-size-18">
+			</h4>
+
+			<div class="page-title-right">
+
+
+				@if (loginUser.TeamId == AutomatedAppConstant.JBLTeamId || loginUser.TeamId == AutomatedAppConstant.SOSTeamId)
+				{
+					<button type="button" class="btn btn-sm btn-success mr-3" @onclick="(async () => await SearchOnAllImages())" title="Cascading Filter">
+					@if (searchWithinCompanyImages)
+					{
+						@:<span class="fas fa-check-square"></span> Search On All Images
+					}
+					else
+					{
+						@:<span class="fas fa-square"></span> Search On All Images
+					}
+
+					</button>
+
+					<button type="button" class="btn btn-sm btn-info mr-3" @onclick="async (e)=>await SingleDownloadEditor()"><span class="fas fa-arrow-circle-down" title="Only Download No status change"></span> Download Raw </button>
+					<button type="button" class="btn btn-sm btn-success mr-3" @onclick="async (e)=>await SingleCompletedFileDownloadByEditor()"><span class="fas fa-arrow-circle-down" title="Only Download Completed File"></span> Download Completed </button>
+				}
+
+				@if(!searchWithinCompanyImages){
+					<button type="button" class="btn btn-sm btn-secondary" disabled="@isSubmitting" @onclick="(e)=>ShowSetOrderItemTypePopup()" title="Set As Supporting Image"> Set As Supporting Image</button>
+				<AuthorizeView Roles="Order.CanDownloadForWork">
+					<button type="button" class="btn btn-sm btn-secondary" @onclick="async (e)=>await SingleDownloadEditor(true)"><span class="fas fa-arrow-circle-down"></span> Download For Work</button>
+				</AuthorizeView>
+				<AuthorizeView Roles="Order.AssignNewOrderToEditor">
+					<button type="button" class="btn btn-sm btn-primary btn-space" @onclick="AssignToEditor" disabled="@isAssignOrderSubmitting" title="Assign Order To Editor"><span class="fas fa-plus"></span> AOTE</button>
+				</AuthorizeView>
+				<AuthorizeView Roles="Order.CanAcknowledgeForQc">
+					<button class="btn btn-sm btn-info btn-space" @onclick="(e)=>UpdateOrderItemInQc(InternalOrderItemStatus.InQc)" title="Acknowledge For Qc"><span class="fas fa-solid fa-check"></span> AFQ</button>
+				</AuthorizeView>
+				<AuthorizeView Roles="Order.CanApproveByQc">
+					<button class="btn btn-sm btn-success btn-space" @onclick="(e)=>UpdateOrderItemReadyToDeliver()"><span class="fas fa-solid fa-check"></span> Approve</button>
+				</AuthorizeView>
+				}
+				
+				<button type="button" class="btn btn-sm btn-warning" @onclick="(async () => await ShowHideImgaeOnList())" title="Cascading Filter">
+					@if (showImageOnList)
+					{
+						@:<span class="fas fa-check-square"></span> Hide Images
+					}
+					else
+					{
+						@:<span class="fas fa-square"></span> Show Images
+					}
+
+				</button>
+				@if(!searchWithinCompanyImages){
+				<AuthorizeView Roles="Order.CanRejectByQc">
+					<button class="btn btn-sm btn-danger btn-space" @onclick="(e)=>Reject(InternalOrderItemStatus.ReworkDistributed)"><span class="fas fa-ban"></span> Reject</button>
+				</AuthorizeView>
+				}
+			</div>
+		</div>
+	</div>
+</div>
+<div class="row">
+	<RadzenDataGrid @ref="grid" Data="@orderItems" LoadData="@LoadData" Count="@totalImageCount" IsLoading="isLoading" TItem="ClientOrderItemListModel"
+					AllowFiltering="true" AllowColumnResize="true"
+					FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+					AllowSorting="true" AllowPaging="true" PageSize="200"
+					PagerHorizontalAlign="HorizontalAlign.Center"
+					SelectionMode="DataGridSelectionMode.Multiple"
+					ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+					AllowRowSelectOnRowClick=@allowRowSelectOnRowClick
+					ColumnWidth="150px" @bind-Value="@selectedFiles" RowRender="@OnRowRender">
+		<Columns>
+
+
+
+			<RadzenDataGridColumn TItem="ClientOrderItemListModel" TextAlign="TextAlign.Center" Width="30px" Frozen="true" Sortable="false"
+								  Filterable="false" Groupable="false" Reorderable="false" Pickable="false">
+				<HeaderTemplate>
+					<RadzenCheckBox TriState="false" TValue="bool" Value="@(orderItems == null ? false : orderItems.Any(i => selectedFiles != null && selectedFiles.Contains(i)))"
+									Change="@(args => selectedFiles = args && orderItems != null ? orderItems.Where(f=> (filterStatus == null || f.Status == filterStatus) && (string.IsNullOrWhiteSpace(filterFileName) ||  f.FileName.Contains(filterFileName, StringComparison.InvariantCultureIgnoreCase))).Skip(grid.CurrentPage * grid.PageSize).Take(grid.PageSize).ToList() : null)" />
+				</HeaderTemplate>
+				<Template Context="data">
+					<RadzenCheckBox TriState="false" Value="@(selectedFiles != null && selectedFiles.Contains(data))"
+									TValue="bool" Change=@(args => { if(!allowRowSelectOnRowClick) { grid.SelectRow(data); }}) />
+				</Template>
+			</RadzenDataGridColumn>
+
+			<RadzenDataGridColumn TItem="ClientOrderItemListModel" OrderIndex=1 Property="FileName" Title="File Name" Resizable="true" Width="250px" Frozen="true">				
+			</RadzenDataGridColumn>
+
+			@if (loginUser.CompanyType == (int)CompanyType.Admin)
+			{
+				<RadzenDataGridColumn TItem="ClientOrderItemListModel" OrderIndex=2 Property="Status" Title="Status" TextAlign="TextAlign.Center" Width="200px" Frozen="true" Sortable="false">
+
+					<FilterTemplate>
+						<RadzenDropDown @bind-Value=@selectedFilterInternalStatus Change=@OnSelectedInternalOrderStatusChange Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+									Data="@(internalOrderItemStatusList)" AllowClear="true" Multiple="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
+					</FilterTemplate>
+
+					<Template Context="order">
+
+						@if (order.Status != null)
+						{
+							<span class=@cssHelper.GivenBackgroundColorForStatus((int)order.Status)>
+								@(
+									(InternalOrderItemStatus)order.Status
+									)
+							</span>
+						}
+						else
+						{
+							<span>N/A</span>
+						}
+					</Template>
+				</RadzenDataGridColumn>
+
+				<RadzenDataGridColumn TItem="ClientOrderItemListModel" OrderIndex=7 Property="ArrivalTime" Title="Arrival Time" Resizable="true" TextAlign="TextAlign.Center" Width="150px">
+
+				</RadzenDataGridColumn>
+				 
+				<RadzenDataGridColumn TItem="ClientOrderItemListModel" OrderIndex=3 Property="TimeLeft" Title="Time Left" Sortable="false" Resizable="true" Filterable="true" TextAlign="TextAlign.Center" Width="150px">
+
+					<Template Context="orderItem">
+						<span>
+							@if (@orderItem.ArrivalTime.HasValue)
+							{
+								var arrivalTimePlus1_4Hours = @orderItem.ArrivalTime.Value.AddHours(AutomatedAppConstant.VcDeadLineInHour);
+								var timeLeft = arrivalTimePlus1_4Hours - DateTime.Now;
+								if (timeLeft.TotalMinutes > 0)
+								{
+									@($"{(int)timeLeft.TotalMinutes} Min Left")
+									;
+								}
+								else
+								{
+									<span style="font-weight: bold;">@($"Over Due By {(int)timeLeft.TotalMinutes * (-1)} Min") </span>
+								}
+							}
+							else
+							{
+								<text>N/A</text>
+							}
+						</span>
+					</Template>
+				</RadzenDataGridColumn>
+			}
+
+			@if (loginUser.CompanyType == (int)CompanyType.Admin)
+			{
+				<RadzenDataGridColumn TItem="ClientOrderItemListModel" OrderIndex=13 Property="FileGroup" Title="File Group" FilterValue="@filterGroup" TextAlign="TextAlign.Center" Width="110px">
+					<FilterTemplate>
+						<RadzenDropDown @bind-Value=@filterGroup Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+									Data="@(fileGroupCustomEnumList)" AllowClear="true" />
+					</FilterTemplate>
+					<Template Context="orderItem">
+
+						@if (orderItem.Status != null)
+						{
+							<span class="badge bg-success">
+								@(
+									(OrderItemFileGroup)orderItem.FileGroup
+									)
+							</span>
+						}
+						else
+						{
+							<span>N/A</span>
+						}
+					</Template>
+
+				</RadzenDataGridColumn>
+
+			}
+			@if (showImageOnList)
+			{
+
+				<RadzenDataGridColumn TItem="ClientOrderItemListModel" OrderIndex=4 Property="FileByteString" Title="Raw Image" TextAlign="TextAlign.Center" Filterable="false">
+					<Template Context="orderItem">
+						<div>
+
+							<img height="100px" width="100px" @ondblclick="(e)=>ShowImagePopup(orderItem)" src="@orderItem.RootFolder/@orderItem.InternalFileInputPath?width=100">
+
+						</div>
+					</Template>
+				</RadzenDataGridColumn>
+
+				@if (loginUser.CompanyType == (int)CompanyType.Admin)
+				{
+					<RadzenDataGridColumn TItem="ClientOrderItemListModel" OrderIndex=5 Property="ProductionFileByteString" Title="Prod Done Img" TextAlign="TextAlign.Center" Filterable="false">
+						<Template Context="order">
+							@if (order.Status >= (int)InternalOrderItemStatus.ProductionDone)
+							{
+								if (order.Status >= (int)InternalOrderItemStatus.ReadyToDeliver)
+								{
+
+									<div>
+										<img height="100px" width="100px" @ondblclick="(e)=>ShowProductionDoneImagePopup(order)" src="@order.RootFolder/@order.InternalFileOutputPath?width=200">
+									</div>
+								}
+								else
+								{
+									<div>
+										<img height="100px" width="100px" @ondblclick="(e)=>ShowProductionDoneImagePopup(order)" src="@order.RootFolder/@order.ProductionDoneFilePath?width=200">
+									</div>
+								}
+							}
+							else
+							{
+								<span>N/A</span>
+							}
+						</Template>
+					</RadzenDataGridColumn>
+				}
+
+			}
+
+			@if (loginUser.CompanyType == (int)CompanyType.Client)
+			{
+				<RadzenDataGridColumn TItem="ClientOrderItemListModel" OrderIndex=7 Property="ExternalStatus" Title="Status" FilterValue="@filterStatus" TextAlign="TextAlign.Center">
+					<FilterTemplate>
+						<RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+									Data="@(internalOrderItemStatusList)" AllowClear="true" />
+					</FilterTemplate>
+					<Template Context="order">
+
+						@if (order.ExternalStatus != null)
+						{
+							<span class="@cssHelper.GivenBackgroundColorForStatus((int)order.ExternalStatus)">@((ExternalOrderItemStatus)order.ExternalStatus)</span>
+						}
+						else
+						{
+							<span>N/A</span>
+						}
+					</Template>
+
+				</RadzenDataGridColumn>
+			}
+			<RadzenDataGridColumn TItem="ClientOrderItemListModel" OrderIndex=12 Property="FileSize" Title="Size" TextAlign="TextAlign.Center" Filterable="false">
+				<Template Context="order">
+					@if (order.FileSize <= 0 || order.FileSize == null)
+					{
+						<span>N/A</span>
+					}
+					else
+					{
+						<span>@(_genericService.GetSizeStringToHumanReadable(order.FileSize)) </span>
+					}
+				</Template>
+			</RadzenDataGridColumn>
+			@if (loginUser.CompanyType == (int)CompanyType.Admin)
+			{
+				@*<RadzenDataGridColumn TItem="ClientOrderItemListModel" OrderIndex=8 Property="TeamName" Title="Team Name" TextAlign="TextAlign.Center" Filterable="false">
+					<Template Context="order">
+						@if (string.IsNullOrEmpty(order.TeamName))
+						{
+							<span>N/A</span>
+						}                                             
+						else
+						{
+							<span>@order.TeamName</span>
+						}
+					</Template>
+				</RadzenDataGridColumn>*@
+				<RadzenDataGridColumn TItem="ClientOrderItemListModel" OrderIndex=11 Property="EditorName" Title="Editor Name" TextAlign="TextAlign.Center" Filterable="true" Width="300" Sortable="false">
+					<FilterTemplate>
+						<RadzenDropDown @bind-Value=@selectedFilterAssignContacts Style="width:80%;" TextProperty="FullName" ValueProperty="Id" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+									Data="@(assignContacts)" Change=@OnSelectedContactNameChange AllowClear="true" AllowFiltering="true" Multiple="true" AllowVirtualization="true" />
+					</FilterTemplate>
+
+
+					<Template Context="order">
+						@if (string.IsNullOrEmpty(order.EditorName))
+						{
+							<span>N/A</span>
+						}
+						else
+						{
+							<span style="font-weight: bold;">@order.EditorName</span>
+						}
+					</Template>
+				</RadzenDataGridColumn>
+				<RadzenDataGridColumn TItem="ClientOrderItemListModel" OrderIndex=9 Property="AssignToEditorDate" Title="Order Assign Date" TextAlign="TextAlign.Center" Filterable="false">
+					<Template Context="order">
+						@if (@order.AssignToEditorDate == null)
+						{
+							<span>N/A</span>
+						}
+						else
+						{
+							<span>@order.AssignToEditorDate</span>
+						}
+					</Template>
+				</RadzenDataGridColumn>
+			}
+
+			@if (showActionColumn)
+			{
+				<RadzenDataGridColumn TItem="ClientOrderItemListModel" OrderIndex=10 Property="Id" Title="Actions" Filterable="false" Sortable="false" Pickable="false" TextAlign="TextAlign.Center" Width="200px">
+					<Template Context="orderItem">
+						<AuthorizeView Roles="Order.CanViewOrderItemStatusLog">
+							<button class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(e)=>ViewOrderItemStatusLog((int)orderItem.ClientOrderItemId)">
+								<i class="fas fa-eye">Logs</i>
+							</button>
+						</AuthorizeView>
+						<AuthorizeView Roles="Order.CanViewOrderItemStatusLog">
+							<button class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(e)=>ViewOrderItemActivityLog((int)orderItem.ClientOrderItemId)">
+								<i class="fas fa-eye">Activity Log</i>
+							</button>
+						</AuthorizeView>
+					</Template>
+				</RadzenDataGridColumn>
+			}
+		</Columns>
+	</RadzenDataGrid>
+</div>
+
+@if (isOrderItemsAssignToEditorPopupVisible)
+{
+	//Order AssignToEditor
+
+	<AuthorizeView Context="AssignOrderToEditor" Roles="Order.AssignNewOrderItemToEditor">
+		<EditForm Model="clientOrderItem" OnValidSubmit="InsertAssingOrderToEditor">
+
+			<div class="modal" tabindex="-1" style="display:block;">
+				<div class="modal-dialog">
+					<div class="modal-content">
+						@if (selectedFiles == null || !selectedFiles.Any())
+						{
+							<div class="modal-header">
+								<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAssignOrderItemToEditorPopup"></button>
+							</div>
+							<div class="modal-body">
+								Select at leact One item to assign.
+							</div>
+						}
+						else
+						{
+							<div class="modal-header">
+								<h6>Assign Order to Editor</h6>
+								<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAssignOrderItemToEditorPopup"></button>
+							</div>
+							<div class="modal-body">
+								<div class="row" style="margin-bottom:19px;">
+									<div class="form-group">
+										<label>Select Editor</label>
+										<InputSelect @bind-Value="@selectedTeamMemberIdForAssignFiles" class="form-select form-control">
+											<option value="0">- Select -</option>
+											@foreach (var teamMember in loginUserTeamMembers)
+											{
+												<option value="@((int)teamMember.ContactId)">@teamMember.FirstName</option>
+											}
+										</InputSelect>
+									</div>
+								</div>
+								<div class="row" style="max-height: 300px;overflow: auto;">
+									<div class="col-lg-12">
+										<RadzenDataGrid Data="@selectedFiles" TItem="ClientOrderItemListModel"
+												SelectionMode="DataGridSelectionMode.Multiple">
+											<Columns>
+												<RadzenDataGridColumn TItem="ClientOrderItemListModel" Property="FileName" Title="FileName" TextAlign="TextAlign.Left" Width="250px" />
+												<RadzenDataGridColumn TItem="ClientOrderItemListModel" Property="FileSize" Title="Size" Width="70px">
+													<Template Context="orderItem">
+														@if (orderItem.FileSize <= 0 || orderItem.FileSize == null)
+														{
+															<span>N/A</span>
+														}
+														else
+														{
+															<span>@(orderItem.FileSize * 0.001) KB</span>
+														}
+													</Template>
+												</RadzenDataGridColumn>
+												@if (loginUser.CompanyType == (int)CompanyType.Admin)
+												{
+													<RadzenDataGridColumn TItem="ClientOrderItemListModel" Property="Status" Title="Status" TextAlign="TextAlign.Center">
+
+														<Template Context="order">
+
+															@if (order.Status != null)
+															{
+																<span class="badge bg-success">@((InternalOrderItemStatus)order.Status)</span>
+															}
+															else
+															{
+																<span>N/A</span>
+															}
+														</Template>
+
+													</RadzenDataGridColumn>
+												}
+											</Columns>
+										</RadzenDataGrid>
+									</div>
+								</div>
+							</div>
+							<div class="modal-footer">
+								<button type="submit" class="btn btn-primary" disabled="@isAssignOrderSubmitting">Assign Images To Editor</button>
+							</div>
+						}
+					</div>
+				</div>
+			</div>
+		</EditForm>
+	</AuthorizeView>
+}
+@if (spinShow)
+{
+	<div class="loader">
+
+		<Grid />
+
+
+	</div>
+}
+@if (isShowProductionDoneImagePopup)
+{
+	<EditForm Model="clientOrderItem">
+		<div class="modal" tabindex="-1" style="display:block;">
+			<div class="modal-dialog">
+				<div class="modal-content text-center" style="width:648px">
+
+					<div class="card" style="margin-bottom:0px">
+						<div class="card-body">
+
+							@if (spinShow)
+							{
+								<div class="loader">
+
+									<Grid />
+
+
+								</div>
+							}
+
+							<DataAnnotationsValidator />
+							<div>
+								<p style="font-weight:bold">Image Name: @clientOrderItem.FileName</p>
+								<p style="font-weight:bold">Editor Name: @clientOrderItem.EditorName</p>
+							</div>
+							@if (clientOrderItem.Status >= (int)InternalOrderItemStatus.ReadyToDeliver)
+							{
+								<div class="">
+									<img src="@clientOrderItem.RootFolder/@clientOrderItem.InternalFileOutputPath?width=600" />
+								</div>
+							}
+							else
+							{
+								@if (!string.IsNullOrEmpty(clientOrderItem.ProductionDoneFilePath))
+								{
+									<div class="">
+										<img src="@clientOrderItem.RootFolder/@clientOrderItem.ProductionDoneFilePath?width=600" />
+									</div>
+								}
+								else
+								{
+									<div class="">
+										<p>N/A</p>
+									</div>
+								}
+							}
+							<div class="mt-3">
+
+								@if (authState.User.IsInRole(PermissionConstants.OrderItem_CanApprovedByQC))
+								{
+									<button class="btn btn-sm btn-success btn-space" @onclick="(e)=>PreviousImageShow(clientOrderItem)"><span class="fas fa-angle-double-left"></span> Previous</button>
+									@if (clientOrderItem.Status < (int)InternalOrderItemStatus.ReadyToDeliver)
+									{
+										<button class="btn btn-sm btn-success btn-space" @onclick="(e)=>ApprovedQCForPopupView(InternalOrderItemStatus.ReadyToDeliver,clientOrderItem)"><span class="fas fa-solid fa-check"></span> Approve</button>
+										<button class="btn btn-sm btn-danger btn-space" @onclick="(e)=>RejectFromPopupView(InternalOrderItemStatus.ReworkDistributed,clientOrderItem)"><span class="fas fa-ban"></span> Reject</button>
+									}
+									<button type="button" class="btn btn-sm btn btn-secondary btn-space" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseProductionDoneImagePopup">Close</button>
+									<button type="button" class="btn btn-sm btn btn-secondary btn-space" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="(e)=>NextImageShow(clientOrderItem)">Next <span class="fas fa-angle-double-right"></span></button>
+								}
+								else
+								{
+									<button type="button" class="btn btn-sm btn btn-secondary btn-space" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseProductionDoneImagePopup">Close</button>
+								}
+							</div>
+
+						</div>
+					</div>
+
+				</div>
+			</div>
+		</div>
+	</EditForm>
+}
+
+@if (isSetOrderItemTypePopupVisible)
+{
+	<EditForm Model="clientOrderItem" OnValidSubmit="UpdateOrderItemFileType">
+		<div class="modal" tabindex="-1" style="display:block;">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					@if (selectedFiles == null || !selectedFiles.Any())
+					{
+						<div class="modal-header">
+							<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseSetOrderItemTypePopup"></button>
+						</div>
+						<div class="modal-body">
+							Select at leact One item to assign.
+						</div>
+					}
+					else
+					{
+						<div class="modal-header">
+							<h6>Set Order Item Type</h6>
+							<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseSetOrderItemTypePopup"></button>
+						</div>
+						<div class="modal-body">
+							<div class="row" style="margin-bottom:19px;">
+								<div class="form-group">
+									<label>Select Order Item Type</label>
+									<InputSelect @bind-Value="@selectedOrderItemGroup" class="form-select form-control">
+										<option value="0">- Select -</option>
+										@foreach (var fileGroupCustomEnum in fileGroupCustomEnumList)
+										{
+											<option value="@((int)@fileGroupCustomEnum.EnumValue)">@fileGroupCustomEnum.EnumName</option>
+										}
+									</InputSelect>
+								</div>
+							</div>
+							<div class="row" style="max-height: 300px;overflow: auto;">
+								<div class="col-lg-12">
+									<RadzenDataGrid Data="@selectedFiles" TItem="ClientOrderItemListModel"
+											SelectionMode="DataGridSelectionMode.Multiple">
+										<Columns>
+											<RadzenDataGridColumn TItem="ClientOrderItemListModel" Property="FileName" Title="FileName" TextAlign="TextAlign.Left" Width="150px" />
+											<RadzenDataGridColumn TItem="ClientOrderItemListModel" Property="Status" Title="Status" TextAlign="TextAlign.Center" Width="100px">
+
+												<Template Context="order">
+
+													@if (order.Status != null)
+													{
+														<span class="badge bg-success">@((InternalOrderItemStatus)order.Status)</span>
+													}
+													else
+													{
+														<span>N/A</span>
+													}
+												</Template>
+
+											</RadzenDataGridColumn>
+											<RadzenDataGridColumn TItem="ClientOrderItemListModel" Property="FileGroup" Title="File Group" FilterValue="@filterGroup" TextAlign="TextAlign.Center" Width="100px">
+												<Template Context="orderItem">
+
+													@if (orderItem.Status != null)
+													{
+														<span class="badge bg-success">
+															@(
+																(OrderItemFileGroup)orderItem.FileGroup
+																)
+														</span>
+													}
+													else
+													{
+														<span>N/A</span>
+													}
+												</Template>
+
+											</RadzenDataGridColumn>
+										</Columns>
+									</RadzenDataGrid>
+								</div>
+							</div>
+						</div>
+						<div class="modal-footer">
+							<button type="submit" class="btn btn-primary" disabled="@isAssignOrderSubmitting">Update OrderItem FileType</button>
+						</div>
+					}
+
+				</div>
+			</div>
+		</div>
+	</EditForm>
+}
+
+
+@if (isShowRawImagePopup)
+{
+	<EditForm Model="clientOrderItem">
+		<div class="modal" tabindex="-1" style="display:block;">
+			<div class="modal-dialog">
+				<div class="modal-content text-center" style="width:648px">
+					<div class="card" style="margin-bottom:0px">
+						<div class="card-body">
+							<DataAnnotationsValidator />
+							<div>
+								<p style="font-weight:bold">Image Name: @clientOrderItem.FileName</p>
+								<p style="font-weight:bold">Editor Name: @clientOrderItem.EditorName</p>
+							</div>
+							<div class="">
+								<img src="@clientOrderItem.RootFolder/@clientOrderItem.InternalFileInputPath?width=600" />
+							</div>
+							<div class="mt-3">
+								@if (authState.User.IsInRole(PermissionConstants.OrderItem_CanApprovedByQC))
+								{
+								
+									<button type="button" class="btn btn-sm btn btn-secondary btn-space" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseImagePopup">Close</button>
+								}
+								else
+								{
+									<button type="button" class="btn btn-sm btn btn-secondary btn-space" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseImagePopup">Close</button>
+								}
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</EditForm>
+}

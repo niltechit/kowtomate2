@@ -1,0 +1,77 @@
+﻿@using CutOutWiz.Services.Models.ClientCategoryServices
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.ClientCommonCategoryService.ClientCategorys
+
+@inject IClientCategoryService _clientCategoryService
+
+<div class="mb-2 row">
+    <label for="CompanyId" class="col-sm-4 col-form-label fw-bold">Client Company</label>
+    <div class="col-sm-8">
+        <InputSelect Value="clientCategoryBaseRule.CompanyId"
+                     ValueChanged="@((int ci)=>OnCompanyChanged(ci))"
+                     ValueExpression="@(()=>clientCategoryBaseRule.CompanyId)"
+                     class="form-select">
+            <option value="0">- Select -</option>
+            @foreach (var company in companies)
+            {
+                <option value="@(company.Id)">@company.Name</option>
+            }
+        </InputSelect>
+        <ValidationMessage For="@(() => clientCategoryBaseRule.CompanyId)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="ClientCategoryId" class="col-sm-4 col-form-label fw-bold">Client Category</label>
+    <div class="col-sm-8">
+        <InputSelect @bind-Value="clientCategoryBaseRule.ClientCategoryId" class="form-select">
+            <option value="0">- Select -</option>
+            @foreach (var clientCategory in clientCategories)
+            {
+                <option value="@(clientCategory.Id)">@clientCategory.CategoryName</option>
+            }
+        </InputSelect>
+        <ValidationMessage For="@(() => clientCategoryBaseRule.ClientCategoryId)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Base Rule Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="clientCategoryBaseRule.Name"></InputText>
+        <ValidationMessage For="@(() => clientCategoryBaseRule.Name)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Is Active</label>
+    <div class="col-sm-8">
+        <label class="form-check-label" for="IsActive">
+            <InputCheckbox @bind-Value="clientCategoryBaseRule.IsActive" id="IsActive" class="form-check-input"></InputCheckbox>
+        </label>
+        @*   <ValidationMessage For="@(() => clientCategoryBaseRule.IsActive)" /> *@
+    </div>
+</div>
+
+
+@code {
+    [Parameter]
+    public ClientCategoryBaseRuleModel clientCategoryBaseRule { get; set; }
+
+    [Parameter]
+    public List<CompanyModel> companies { get; set; }
+
+    // [Parameter]
+    public List<ClientCategoryModel> clientCategories = new List<ClientCategoryModel>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        clientCategories = await _clientCategoryService.GetByCompanyId(clientCategoryBaseRule.CompanyId);
+    }
+
+    private async Task OnCompanyChanged(int ci)
+    {
+        clientCategoryBaseRule.CompanyId = ci;
+        clientCategories = await _clientCategoryService.GetByCompanyId(ci);
+        StateHasChanged();
+    }
+
+    // Need to add on inalize
+}

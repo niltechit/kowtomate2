@@ -1,0 +1,168 @@
+﻿@page "/report/getreports"
+
+@using System.Linq.Dynamic.Core
+@using CutOutWiz.Services.Common;
+@using CutOutWiz.Services.DynamicReports;
+@using KowToMateAdmin.Services;
+@using static CutOutWiz.Core.Utilities.Enums;
+
+@inject IDynamicReportInfoService _dynamicReportInfoService
+@inject IDataImportService _dataImportService
+@inject IGridFilterService _gridFilterService
+@inject ICompanyService _companyService
+@inject IJSRuntime js
+
+
+
+@attribute [Authorize(Roles = "DynamicReport.CanViewGetDynamicReport")]
+
+<!-- start page title -->
+<div class="row">
+	<div class="col-12">
+		<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+			<h4 class="mb-sm-0 font-size-18">
+				Get Reports
+			</h4>
+			<div class="page-title-right">
+				<button type="button" class="btn btn-sm btn-primary me-2" disabled="@isExporting" @onclick="DownloadExcelDocument" title="Export">
+                    @if (isExporting)
+                    {
+                        @:<span class="fas i fa-spinner fa-spin"></span> Exporting
+                    }
+                    else
+                    {
+                         @:<span class="fas i fa-file-export"></span> Export
+                    }
+                </button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- end page title -->
+<div class="row">
+	<div class="col-lg-12">
+        <div class="mb-2 row">
+            <label for="Report" class="col-sm-2 col-form-label fw-bold">Report</label>
+            <div class="col-sm-8">
+                <RadzenDropDown AllowClear="true" TValue="int?" @bind-Value="selectedDynamicReportInfoId" Change="OnSelectedReportChange" AllowVirtualization="true"
+                                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowFiltering="true" Class="w-100" 
+                                Placeholder="- Select -" Data=@dynamicReportList TextProperty="Name" ValueProperty="Id" />
+            </div>
+        </div>
+
+        <div class="row">
+
+            @if (selectDynamicReportInfo.AllowCompanyFilter)
+            {
+                <div class="col-auto">
+                    <label for="staticEmail2" class="visually-hidden">Company</label>
+                    <RadzenDropDown Multiple="false" Placeholder="-- Select Company --" Data="@companies"  AllowClear="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"  AllowFiltering="true" TextProperty="Name" ValueProperty="Id" @bind-Value="dynamicReportFilter.ClientCompanyId" />
+                </div>
+            }
+
+            @if (selectDynamicReportInfo.AllowStartDateFilter)
+            {
+                <div class="col-auto">
+                    <label for="StartDate" class="visually-hidden">Start Date</label>
+                 <RadzenDatePicker ShowTime="true" Placeholder="Start Date" HourFormat="12" DateFormat="MM/dd/yyyy h:mm tt" @bind-Value="dynamicReportFilter.StartDate" />
+                </div>
+            }
+
+            @if (selectDynamicReportInfo.AllowEndDateFilter)
+            {
+                <div class="col-auto">
+                    <label for="EndDate" class="visually-hidden">End Date</label>
+                    <RadzenDatePicker ShowTime="true" Placeholder="End Date" HourFormat="12" DateFormat="MM/dd/yyyy h:mm tt" @bind-Value="dynamicReportFilter.EndDate" />
+                </div>
+            }
+
+            @if (selectedDynamicReportInfoId > 0)
+            {
+                <div class="col-auto">
+                    <label for="Actions" class="visually-hidden">Action</label>
+                    <button type="button" class="btn btn-sm btn-primary me-2" @onclick="FindResults" title="Export">
+                        @if (isSearching)
+                        {
+                            @:<span class="fas i fa-spinner fa-spin"></span> Searching
+                        }
+                        else
+                        {
+                            @:<span class="fas i fa-search"></span> Search
+                        }
+                    </button>
+                </div>
+            }
+        </div>
+
+        @*<RadzenDataGrid @ref="grid" TItem="IDictionary<string, object>" @bind-Value=@selectedProducts LoadData="@LoadData" Count="@count"*@
+        <RadzenDataGrid TItem="IDictionary<string, object>" @bind-Value=@selectedProducts AllowVirtualization="true" Style="height:600px"
+                        Data="@mainProducts" 
+                        AllowFiltering="true"
+                        FilterMode="FilterMode.Advanced"
+                        AllowPaging="false"
+                        AllowSorting="true"
+                        IsLoading=@(isLoading)
+                        SelectionMode="DataGridSelectionMode.Multiple"
+                        PageSizeOptions="@pageSizeOptions"
+                        PageSize="20"
+                        ShowPagingSummary="true"
+                        PagingSummaryFormat="@pagingSummaryFormat">
+            <Columns>
+                @foreach (var column in tableColumns)
+                {
+                    <RadzenDataGridColumn TItem="IDictionary<string, object>" Title="@column.DisplayName" Type="GetTypeByString(column.FieldTypeEnum)"
+                                      Property="@GetColumnPropertyExpression(column.FieldName, GetTypeByString(column.FieldTypeEnum))" 
+                                      Filterable="@column.Filterable" Sortable="@column.Sortable" Width="@column.WidthWithPx" TextAlign="(TextAlign)column.TextAlign">
+                        <Template>
+                            @if (column.FieldTypeEnum == TableFieldType.Integer)
+                            {
+                                <text>@string.Format("{0:N0}", @context[@column.FieldName])</text>
+                            }
+                            else if (column.FieldTypeEnum == TableFieldType.Decimal)
+                            {
+                                <text>@string.Format("{0:N2}", @context[@column.FieldName])</text>
+                            }
+                            else
+                            {
+                                @context[@column.FieldName]
+                            }
+                            
+                        </Template>
+                       
+                        <FooterTemplate>
+                            @if (column.FieldTypeEnum == TableFieldType.Integer || column.FieldTypeEnum == TableFieldType.Decimal)
+                           {
+                                decimal sum = 0;
+                                foreach (var item in mainProducts)
+                                {
+                                    if (item.ContainsKey(column.FieldName) && item[column.FieldName] != null && item[column.FieldName] is int)
+                                    {
+                                        sum += (int)item[column.FieldName];
+                                    }
+                                }
+
+                                if (column.FieldTypeEnum == TableFieldType.Integer)
+                                {
+                                  @:Total: @string.Format("{0:N0}", sum)
+                                }
+                                else
+                                {
+                                    @:Total: @string.Format("{0:N2}", sum)
+                                }
+                            }
+                           
+                        </FooterTemplate>
+                        
+
+                    </RadzenDataGridColumn>
+                }
+            </Columns>
+        </RadzenDataGrid>
+
+	</div>
+</div>
+
+@code {
+
+}

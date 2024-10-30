@@ -1,0 +1,739 @@
+﻿@page "/common/clientcategory"
+
+@attribute [Authorize(Roles = PermissionConstants.Category_CanViewAllClientCategoryList)]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.ClientCategoryServices
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.ClientCommonCategoryService.ClientCategoryServices
+@using CutOutWiz.Services.ClientCommonCategoryService.ClientCategorys
+@using CutOutWiz.Services.ClientCommonCategoryService.CommonCategories
+@using CutOutWiz.Services.ClientCommonCategoryService.CommonCategoryServices
+@using CutOutWiz.Services.EncryptedMethodServices;
+@using CutOutWiz.Services.MapperHelper
+@using CutOutWiz.Services.Security;
+@using KowToMateAdmin.Helper
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject ICompanyManager _companyService
+
+@inject ICommonServiceService _commonServiceService
+@inject ICommonCategoryService _commonCategoryService
+@inject ICommonCategoryServiceService _commonCategoryServiceService
+@inject IClientCategoryService _clientCategoryService
+@inject IClientCategoryServiceService _clientCategoryServiceService
+@inject IEncryptedMethodService _encryptedMethodServices
+@inject IContactManager _contactManager
+@inject IJSRuntime js
+@inject IMapperHelperService _mapperHelperService
+
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                @if (clientCategories?.Any() == true)
+                {
+                    @:Client Categories(@clientCategories.Count)
+                }
+                else
+                {
+                    @:Client Categories
+                }
+            </h4>
+
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New CommonCategory"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+        <div style="height: 700Px; overflow-y: auto; overflow-x: auto;">
+            <!-- Adjust height as needed -->
+            <RadzenDataGrid Data="@clientCategories" IsLoading="isLoading" TItem="ClientCategoryModel"
+                            AllowFiltering="true" AllowColumnResize="true"
+                            FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                            AllowSorting="true" AllowPaging="true" PageSize="20"
+                            PagerHorizontalAlign="HorizontalAlign.Center"
+                            ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                            RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+                <Columns>
+
+                    <AuthorizeView Roles=@PermissionConstants.Category_CanViewClientCategoryPrice>
+                        <RadzenDataGridColumn TItem="ClientCategoryModel" Property="PriceInUSD" Title="Price In USD" TextAlign="TextAlign.Right" OrderIndex="2" Filterable="false">
+                            <Template Context="order">
+                                @if (decimal.TryParse(_encryptedMethodServices.DecryptData(order.PriceInUSD), out var price))
+                                {
+                                    <p title="Price In USD">@price.ToString("C")</p>
+                                }
+                                else
+                                {
+                                    <p title="Price In USD">Invalid price</p>
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </AuthorizeView>
+
+                    <RadzenDataGridColumn TItem="ClientCategoryModel" Property="ClientCompanyId" Title="Company Name" FilterValue="@filterCompanyType" TextAlign="TextAlign.Center" Width="110x">
+                        <FilterTemplate>
+                            <RadzenDropDown @bind-Value="@filterCompanyType" Style="width:100%;" TextProperty="Name" ValueProperty="Id"
+                                            Data="@companies" AllowClear="true" />
+                        </FilterTemplate>
+                        <Template Context="data">
+                            @(data.CompanyName)
+                        </Template>
+                    </RadzenDataGridColumn>
+                    
+                    
+                    <RadzenDataGridColumn TItem="ClientCategoryModel" Property="CategoryName" Title="Category Name" SortOrder="SortOrder.Ascending" />
+                    
+                    <RadzenDataGridColumn TItem="ClientCategoryModel" Property="CategoryServices" Title="Services" TextAlign="TextAlign.Center" Width="400" Filterable="false">
+                        <Template Context="data">
+                            <div style="white-space: normal; word-break: break-word; max-width: 400px;">
+                                @foreach (var service in data.CategoryServices?.Split(','))
+                                {
+                                    <div>@service</div>
+                                }
+                            </div>
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="ClientCategoryModel" Property="TimeInMinutes" Title="Time In Minutes" TextAlign="TextAlign.Right" Filterable="false">
+                        <Template Context="order">
+                            @if (decimal.TryParse(order.TimeInMinutes.ToString(), out var timeInMinutes))
+                            {
+                                <p title="Time In Minutes">@timeInMinutes.ToString("N2")</p>
+                            }
+                            else
+                            {
+                                <p title="Time In Minutes">Invalid time</p>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ClientCategoryModel" Property="Status" Title="Status" FilterValue="@filterStatus" TextAlign="TextAlign.Center">
+                        <FilterTemplate>
+                            @* <RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                            Data="@(statuses)" AllowClear="true" /> *@
+                        </FilterTemplate>
+                        <Template Context="role">
+                            @if (role.IsActive == true)
+                            {
+                                <span class="badge bg-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning text-dark">Inactive</span>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="ClientCategoryModel" Property="CreatedByUsername" Title="Created By" TextAlign="TextAlign.Center" Filterable="false" />
+                    <RadzenDataGridColumn Width="200px" TItem="ClientCategoryModel" Property="CreatedDate" Title="CreatedDate" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                        <Template Context="data">
+                            @((data.CreatedDate != null) ? data.CreatedDate.ToString("dd-MMM-yyyy hh:mm tt") : string.Empty)
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn Width="120px" TItem="ClientCategoryModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                        <Template Context="data">
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.Id))">
+                                <span class="fas fa-pencil-alt"></span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.Id,data.Id.ToString())">
+                                <span class="fas fa-times"></span>
+                            </button>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </div>
+    </div>
+</div>
+
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@clientCategory OnValidSubmit="@InsertUpdateClientCategory">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Client Category</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <ClientCategoryAdd clientCagtegory="clientCategory" companies="companies" commonCategories="commonCategories"
+                                               OnDeleteRow="DeleteRow" SelectedServiceList="OnSelectedServiceList" AddNew="AddNewService"
+                                               SelectedCategoryCommonServices="selectedCategoryCommonServices" GetCommonService="GetCommonService"
+                                               SelectedCategoriesList="OnSelectedCategoriesList"
+                                               selectedCategoriesId="previousSelectedCategoriesId" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+
+@if (isServicePopup)
+{
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="col-lg-8">
+            </div>
+            <div class="col-lg-4">
+                <div class="modal" tabindex="-1" style="display:block;">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Add Service</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseNewService"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-2 row">
+                                    <label for="SelectServices" class="col-sm-4 col-form-label fw-bold">Select Services</label>
+                                    <div class="col-sm-8">
+                                        <RadzenDropDown AllowClear="false" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                                        @bind-Value="@selectedServiceIds" Multiple="true" Placeholder="Select..." Data="@serviceAddPageCommonServices"
+                                                        TextProperty="Name" ValueProperty="Id" Class="w-100" Change="@SelectedServiceAdd" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="submit" class="btn btn-primary" disabled="@isSubmitting" @onclick="SaveService">Save Changes</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseNewService">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<ClientCategoryModel> clientCategories;
+    private List<CompanyModel> companies;
+    private List<CommonCategoryModel> commonCategories;
+    private List<CommonServiceModel> commonServices;
+    private List<CommonServiceModel> serviceAddPageCommonServices;
+    private List<CommonServiceModel> selectedCategoryCommonServices;
+    private List<CommonServiceModel> deletedCommonCategoryService = new List<CommonServiceModel>();
+
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    private ClientCategoryModel clientCategor = new ClientCategoryModel();
+    private ClientCategoryRequestViewModel clientCategory = new ClientCategoryRequestViewModel();
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private int selectedObjectId = 0;
+
+    List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+    private byte? filterStatus;
+
+    List<CustomEnumTypes> filterTypes = new List<CustomEnumTypes>();
+    private byte? filterTypeStatus;
+    bool isServicePopup = false;
+    public List<int> selectedServiceIds { get; set; }
+    public List<int> selectedCategoriesIds { get; set; }
+    // public int selectedCategoriesId { get; set; }
+    public List<int> previousSelectedCategoriesIds { get; set; } = new List<int>();
+    public int previousSelectedCategoriesId { get; set; }
+    public int previousSelectedClientCategoriesId { get; set; }
+    public int selectedCompanyId { get; set; }
+
+    private int? filterCompanyType;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+        await LoadCommonCategorys();
+        //Populate Status
+        foreach (GeneralStatus item in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+        isLoading = false;
+        deletedCommonCategoryService = new List<CommonServiceModel>();
+    }
+
+    private async Task LoadCommonCategorys()
+    {
+        var clientCategoryList = await _clientCategoryService.GetAll();
+        clientCategories = clientCategoryList
+                                .GroupBy(x => x.ClientCompanyId)
+                                .SelectMany(ClientCategoryList => ClientCategoryList)
+                                .ToList();
+
+        await ServicesKomaSepartedCreateForCategories(clientCategories);
+
+        companies = await _companyService.GetAll();
+        commonCategories = await _commonCategoryService.GetAll();
+        commonServices = await _commonServiceService.GetAll();
+        serviceAddPageCommonServices = commonServices.Where(x => x.IsActive == true).ToList();
+
+    }
+    private async Task ServicesKomaSepartedCreateForCategories(List<ClientCategoryModel> clientCategories)
+    {
+        if (clientCategories.Count>0)
+        {
+            foreach (var category in clientCategories)
+            {
+                var commonCategoriesServices = await _clientCategoryServiceService.GetCommonServiceByClientCategoryId(category.CommonCategoryId);
+                var servicesNames = string.Join(",", commonCategoriesServices.Select(x => x.Name));
+                category.CategoryServices = servicesNames;
+            }
+        }
+
+        // foreach (var category in clientCategories)
+        // {
+
+        //     var categories = await _clientCategoryService.GetAllCategoryService(category.Id);
+        //     var servicesNames = string.Join(",", categories.Select(x => x.Name));
+        //     category.CategoryServices = servicesNames;
+
+        // }
+    }
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<ClientCategoryModel> args)
+    {
+        await Edit(args.Data.Id);
+    }
+
+    private async Task InsertUpdateClientCategory()
+    {
+        isSubmitting = true;
+
+        if (clientCategory.Id == 0)
+        {
+
+            if (clientCategory?.ClientCompanyId == 0)
+            {
+                ModalNotification.ShowMessage("Error", "Please select at least one Company!");
+                isSubmitting = false;
+                return;
+            }
+
+            if (clientCategory?.ClientCompanyId == 0)
+            {
+                ModalNotification.ShowMessage("Error", "Please select at least one Company!");
+                isSubmitting = false;
+                return;
+            }
+            var checkClientCategoryIsExists = clientCategories.Where(x => x.CommonCategoryId == clientCategory.CommonCategoryId && x.ClientCompanyId == clientCategory.ClientCompanyId).FirstOrDefault();
+            if (checkClientCategoryIsExists != null)
+            {
+                ModalNotification.ShowMessage("Error", "Record already exists!");
+                isSubmitting = false;
+                return;
+            }
+
+            if (selectedCategoryCommonServices?.Any() != true)
+            {
+                ModalNotification.ShowMessage("Error", "Please select at least one Category!");
+                isSubmitting = false;
+                return;
+            }
+
+            if (clientCategory.PriceInUSD != null)
+            {
+                clientCategory.PriceInUSD = _encryptedMethodServices.EncryptData(clientCategory.PriceInUSD);
+            }
+
+            // Save Client Category
+
+            var clientcategory = new ClientCategoryModel
+                {
+                    ClientCompanyId = clientCategory.ClientCompanyId,
+                    CommonCategoryId = clientCategory.CommonCategoryId,
+                    TimeInMinutes = clientCategory.TimeInMinutes,
+                    PriceInUSD = clientCategory.PriceInUSD,
+                    IsActive = clientCategory.IsActive,
+                    CreatedByUsername = loginUser.Username,
+                    CreatedDate = DateTime.Now,
+                };
+
+            var clientcategoryResponse = await _clientCategoryService.Insert(clientcategory);
+
+
+            // Client Category Service Save
+
+            if (selectedCategoryCommonServices != null && selectedCategoryCommonServices.Any())
+            {
+                bool isDecryted = false;
+
+                foreach (var service in selectedCategoryCommonServices)
+                {
+                    if (!isDecryted)
+                    {
+                        clientCategory.PriceInUSD = _encryptedMethodServices.DecryptData(clientCategory.PriceInUSD);
+                        isDecryted = true;
+                    }
+                    service.PriceInUSD = DividePercentage((decimal)service.TimeInMinutes, (decimal)clientCategory.TimeInMinutes, Convert.ToDecimal(clientCategory.PriceInUSD));
+
+                    var clientcategoryService = new ClientCategoryServiceModel
+                        {
+                            ClientCategoryId = clientcategoryResponse.Result,
+                            CommonServiceId = Convert.ToInt32(service.Id),
+                            IsActive = clientCategory.IsActive,
+                            CreatedByUsername = clientCategory.CreatedByUsername,
+                            PriceInUSD = _encryptedMethodServices.EncryptData(service.PriceInUSD),
+                            TimeInMinutes = service.TimeInMinutes,
+                        };
+
+                    var addResponse = await _clientCategoryServiceService.Insert(clientcategoryService);
+                }
+            }
+
+
+
+        }
+        else
+        {
+            if (selectedCategoryCommonServices?.Any() != true)
+            {
+                ModalNotification.ShowMessage("Error", "Please select at least one Category!");
+                isSubmitting = false;
+                return;
+            }
+
+            var clientcategory = new ClientCategoryModel
+                {
+                    Id = clientCategory.Id,
+                    ClientCompanyId = clientCategory.ClientCompanyId,
+                    CommonCategoryId = clientCategory.CommonCategoryId,
+                    TimeInMinutes = clientCategory.TimeInMinutes,
+                    PriceInUSD = _encryptedMethodServices.EncryptData(clientCategory.PriceInUSD),
+                    IsActive = clientCategory.IsActive,
+                    UpdatedByUsername = loginUser.Username,
+                    UpdatedDate = DateTime.Now,
+                };
+
+            var clientcategoryResponse = await _clientCategoryService.Update(clientcategory);
+
+            // Client Category Service Save
+
+            if (selectedCategoryCommonServices != null && selectedCategoryCommonServices.Any())
+            {
+                if (deletedCommonCategoryService != null && deletedCommonCategoryService.Any())
+                {
+                    foreach (var service in deletedCommonCategoryService)
+                    {
+                        var deleteResponse = await _clientCategoryServiceService.Delete(service.Id, clientcategory.Id);
+                    }
+                }
+
+                foreach (var service in selectedCategoryCommonServices)
+                {
+
+                    var getCheckIsExists = await _clientCategoryServiceService.GetByClientCategoryIdAndServiceId(service.Id, clientCategory.Id);
+
+                    service.PriceInUSD = DividePercentage((decimal)service.TimeInMinutes, (decimal)clientCategory.TimeInMinutes, Convert.ToDecimal(clientCategory.PriceInUSD));
+
+                    var clientcategoryService = new ClientCategoryServiceModel
+                        {
+
+                            ClientCategoryId = clientcategory.Id,
+                            CommonServiceId = Convert.ToInt32(service.Id),
+                            IsActive = clientCategory.IsActive,
+                            CreatedByUsername = clientCategory.CreatedByUsername,
+                            PriceInUSD = _encryptedMethodServices.EncryptData(service.PriceInUSD),
+                            TimeInMinutes = service.TimeInMinutes,
+                        };
+
+                    if (getCheckIsExists != null && getCheckIsExists.Id > 0)
+                    {
+                        clientcategoryService.Id = getCheckIsExists.Id;
+                        var addResponse = await _clientCategoryServiceService.Update(clientcategoryService);
+                    }
+                    else
+                    {
+                        var addResponse = await _clientCategoryServiceService.Insert(clientcategoryService);
+                    }
+                }
+            }
+
+
+
+            deletedCommonCategoryService = new List<CommonServiceModel>();
+        }
+
+        clientCategory = new ClientCategoryRequestViewModel();
+        isSubmitting = false;
+
+        await LoadCommonCategorys();
+        CloseAddEditPopup();
+    }
+    static string DividePercentage(decimal values, decimal totalValue, decimal totalPrice)
+    {
+        var percentage = ((decimal)values / totalValue) * 100;
+
+        var percentageOfPrice = (totalPrice * percentage) / 100;
+
+        return percentageOfPrice.ToString();
+    }
+    void AddNew()
+    {
+
+        isSubmitting = false;
+        LoadCommonCategorys();
+        selectedCategoryCommonServices = new List<CommonServiceModel>();
+        clientCategory = new ClientCategoryRequestViewModel();
+        deletedCommonCategoryService = new List<CommonServiceModel>();
+        selectedCategoriesIds = new List<int>();
+        selectedCompanyId = new int();
+        ShowAddEditPopup();
+    }
+    void AddNewService()
+    {
+        serviceAddPageCommonServices = commonServices;
+        isSubmitting = false;
+        isServicePopup = true;
+
+        commonServices.RemoveAll(f => selectedCategoryCommonServices.Any(x => x.Id == f.Id));
+        serviceAddPageCommonServices.RemoveAll(f => selectedCategoryCommonServices.Any(x => x.Id == f.Id));
+
+        StateHasChanged();
+    }
+    void CloseNewService()
+    {
+
+        isServicePopup = false;
+        selectedServiceIds = new List<int>();
+        StateHasChanged();
+    }
+
+
+    private async Task Edit(int id)
+    {
+        //clientCategory
+
+        var category = await _clientCategoryService.GetById(id);
+        clientCategory = await _mapperHelperService.MapToSingleAsync<ClientCategoryModel, ClientCategoryRequestViewModel>(category);
+        clientCategory.PriceInUSD = _encryptedMethodServices.DecryptData(clientCategory.PriceInUSD);
+        var service = await _clientCategoryService.GetAllCategoryService(clientCategory.Id);
+
+        selectedCategoryCommonServices = await _mapperHelperService.MapToListAsync<ClientCategoryServiceModel, CommonServiceModel>(service);
+
+        serviceAddPageCommonServices.RemoveAll(f => selectedCategoryCommonServices.Any(x => x.Id == f.Id));
+
+        previousSelectedClientCategoriesId = clientCategory.Id;
+
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        deletedCommonCategoryService = new List<CommonServiceModel>();
+        isPopupVisible = false;
+    }
+
+    protected void Delete(int objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the CommonCategory \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _clientCategoryService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadCommonCategorys();
+                clientCategory = new ClientCategoryRequestViewModel();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+
+        isSubmitting = false;
+    }
+    #region Component
+
+    async Task DeleteRow(CommonServiceModel order)
+    {
+        var selectedServiceids = selectedServiceIds;
+        var service = commonServices;
+        if (await js.Confirm("", $"Are you want to delete the {order.Name} service from this Category ?", SweetAlertTypeMessagee.question))
+        {
+            selectedCategoryCommonServices.Remove(order);
+            //selectedServiceIds.Remove(order.Id);
+            var serviceList = selectedCategoryCommonServices;
+            selectedCategoryCommonServices = new List<CommonServiceModel>();
+            selectedCategoryCommonServices = serviceList;
+            commonServices.Add(order);
+            deletedCommonCategoryService.Add(order);
+            this.StateHasChanged();
+        }
+    }
+
+    private async Task OnSelectedServiceList(object value)
+    {
+        selectedServiceIds = new List<int>();
+        this.StateHasChanged();
+    }
+    // private async Task OnSelectedCategoriesList(object value)
+    // {
+    //     selectedCategoriesIds = new List<int>();
+    //     if (value is IEnumerable<int> enumerable)
+    //     {
+    //         selectedCategoriesIds = enumerable.ToList();
+    //     }
+    //     else if (value is int singleValue)
+    //     {
+    //         // If the value is a single integer, wrap it in a list
+    //         selectedCategoriesIds = new List<int> { singleValue };
+    //     }
+    //     else
+    //     {
+    //         // Handle the error if the value is neither an int nor an IEnumerable<int>
+    //         throw new InvalidCastException("The selected value is neither an integer nor an enumerable collection of integers.");
+    //     }
+    //     // Here only one category taken : Note : Further update need
+    //     var selectedCategoriesId = selectedCategoriesIds.Where(x => x > 0).First();
+
+    //     clientCategory.CommonCategoryId = selectedCategoriesId;
+
+    //     await GetCommonService();
+
+    //     this.StateHasChanged();
+    // }
+    private async Task OnSelectedCategoriesList(object value)
+    {
+        selectedCategoriesIds = new List<int>();
+        if (value is IEnumerable<int> enumerable)
+        {
+            selectedCategoriesIds = enumerable.ToList();
+        }
+        else if (value is int singleValue)
+        {
+            // If the value is a single integer, wrap it in a list
+            selectedCategoriesIds = new List<int> { singleValue };
+        }
+        else
+        {
+            // Handle the error if the value is neither an int nor an IEnumerable<int>
+            throw new InvalidCastException("The selected value is neither an integer nor an enumerable collection of integers.");
+        }
+
+        // Ensure there are valid categories before selecting the first one
+        var validCategories = selectedCategoriesIds.Where(x => x > 0);
+        if (validCategories.Any())
+        {
+            var selectedCategoriesId = validCategories.First();
+            clientCategory.CommonCategoryId = selectedCategoriesId;
+            previousSelectedCategoriesIds.AddRange(selectedCategoriesIds);
+
+            await GetCommonService();
+        }
+        else
+        {
+            // Handle the case where no valid categories are present
+            // For instance, you might want to set clientCategory.CommonCategoryId to a default value or handle it in another appropriate way
+            clientCategory.CommonCategoryId = 0; // or any other default value or action
+        }
+
+        this.StateHasChanged();
+    }
+
+    private async Task OnSelectedCompanyList(object value)
+    {
+        this.StateHasChanged();
+    }
+    private async Task SelectedServiceAdd(object value)
+    {
+        this.StateHasChanged();
+    }
+    private bool isFirstRequest = true;
+
+    private async Task GetCommonService()
+    {
+        // if (isFirstRequest)
+        // {
+        //     isFirstRequest = false;
+        //     return;
+        // }
+        if (selectedCategoryCommonServices != null && selectedCategoryCommonServices.Any())
+        {
+            if (await js.Confirmation("", "Are you want to select another category, Then clear previous set values?", SweetAlertTypeMessagee.question))
+            {
+                //isFirstRequest = true;
+                var previousSelectedCommonServices = await _clientCategoryService.GetAllCategoryService(previousSelectedClientCategoriesId);
+                var mappedselectedCategoryCommonServices = await _mapperHelperService.MapToListAsync<ClientCategoryServiceModel, CommonServiceModel>(previousSelectedCommonServices);
+                deletedCommonCategoryService = mappedselectedCategoryCommonServices;
+
+                var newSelectedCategoriesService = await commonServiceList(clientCategory.CommonCategoryId);
+
+                selectedCategoryCommonServices = newSelectedCategoriesService;
+
+                serviceAddPageCommonServices.RemoveAll(f => selectedCategoryCommonServices.Any(x => x.Id == f.Id));
+            }
+            //isFirstRequest = true;
+        }
+        else
+        {
+            selectedCategoryCommonServices = await commonServiceList(clientCategory.CommonCategoryId);
+            //isFirstRequest = true;
+            previousSelectedCategoriesId = clientCategory.CommonCategoryId;
+        }
+        StateHasChanged(); // Notify Blazor to re-render the component
+    }
+    private async Task<List<CommonServiceModel>> commonServiceList(int categoryId)
+    {
+        var services = await _clientCategoryServiceService.GetCommonServiceByClientCategoryId(categoryId);
+        return services;
+    }
+    private async Task SaveService()
+    {
+        List<CommonServiceModel> services = new List<CommonServiceModel>();
+
+        foreach (var id in selectedServiceIds)
+        {
+            var service = await _commonServiceService.GetById(id);
+            service.TimeIn = service.TimeInMinutes.ToString();
+            selectedCategoryCommonServices.Add(service);
+            commonServices.RemoveAll(f => selectedCategoryCommonServices.Any(x => x.Id == f.Id));
+        }
+        isServicePopup = false;
+        StateHasChanged();
+    }
+
+    #endregion
+
+}

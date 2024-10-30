@@ -1,0 +1,286 @@
+﻿@page "/hr/leavetypelist"
+
+@attribute [Authorize(Roles = PermissionConstants.HR_ViewAllLeaveType)]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.HR
+@using CutOutWiz.Services.HR
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject ILeaveTypeService _leaveTypeService
+@inject NavigationManager NavigationManager
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                
+                @if (leaveTypes?.Any() == true)
+                {
+                    @:Leave Type(@leaveTypes.Count)
+                }
+                else
+                {
+                    @:Leave Type
+                }
+            </h4>
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New Leave Type"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+        <RadzenDataGrid Data="@leaveTypes" IsLoading="isLoading" TItem="LeaveTypeModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+                <RadzenDataGridColumn TItem="LeaveTypeModel" Property="Name" Title="Leave Type Name" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="LeaveTypeModel" Property="Status" Title="Status" FilterValue="@filterStatus" TextAlign="TextAlign.Center">
+                    <FilterTemplate>
+                        <RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                                        Data="@(statuses)" AllowClear="true" />
+                    </FilterTemplate>
+                    <Template Context="leaveType">
+                        @if (leaveType.IsActive == true)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Inactive</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="LeaveTypeModel" Property="CreatedDate" Title="Created Date" TextAlign="TextAlign.Center" Filterable="false" />
+                <RadzenDataGridColumn Width="120px" TItem="LeaveTypeModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        @* <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => GoToManagePermissions(data.ObjectId))">
+                            <span class="fas fa-cog"></span>
+                        </button> *@
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.Id))">
+                            <span class="fas fa-pencil-alt"></span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.Id,data.Name)">
+                            <span class="fas fa-times"></span>
+                        </button>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@leaveType OnValidSubmit="@InsertUpdateLeaveType">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Leave Type</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <LeaveTypeAddEdit leaveType="leaveType" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @if (leaveType.Id>0)
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(leaveType.Id,leaveType.Name)">Delete</button>
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<LeaveTypeModel> leaveTypes;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    private LeaveTypeModel leaveType = null;
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private int selectedId = 0;
+    List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+    private byte? filterStatus;
+    private string SelectedEditName { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+        await LoadLeaveTypes();
+
+        foreach (GeneralStatus item in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+        isLoading = false;
+    }
+
+    private async Task LoadLeaveTypes()
+    {
+        leaveTypes = await _leaveTypeService.GetAll();
+    }
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<LeaveTypeModel> args)
+    {
+        await Edit(args.Data.Id);
+    }
+
+    private async Task InsertUpdateLeaveType()
+    {
+        isSubmitting = true;
+
+        if (leaveType.Id == 0)
+        {
+            leaveType.CreatedByContactId = loginUser.ContactId;
+            leaveType.CreatedDate = DateTime.Now;
+            //leaveType.ObjectId = Guid.NewGuid().ToString();
+
+            var checkLeaveType = leaveTypes.Where(x => x.Name.Contains(leaveType.Name)).ToList();
+
+            if (checkLeaveType != null && checkLeaveType.Any())
+            {
+                ModalNotification.ShowMessage("Error", "Leave name already is exists.");
+                isSubmitting = false;
+                return;
+            }
+
+            var addResponse = await _leaveTypeService.Insert(leaveType);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+        else
+        {
+            leaveType.UpdatedDate = DateTime.Now;
+            leaveType.UpdatedByContactId = loginUser.ContactId;
+
+            if (SelectedEditName!=leaveType.Name)
+            {
+                var checkLeaveType = leaveTypes.Where(x => x.Name.Contains(leaveType.Name)).ToList();
+                if (checkLeaveType != null && checkLeaveType.Any())
+                {
+                    ModalNotification.ShowMessage("Error", "Leave name already is exists.");
+                    isSubmitting = false;
+                    return;
+                }
+            }
+
+            var updateResponse = await _leaveTypeService.Update(leaveType);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+
+        leaveType = new LeaveTypeModel();
+        isSubmitting = false;
+
+        await LoadLeaveTypes();
+        CloseAddEditPopup();
+    }
+
+    string StatusText()
+    {
+        if (leaveType.IsActive == true)
+        {
+            return "<span class='badge bg-success'>Active</span>";
+        }
+
+        return "<span class='badge bg-info text-dark'>Inactive</span>";
+    }
+
+    void AddNew()
+    {
+        leaveType = new LeaveTypeModel();
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(int id)
+    {
+        leaveType = await _leaveTypeService.GetById(id);
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(int id, string name)
+    {
+        selectedId = id;
+        var msg = $"Are you sure you want to delete the leaveType \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _leaveTypeService.Delete(selectedId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadLeaveTypes();
+                leaveType = new LeaveTypeModel();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+
+        isSubmitting = false;
+    }
+    protected void GoToManagePermissions(string objectId)
+    {
+        NavigationManager.NavigateTo($"/security/leaveType/assignpermissions/{objectId}", true);
+    }
+
+}

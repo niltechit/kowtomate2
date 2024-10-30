@@ -1,0 +1,318 @@
+﻿@page "/management/team-members/{teamId:int}" 
+@attribute [Authorize(Roles = "Management.ManageTeamMembers")]
+
+@using CutOutWiz.Core.Management
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Management
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject ITeamMemberService _teamMemberService
+@inject ITeamRoleService _teamRoleService
+@inject IContactManager _contactManager
+@inject ITeamService _teamService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Team Members
+                <span>(@filteredTeamMembers.Count)</span>
+            </h4>
+
+            <div class="page-title-right">
+                @*<ol class="breadcrumb m-0">
+                    <li class="breadcrumb-item"><a emailef="javascript: void(0);">Invoices</a></li>
+                    <li class="breadcrumb-item active">Invoice List</li>
+                </ol>*@
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New TeamMember"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-body">
+                @if (filteredTeamMembers is null)
+                {
+                    <p><em>Loading...</em></p>
+                }
+                else
+                {
+                    <div class="row gy-2 gx-3 align-items-center mb-3">                                           
+                        <div class="col-sm-auto">                  
+                            <div class="input-group">
+                                <div class="input-group-text"> <i class="fas fa-search"></i></div>
+                                 @* <input type="text" class="form-control" @bind-value="searchText" @bind-value:event="oninput" id="txtsearchbox" placeholder="Search.."> *@
+                                <input type="text" class="form-control" @bind-value="searchText" @oninput="SearchMembers" id="txtsearchbox" placeholder="Search..">
+                            </div>
+                        </div>                      
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table mb-0 table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>User Id</th>
+                                    <th>Name</th>
+                                    <th>Phone</th>
+                                    <th>Team Role</th>
+                                    <th>Created Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <Virtualize Items="filteredTeamMembers" Context="teamMember">
+                                    <tr @ondblclick="() => Edit(teamMember.ObjectId)">
+                                        <td>@teamMember.FirstName @teamMember.EmployeeId</td>
+                                        <td>@teamMember.FirstName @teamMember.LastName</td>
+                                        <td>@teamMember.Phone</td>
+                                        <td>@teamMember.TeamRoleName</td>
+                                        <td>@teamMember.CreatedDate.ToShortDateString()</td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(teamMember.ObjectId))">
+                                                <span class="fas fa-pencil-alt"></span>
+                                            </button>
+
+                                            <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick='() => Delete(teamMember.ObjectId, $"{teamMember.FirstName} {teamMember.LastName}")'>
+                                                <span class="fas fa-times"></span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </Virtualize>
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    
+    <EditForm Model=@teamMember OnValidSubmit="@InsertUpdateTeamMember" >
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Team Member</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <TeamMemberAddEdit teamMember="@teamMember" teamRoles="@teamRoles" contacts="@contacts" Name="@Name" teams = "@teams" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @if (!string.IsNullOrWhiteSpace(teamMember.ObjectId))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(teamMember.ObjectId, Name)">Delete</button>   
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    [Parameter]
+    public int teamId { get; set; }
+
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<TeamMemberListModel> teamMembers = new List<TeamMemberListModel>();
+    private TeamMember teamMember = new TeamMember();
+
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = new LoginUserInfoViewModel();
+    private string searchText = "";
+    private string selectedObjectId = "";
+    private string Name;
+    private List<TeamRoleModel> teamRoles;
+    private List<ContactModel> contacts;
+    private List<TeamModel> teams;
+    List<TeamMemberListModel> filteredTeamMembers = new List<TeamMemberListModel>();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+        await LoadTeamMembers();
+        await LoadTeamRoles();
+        await LoadContacts();
+        await LoadTeams();
+    }
+
+    private async Task LoadTeamMembers()
+    {
+        teamMembers = await _teamMemberService.GetTeamMemberListWithDetailsByTeamId(teamId);
+        filteredTeamMembers = teamMembers;
+    }
+
+    private async Task LoadTeamRoles()
+    {
+        teamRoles = await _teamRoleService.GetAll();
+    }
+
+    private async Task LoadContacts()
+    {
+        contacts = await _contactManager.GetAllEmployee();
+    }
+    private async Task LoadTeams()
+    {
+        teams = await _teamService.GetAll();
+    }
+
+    private async Task InsertUpdateTeamMember()
+    {
+        isSubmitting = true;
+
+        if (teamMember.Id == 0)
+        {
+            teamMember.CreatedByContactId = loginUser.ContactId;
+            teamMember.ObjectId = Guid.NewGuid().ToString();
+            var contact = await _contactManager.GetByEmployeeId(teamMember.EmployeeId);
+            teamMember.ContactId = contact.Id;
+
+            var addResponse = await _teamMemberService.Insert(teamMember);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error",addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+        else
+        {
+            teamMember.UpdatedByContactId = loginUser.ContactId;
+            var updateResponse = await _teamMemberService.Update(teamMember);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error",updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+
+        teamMember = new TeamMember { TeamId = teamId };
+        isSubmitting = false;
+
+        await LoadTeamMembers();
+        CloseAddEditPopup();
+    }
+
+    string StatusText()
+    {
+        /*
+        if (teamMember.Status == (int)GeneralStatus.Active)
+            {
+            return "<span class='badge bg-success'>Active</span>";
+        }
+        */
+        return  "<span class='badge bg-info text-dark'>Inactive</span>";
+    }
+
+    void AddNew()
+    {
+        teamMember = new TeamMember { TeamId = teamId };
+        Name = string.Empty;
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(string objectId)
+    {
+        teamMember = await _teamMemberService.GetByObjectId(objectId);
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the teamMember \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete",msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _teamMemberService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadTeamMembers();
+                teamMember = new TeamMember();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error",deleteResponse.Message);
+            }
+        }
+
+        isSubmitting = false;
+    }
+
+
+
+    // filteredTeamMembers => teamMembers
+    //                                    .Where(i => 
+    //                                            i.FirstName.ToLower().Contains(searchText.ToLower()) ||
+    //                                            i.LastName.ToLower().Contains(searchText.ToLower())
+    //                                    ).ToList();
+
+    // public void SearchMembers(string searchText)
+    // {
+    //     var filteredTeamMembers = teamMembers
+    //                                    .Where(i =>
+    //                                            i.FirstName.ToLower().Contains(searchText.ToLower()) ||
+    //                                            i.LastName.ToLower().Contains(searchText.ToLower())
+    //                                    ).ToList();
+    // }
+
+    private void SearchMembers(ChangeEventArgs e)
+    {
+        string inputValue = e.Value.ToString();
+
+        filteredTeamMembers = teamMembers
+                                      .Where(i =>
+                                               i.FirstName.ToLower().Contains(inputValue.ToLower()) ||
+                                              // i.LastName.ToLower().Contains(inputValue.ToLower()) || 
+                                              i.EmployeeId.ToLower().Contains(inputValue.ToLower())
+                                      ).ToList();
+    }
+}
