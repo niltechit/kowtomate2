@@ -9,19 +9,19 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Presentation/KowToMateAdmin/KowToMateAdmin.csproj", "Presentation/KowToMateAdmin/"]
-COPY ["Libraries/CutOutWiz.Core/CutOutWiz.Core.csproj", "Libraries/CutOutWiz.Core/"]
-COPY ["Libraries/CutOutWiz.Data/CutOutWiz.Data.csproj", "Libraries/CutOutWiz.Data/"]
-COPY ["Libraries/CutOutWiz.Services/CutOutWiz.Services.csproj", "Libraries/CutOutWiz.Services/"]
+COPY ["kowtomate/Presentation/KowToMateAdmin/KowToMateAdmin.csproj", "kowtomate/Presentation/KowToMateAdmin/"]
+COPY ["kowtomate/Libraries/CutOutWiz.Core/CutOutWiz.Core.csproj", "kowtomate/Libraries/CutOutWiz.Core/"]
+COPY ["kowtomate/Libraries/CutOutWiz.Data/CutOutWiz.Data.csproj", "kowtomate/Libraries/CutOutWiz.Data/"]
+COPY ["kowtomate/Libraries/CutOutWiz.Services/CutOutWiz.Services.csproj", "kowtomate/Libraries/CutOutWiz.Services/"]
 
 # Restore dependencies
-RUN dotnet restore "./Presentation/KowToMateAdmin/KowToMateAdmin.csproj"
+RUN dotnet restore "./kowtomate/Presentation/KowToMateAdmin/KowToMateAdmin.csproj"
 
 # Copy all source files
 COPY . .
 
 # Build and publish separately with memory-optimized settings
-WORKDIR "/src/Presentation/KowToMateAdmin"
+WORKDIR "/src/kowtomate/Presentation/KowToMateAdmin"
 RUN dotnet build "./KowToMateAdmin.csproj" -c $BUILD_CONFIGURATION -maxcpucount:1 --no-restore -o /app/build
 RUN dotnet publish "./KowToMateAdmin.csproj" -c $BUILD_CONFIGURATION -maxcpucount:1 --no-build -o /app/publish /p:UseAppHost=false
 
