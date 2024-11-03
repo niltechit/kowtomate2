@@ -1,0 +1,35 @@
+﻿@using KowToMateAdmin.Models.Security
+@using static CutOutWiz.Core.Utilities.Enums
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="role.Name"></InputText>
+        <ValidationMessage For="@(() => role.Name)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Status" class="col-sm-4 col-form-label fw-bold">Status</label>
+    <div class="col-sm-8">
+      <InputSelect @bind-Value="role.Status" class="form-select">
+           <option value="0">- Select -</option>
+        @foreach (var status in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            <option value="@((int)status)">@status</option>
+        }
+         </InputSelect>
+        <ValidationMessage For="@(() => role.Status)" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public RoleViewModel role { get; set; }
+
+    void OnChange(object value, string name)
+    {
+        var str = value is IEnumerable<object> ? string.Join(", ", (IEnumerable<object>)value) : value;
+       // console.Log($"{name} value changed to {str}");
+    }
+}

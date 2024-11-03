@@ -1,0 +1,315 @@
+﻿@page "/generalsettings/{paramCompanyObjectId}"
+
+@attribute [Authorize(Roles = "GeneralSetting.ManageGeneralSettingForCompany")]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.Models.Security;
+@using CutOutWiz.Services.AutomationAppServices.FtpOrderProcess;
+@using CutOutWiz.Services.Security;
+@using KowToMateAdmin.Helper;
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+@using CutOutWiz.Services.Models.FtpModels
+
+@inject IWorkContext _workContext
+@inject IClientOrderFtpService _fileServerService
+@inject IJSRuntime js
+@inject ICompanyManager _companyService
+@inject ICompanyGeneralSettingManager _companyGeneralSetting
+
+@{
+	void RenderCheckbox(string id, string labelText, bool isChecked)
+	{
+		<div class="mb-2 row">
+			<div class="form-check form-check-primary mb-3">
+				<input disabled class="form-check-input" type="checkbox" id="@id" checked="@isChecked">
+				<label class="form-check-label" for="@id">
+					@labelText
+				</label>
+			</div>
+		</div>
+	}
+
+	void RenderInputLabel(string label, object value)
+	{
+		<div class="mb-2 row">
+			<label for="@label" class="col-sm-4 col-form-label fw-bold">@label</label>
+			<div class="col-sm-8">
+				<input disabled class="form-control" style="margin-left:0px" value="@value" />
+			</div>
+		</div>
+	}
+}
+
+<div class="row">
+	<div class="col-12">
+		<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+			@if (generalSettings != null)
+			{
+				<AuthorizeView Roles="GeneralSetting.Edit">
+					<button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await UpdateFileServer((int)generalSettings.Id))">
+						<span class="fas fa-pencil-alt"></span>
+					</button>
+				</AuthorizeView>
+			}
+			else
+			{
+				<AuthorizeView Roles="GeneralSetting.Add">
+					<div class="page-title-right">
+						<button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New FileServer"><span class="fas fa-plus"></span> Update</button>
+					</div>
+				</AuthorizeView>
+			}
+		</div>
+	</div>
+</div>
+
+@if (generalSettings != null)
+{
+	<div class="row">
+		<div class="col-lg-12">
+			<div class="card">
+				<div class="card-header">General Settings</div>
+				<div class="card-body">
+					<div class="row">
+						
+						<div class="col-xl-4 col-sm-6">
+							@if (generalSettings != null)
+							{
+								RenderCheckbox("AutoAssignOrderToTeam", "Auto Assign Order To Team", generalSettings.AutoAssignOrderToTeam);
+								RenderCheckbox("AutoDistributeToEditor", "Auto Distribute To Editor", generalSettings.AutoDistributeToEditor);
+								RenderCheckbox("AutoQcPass", "Auto Qc Pass", generalSettings.AutoQcPass);
+								RenderCheckbox("AutoOperationPass", "Auto Operation Pass", generalSettings.AutoOperationPass);
+								RenderCheckbox("EnableFtpOrderPlacement", "Enable Ftp Order Placement", generalSettings.EnableFtpOrderPlacement);
+								RenderCheckbox("AllowPartialDelivery", "Allow Partial Delivery", generalSettings.AllowPartialDelivery);
+								RenderCheckbox("EnableOrderDeliveryToFtp", "Enable Order Delivery To Ftp", generalSettings.EnableOrderDeliveryToFtp);
+								RenderCheckbox("AllowSingleOrderFromFTP", "Allow Single Order From FTP", generalSettings.AllowSingleOrderFromFTP);
+								RenderCheckbox("EnableSingleOrderPlacement", "Enable Single Order Placement", generalSettings.EnableSingleOrderPlacement);
+								RenderCheckbox("formCheckcolor6", "Is Ibr Processed Enabled", generalSettings.IsIbrProcessedEnabled);
+								RenderCheckbox("AllowAutoUploadFromEditorPc", "Allow Auto Upload From Editor Pc", generalSettings.AllowAutoUploadFromEditorPc);
+								RenderCheckbox("CheckUploadCompletedFlagOnBatchName", "Check Upload Completed Flag On BatchName", generalSettings.CheckUploadCompletedFlagOnBatchName);
+								RenderInputLabel("Max File Per Order", generalSettings.AllowMaxNumOfItemsPerOrder);
+								RenderInputLabel("Automation App No",generalSettings.FtpOrderPlacedAppNo);
+								RenderCheckbox("IsOrderPlacedEmailSentToCompany", "Send Order Placed Notification Email To Company", generalSettings.IsOrderPlacedEmailSentToCompany);
+								RenderCheckbox("IsOrderPlacedEmailSentToCompanyAllUsers", "Send Order Placed Notification Email To Company All Users", generalSettings.IsOrderPlacedEmailSentToCompanyAllUsers);
+							}
+						</div>
+						<div class="col-xl-4 col-sm-6">
+								@if (generalSettings != null)
+								{
+								RenderCheckbox("AllowAutoDownloadToEditorPc","Allow Auto Download To Editor Pc", generalSettings.AllowAutoDownloadToEditorPc);
+								RenderCheckbox("AllowClientWiseImageProcessing", "Allow Client Wise Image Processing", generalSettings.AllowClientWiseImageProcessing);
+								RenderCheckbox("AllowNotifyOpsOnImageArrivalFTP", "Allow Notify Ops On Image Arrival FTP", generalSettings.AllowNotifyOpsOnImageArrivalFTP);
+								RenderCheckbox("CheckEmailForUploadCompletedConfirmation", "Check Email For Upload Completed Confirmation", generalSettings.CheckEmailForUploadCompletedConfirmation);
+								RenderCheckbox("CheckUploadCompletedFlagOnFile", "Check Upload Completed Flag On File", generalSettings.CheckUploadCompletedFlagOnFile);
+								RenderCheckbox("IsBatchRootFolderNameAddWithOrder", "Is Batch Root Folder Name Add With Order", generalSettings.IsBatchRootFolderNameAddWithOrder);
+								RenderCheckbox("isFtpFolderPreviousStructureWiseStayInFtp", "Is Ftp Folder Previous Structure After Order Place", generalSettings.isFtpFolderPreviousStructureWiseStayInFtp);
+								RenderCheckbox("IsSameNameImageExistOnSameFolder", "Is Same Name Image Exist On Same Folder", generalSettings.IsSameNameImageExistOnSameFolder);
+								RenderCheckbox("AllowExtraFile", "Is Allow Extra File", generalSettings.AllowExtraFile);
+								RenderCheckbox("AllowAutoUploadFromQcPc", "Allow Auto Upload From Qc Pc", generalSettings.AllowAutoUploadFromQcPc);
+								RenderCheckbox("RemoveFacilityNameFromOutputRootFolderPath", "Remove Facility Name From Output Root Folder Path", generalSettings.RemoveFacilityNameFromOutputRootFolderPath);
+								RenderCheckbox("AllowSingleOrderForRootAllFolderAndFiles", "Allow Single Order For Root All Folder And Files", generalSettings.AllowSingleOrderForRootAllFolderAndFiles);
+								RenderInputLabel("OrderPlace Batch Move Type",(OrderPlaceBatchMoveType)generalSettings.OrderPlaceBatchMoveType);
+								RenderInputLabel("Delivery Type", (DeliveryType)generalSettings.DeliveryType);
+								RenderInputLabel("Completed FlagKey Name OnBatch", generalSettings.CompletedFlagKeyNameOnBatch);
+								RenderCheckbox("IsOrderPlacedEmailSentToCompany", "Send Order Placed Notification Email To Company", generalSettings.IsOrderPlacedEmailSentToCompany);
+								RenderCheckbox("IsOrderPlacedEmailSentToCompanyAllUsers", "Send Order Placed Notification Email To Company All Users", generalSettings.IsOrderPlacedEmailSentToCompanyAllUsers);
+								}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+else
+{
+	<div>No General Setting is available.</div>
+}
+
+@if (isPopupVisible)
+{
+	<EditForm Model=@generalSetting OnValidSubmit="@InsertUpdateFileServer">
+		<div class="modal" tabindex="-1" style="display:block;">
+			<div class="modal-dialog" >
+				<div class="modal-content" style="width:825px">
+					<div class="modal-header">
+						<h5 class="modal-title">General Setting</h5>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+					</div>
+					<div class="modal-body">
+						<DataAnnotationsValidator />
+						<div class="row" >
+							<GeneralSettingAddEdit generalSetting="generalSetting" />
+						</div>
+					</div>
+					<div class="modal-footer">
+						<button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+	protected ModalNotification ModalNotification { get; set; }
+
+	[Parameter]
+	public string paramCompanyObjectId { get; set; }
+	bool isSubmitting;
+	private CompanyGeneralSettingModel generalSettings;
+	IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+	bool isLoading = false;
+	private CompanyGeneralSettingModel generalSetting = new CompanyGeneralSettingModel();
+	bool isPopupVisible = false;
+	private LoginUserInfoViewModel loginUser = null;
+	private int selectedObjectId = 0;
+
+	List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+	private byte? filterStatus;
+
+	List<CustomEnumTypes> filterTypes = new List<CustomEnumTypes>();
+	private byte? filterTypeStatus;
+
+	protected override async Task OnInitializedAsync()
+	{
+		isLoading = true;
+		loginUser = _workContext.LoginUserInfo;
+		await LoadFileServers();
+		//Populate Status
+		foreach (GeneralStatus item in Enum.GetValues(typeof(GeneralStatus)))
+		{
+			statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+		}
+		//Populate Filter Types
+		foreach (FtpOrderProcessedApp item in Enum.GetValues(typeof(FtpOrderProcessedApp)))
+		{
+			filterTypes.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+		}
+
+		isLoading = false;
+	}
+
+	private async Task LoadFileServers()
+	{
+		var company = await _companyService.GetByObjectId(paramCompanyObjectId);
+		generalSettings = await _companyGeneralSetting.GetAllGeneralSettingsByCompanyId(company.Id);
+	}
+	private async Task RowDoubleClick(DataGridRowMouseEventArgs<CompanyGeneralSettingModel> args)
+	{
+		await Edit((int)args.Data.Id);
+	}
+
+	private async Task InsertUpdateFileServer()
+	{
+		isSubmitting = true;
+		var company = await _companyService.GetByObjectId(paramCompanyObjectId);
+		if (generalSetting.Id == 0)
+		{
+			//fileServer.CreatedByContactId = loginUser.ContactId;
+			generalSetting.CompanyId = company.Id;
+
+			var addResponse = await _companyGeneralSetting.Insert(generalSetting);
+
+			if (!addResponse.IsSuccess)
+			{
+				ModalNotification.ShowMessage("Error", addResponse.Message);
+				isSubmitting = false;
+				return;
+			}
+		}
+		else
+		{
+			//fileServer.UpdatedByContactId = loginUser.ContactId;
+			generalSetting.CompanyId = company.Id;
+			var updateResponse = await _companyGeneralSetting.Update(generalSetting);
+
+			if (!updateResponse.IsSuccess)
+			{
+				ModalNotification.ShowMessage("Error", updateResponse.Message);
+				isSubmitting = false;
+				return;
+			}
+		}
+
+		generalSetting = new CompanyGeneralSettingModel();
+		isSubmitting = false;
+
+		await LoadFileServers();
+		CloseAddEditPopup();
+	}
+	private async Task UpdateFileServer(int Id)
+	{
+		var company = await _companyService.GetByObjectId(paramCompanyObjectId);
+
+		if (Id != 0)
+		{
+			var fileServers = await _fileServerService.GetClientOrderFtpsListByCompanyId(company.Id);
+			generalSetting = generalSettings;
+			StateHasChanged();
+			ShowAddEditPopup();
+		}
+		else
+		{
+			await js.DisplayMessage($"At Least Select One FTP Info");
+			return;
+		}
+	}
+
+	void AddNew()
+	{
+		ShowAddEditPopup();
+	}
+
+	private async Task Edit(int objectId)
+	{
+		generalSetting = await _companyGeneralSetting.GetGeneralSettingById(objectId);
+		ShowAddEditPopup();
+	}
+
+	void ShowAddEditPopup()
+	{
+		isPopupVisible = true;
+	}
+
+	void CloseAddEditPopup()
+	{
+		isPopupVisible = false;
+	}
+
+	protected void Delete(int id)
+	{
+		selectedObjectId = id;
+		var msg = $"Are you sure you want to delete the fileServer \"{id}\"?";
+		ModalNotification.ShowConfirmation("Confirm Delete", msg);
+	}
+
+	protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+	{
+		if (deleteConfirmed)
+		{
+			var deleteResponse = await _fileServerService.Delete(selectedObjectId);
+
+			if (deleteResponse.IsSuccess)
+			{
+				await LoadFileServers();
+				generalSetting = new CompanyGeneralSettingModel();
+				CloseAddEditPopup();
+			}
+			else
+			{
+				ModalNotification.ShowMessage("Error", deleteResponse.Message);
+			}
+		}
+		isSubmitting = false;
+	}
+}

@@ -1,0 +1,105 @@
+﻿@using CutOutWiz.Services.Models.SOP
+@inject IOrderSOPStandardServiceService _standardServiceService
+
+<div class="row">
+	<div class="col-lg-12">
+		<div class="card">
+			<div class="card-header">
+				<h4>
+					Select The Services You Need:
+				</h4>
+			</div>
+			<div class="card-body">
+				@if (standardService is null)
+				{
+					<p><em>Loading...</em></p>
+				}
+				else
+				{
+	                <div class="metismenu list-unstyled" id="side-menu">
+              	         @foreach (var parentService in sopParentServices)    
+                         {
+                            var childServices = sopServices.Where(service => service.ParentSopServiceId == parentService.Id).ToList();
+                            if (childServices != null && childServices.Any())
+                            {
+                                <div>
+                                    <a href="#sopService-@parentService.ObjectId" data-bs-toggle="collapse">
+                                       <span key="t-@parentService.Name.ToLower().Replace(" ","")">@parentService.Name ></span>
+                                    </a>
+                                    <div id="sopService-@parentService.ObjectId" class="sub-menu collapse" aria-expanded="false">
+                                        @foreach(var childService in childServices)
+                                        {
+                                           if (!selectedSeviceIdtList.Contains(childService.Id))
+                                             {
+                                                <div class="sop-child-service">
+                                                    <input type="checkbox" id="@childService.ObjectId" name="@childService.Name" @oninput="()=>CheckBoxChanged(childService.Id)">
+                                                    <label for="@childService.ObjectId">@childService.Name</label>
+                                                </div>
+                                             }
+                                           else
+                                             {
+                                                <div class="sop-child-service">
+                                                    <input type="checkbox" id="@childService.ObjectId" name="@childService.Name" @oninput="()=>CheckBoxChanged(childService.Id)" checked>
+                                                    <label for="@childService.ObjectId">@childService.Name</label>
+                                                </div>
+                                             }
+                                        }
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {       
+                                if (!selectedSeviceIdtList.Contains(parentService.Id))
+                                   { 
+                                        <div>
+                                          <input type="checkbox" id="@parentService.ObjectId" name="@parentService.Name" @oninput="()=>CheckBoxChanged(parentService.Id)">
+                                          <label for="@parentService.ObjectId">@parentService.Name</label>
+                                        </div>
+                                   }
+                               else
+                                   {
+                                      <div>
+                                          <input type="checkbox" id="@parentService.ObjectId" name="@parentService.Name" @oninput="()=>CheckBoxChanged(parentService.Id)" checked>
+                                          <label for="@parentService.ObjectId">@parentService.Name</label>
+                                     </div>
+                                   }
+                            }
+                         }
+                    </div>
+                 }
+			</div>
+		</div>
+	</div>
+</div>
+
+@code {
+	[Parameter]
+	public List<SOPStandardServiceModel> standardService { get; set; }
+
+	[Parameter]
+	public List<int> selectedSeviceIdtList { get; set; }
+
+	[Parameter]
+	public EventCallback<int> OnServiceSeletection { get; set; }
+
+	protected async Task CheckBoxChanged(int id)
+	{
+		await OnServiceSeletection.InvokeAsync(id);
+	}
+
+    private List<SOPStandardServiceModel> sopServices =new List<SOPStandardServiceModel>();
+	private List<SOPStandardServiceModel> sopParentServices =new List<SOPStandardServiceModel>();
+
+	 protected override async Task OnInitializedAsync()
+    {
+        sopServices = await _standardServiceService.GetAll();
+
+        if (sopServices != null)
+        {
+          sopParentServices = sopServices.Where(service => service.ParentSopServiceId == null).ToList();
+        }
+
+    }
+}
+
+

@@ -1,0 +1,257 @@
+﻿@page "/management/teams"
+
+@attribute [Authorize(Roles = "Management.ManageTeams")]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Core.Management
+@using CutOutWiz.Services.Management
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject ITeamService _teamService
+@inject NavigationManager NavigationManager
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Teams  
+            </h4>
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New Team"><span class="fas fa-plus"></span> Add New</button>
+                @*<a href="/management/teams" class="btn btn-sm btn-secondary" @onclick="AddNew" title="Back"><span class="fas fa-plus"></span> Back</a>*@
+             </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+
+<div class="row">
+    <div class="col-lg-12">
+
+        <RadzenDataGrid Data="@teams" IsLoading="isLoading" TItem="TeamModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+                <RadzenDataGridColumn TItem="TeamModel" Property="Name" Title="Team Name" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="TeamModel" Property="Status" Title="Status" FilterValue="@filterStatus" TextAlign="TextAlign.Center">
+                     <FilterTemplate>
+                        <RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                             Data="@(statuses)" AllowClear="true"/>
+                    </FilterTemplate>
+                    <Template Context="data">
+                        @if (data.Status == (int)GeneralStatus.Active)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Inactive</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="TeamModel" Property="CreatedDate" Title="Created Date" TextAlign="TextAlign.Center" Filterable="false" />
+                <RadzenDataGridColumn TItem="TeamModel" Property="Id" Title="Members" TextAlign="TextAlign.Center" Filterable="false" />
+                <RadzenDataGridColumn Width="120px" TItem="TeamModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                            <button type="button" title="Edit Team" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.ObjectId))">
+                                <span class="fas fa-pencil-alt"></span>
+                            </button>
+                        <a href="/management/team-members/@data.Id" title="Edit Team" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.ObjectId))">
+                            <span class="fas fa-eye"></span>
+                        </a>
+
+                        <AuthorizeView Roles="Role.Delete">
+                            <button type="button" title="Delete Team" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.ObjectId,data.Name)">
+                                <span class="fas fa-times"></span>
+                            </button>
+                        </AuthorizeView>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model="team" OnValidSubmit="@InsertUpdateTeam" >
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Sender Account</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <TeamAddEdit team="team" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @if (!string.IsNullOrWhiteSpace(team.ObjectId))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(team.ObjectId,team.Name)">Delete</button>   
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    bool isSubmitting;
+    private List<TeamModel> teams;
+
+    private TeamModel team = null;
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private string selectedObjectId = "";
+    List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+    private byte? filterStatus;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+        await LoadTeams();
+        //Populate Status
+        foreach (GeneralStatus item in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+        isLoading = false;
+    }
+
+    private async Task LoadTeams()
+    {
+        teams = await _teamService.GetAll();
+    }
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<TeamModel> args)
+    {
+        await Edit(args.Data.ObjectId);
+    }
+    private async Task InsertUpdateTeam()
+    {
+        isSubmitting = true;
+
+        if (team.Id == 0)
+        {
+            team.CreatedByContactId = loginUser.ContactId;
+            team.ObjectId = Guid.NewGuid().ToString();
+
+            var addResponse = await _teamService.Insert(team);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error",addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+        else
+        {
+            team.UpdatedByContactId = loginUser.ContactId;
+            var updateResponse = await _teamService.Update(team);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error",updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+
+        team = new TeamModel();
+        isSubmitting = false;
+
+        await LoadTeams();
+        CloseAddEditPopup();
+    }
+
+    string StatusText()
+    {
+        if (team.Status == (int)GeneralStatus.Active)
+        {
+            return "<span class='badge bg-success'>Active</span>";
+        }
+
+        return  "<span class='badge bg-info text-dark'>Inactive</span>";
+    }
+
+    void AddNew()
+    {
+        team = new TeamModel {  CompanyId = loginUser.CompanyId, Status = (int)GeneralStatus.Active };
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(string objectId)
+    {
+        team = await _teamService.GetByObjectId(objectId);
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the team \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete",msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _teamService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadTeams();
+                team = new TeamModel();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                 ModalNotification.ShowMessage("Error",deleteResponse.Message);
+            }
+        }
+
+         isSubmitting = false;
+    }
+   
+  
+
+}

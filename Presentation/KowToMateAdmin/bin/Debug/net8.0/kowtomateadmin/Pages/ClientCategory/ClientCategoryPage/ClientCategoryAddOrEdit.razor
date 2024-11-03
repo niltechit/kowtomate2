@@ -1,0 +1,149 @@
+﻿@using static CutOutWiz.Core.Utilities.Enums
+@using CutOutWiz.Services.Models.ClientCategoryServices
+@using CutOutWiz.Services.Models.Common;
+
+@* <div class="mb-2 row">
+	<label for="ParentId" class="col-sm-4 col-form-label fw-bold"> Company</label>
+	<div class="col-sm-8">
+		<InputSelect @bind-Value="clientCagtegory.ClientCompanyId" class="form-select">
+			<option value="0">- Select -</option>
+			@foreach (var type in companies)
+			{
+				<option value="@(type.Id)">@type.Name</option>
+			}
+		</InputSelect>
+		<ValidationMessage For="@(() => clientCagtegory.ClientCompanyId)" />
+	</div>
+</div> *@
+
+
+<div class="mb-2 row">
+	<label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Category Name</label>
+	<div class="col-sm-8">
+		<InputText class="form-control" placeholder="Input Category Name" @bind-Value="clientCagtegory.CategoryName"></InputText>
+		<ValidationMessage For="@(() => clientCagtegory.CategoryName)" />
+	</div>
+</div>
+
+
+
+<div class="mb-2 row">
+	<label for="Country" class="col-sm-4 col-form-label fw-bold">Client Company</label>
+	<div class="col-sm-8">
+		<RadzenDropDown AllowClear="true" TValue="int" @bind-Value="@clientCagtegory.ClientCompanyId" AllowVirtualization="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowFiltering="true" Class="w-100"
+						Placeholder="- Select -" Data="@companies" TextProperty="Name" ValueProperty="Id" />
+		<ValidationMessage For="@(() => clientCagtegory.ClientCompanyId)" />
+	</div>
+</div>
+
+
+@* 
+<div class="mb-2 row">
+	<label for="ParentId" class="col-sm-4 col-form-label fw-bold">Common Category</label>
+	<div class="col-sm-8">
+		<InputSelect @bind-Value="clientCagtegory.CommonCategoryId" class="form-select">
+			<option value="0">- Select -</option>
+			@foreach (var type in commonCategories)
+			{
+				<option value="@(type.Id)">@type.Name</option>
+			}
+		</InputSelect>
+		<ValidationMessage For="@(() => clientCagtegory.CommonCategoryId)" />
+	</div>
+</div> *@
+
+@* <div class="mb-2 row">
+	<label for="Permissions" class="col-sm-4 col-form-label fw-bold">Common Services</label>
+	<div class="col-sm-8">
+		<RadzenDropDown TValue="string" AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+		@bind-Value=@clientCagtegory.CommonServiceId Multiple="true" Placeholder="Select..." Data=@commonServices TextProperty="Name" ValueProperty="CommonServiceReturnId"
+						Class="w-100" />
+	</div>
+</div> *@
+@* 
+
+<div class="mb-2 row">
+	<label for="Country" class="col-sm-4 col-form-label fw-bold">Common Services</label>
+	<div class="col-sm-8">
+		<RadzenDropDown AllowClear="true" TValue="string" @bind-Value="EmployeeIdValue" AllowVirtualization="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowFiltering="true" Class="w-100"
+						Placeholder="- Select -" Data="@commonServices" TextProperty="Name" ValueProperty="CommonServiceReturnId" />
+		<ValidationMessage For="@(() => clientCagtegory.CommonServiceReturnId)" />
+	</div>
+</div>
+ *@
+
+
+@* <div class="mb-2 row">
+	<label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Time In Minute</label>
+	<div class="col-sm-8">
+		<InputNumber class="form-control" placeholder="Time In Minute" @bind-Value="clientCagtegory.TimeInMinutes"></InputNumber>
+		<ValidationMessage For="@(() => clientCagtegory.TimeInMinutes)" />
+	</div>
+</div>
+ *@
+
+<div class="mb-2 row">
+	<label for="Permissions" class="col-sm-4 col-form-label fw-bold">Common Service</label>
+	<div class="col-sm-8">
+		<RadzenDropDown AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+		@bind-Value=@clientCagtegory.CommonServiceId Multiple="true" Placeholder="Select..." Data=@commonServices TextProperty="Name" ValueProperty="CommonServiceReturnId"
+						Class="w-100" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Time In Minutes</label>
+	<div class="col-sm-8">
+		<InputNumber class="form-control" placeholder="Time In Minutes" @bind-Value="clientCagtegory.TimeInMinutes"></InputNumber>
+		<ValidationMessage For="@(() => clientCagtegory.TimeInMinutes)" />
+	</div>
+</div>
+<AuthorizeView Roles="ClientOrder.ClientCategoryPriceCanAdd">
+<div class="mb-2 row">
+	<label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Price (USD)</label>
+	<div class="col-sm-8">
+		<InputText class="form-control" placeholder="Price In USD" @bind-Value="clientCagtegory.PriceInUSD"></InputText>
+		<ValidationMessage For="@(() => clientCagtegory.PriceInUSD)" />
+	</div>
+</div>
+</AuthorizeView>
+
+<div class="mb-2 row">
+	<label class="col-sm-4 col-form-label fw-bold">Is Active</label>
+	<div class="col-sm-8">
+		<InputCheckbox @bind-Value="clientCagtegory.IsActive" id="IsActive" class="form-check-input"></InputCheckbox>
+		<label class="form-check-label" for="IsActive">
+
+		</label>
+		<ValidationMessage For="@(() => clientCagtegory.IsActive)" />
+	</div>
+</div>
+
+
+
+@code {
+	[Parameter]
+	public ClientCategoryRequestViewModel clientCagtegory { get; set; }
+	[Parameter]
+	public List<CompanyModel> companies { get; set; }
+	[Parameter]
+	public List<CommonCategoryModel> commonCategories { get; set; }
+	[Parameter]
+	public List<CommonServiceModel> commonServices { get; set; }
+
+
+	private string employeeIdValue;
+
+	private string EmployeeIdValue
+	{
+		get => clientCagtegory?.CommonServiceReturnId ?? ""; // Return an empty string if teamMember or EmployeeId is null
+		set
+		{
+			if (clientCagtegory != null)
+			{
+				clientCagtegory.CommonServiceReturnId = value;
+			}
+		}
+	}
+
+}

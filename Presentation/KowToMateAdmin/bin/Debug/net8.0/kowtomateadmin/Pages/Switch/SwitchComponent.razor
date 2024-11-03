@@ -1,0 +1,241 @@
+﻿@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Core.Models.ViewModel
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.AutomationAppServices.FtpOrderProcess
+@using CutOutWiz.Services.OperationSwitchService
+@using KowToMateAdmin.Helper
+
+@inject IWorkContext _workContext
+@inject ISwitchOperation _switchOperationService
+@inject IClientOrderFtpService _clientOrderFtpService
+@inject IJSRuntime js
+@inject NavigationManager navigationManager
+@inject ICompanyManager _companyService
+@* 
+@if (switchOperation != null && switchOperation.IsEnable == true)
+{
+    <!-- end page title -->
+    <div class="col-sm-6">
+        <div class="mt-4 mt-sm-0">
+            <h5 class="font-size-14 mb-3">Switch To Live Operation</h5>
+            <div class="form-check form-switch form-switch-lg mb-3" dir="ltr">
+                <input class="form-check-input" type="checkbox" id="SwitchCheckS" @onclick="(()=>SwitchToLive())" checked>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="col-sm-6">
+        <div class="mt-4 mt-sm-0">
+            <h5 class="font-size-14 mb-3">Switch To Local Operation</h5>
+            <div class="form-check form-switch form-switch-lg mb-3" dir="ltr">
+                <input class="form-check-input" type="checkbox" id="SwitchCheck" @onclick="(()=>SwitchToLocal())">
+            </div>
+        </div>
+    </div>
+} *@
+
+@* <div class="mb-2 row">
+	<label for="ParentId" class="col-sm-4 col-form-label fw-bold"> Company</label>
+	<div class="col-sm-8">
+		<InputSelect @bind-Value="clientCagtegory.ClientCompanyId" class="form-select">
+			<option value="0">- Select -</option>
+            @foreach (var type in DowpdownTexts)
+			{
+				<option value="@(type.Id)">@type.Name</option>
+			}
+		</InputSelect>
+		<ValidationMessage For="@(() => clientCagtegory.ClientCompanyId)" />
+	</div>
+</div>
+ *@
+
+    <div class="mb-2 row">
+        <label class="col-sm-4 col-form-label fw-bold">Is Active</label>
+        <div class="col-sm-8">
+
+            <label class="form-check-label" for="IsActive">
+            <input type="checkbox" @bind="@isEnable" id="isEnable" class="form-check-input" />
+            </label>
+        <ValidationMessage For="@(() => isEnable)" />
+        </div>
+    </div>
+
+
+@if (companies != null && companies.Any() && companies.Count > 0)
+{
+    <div class="row mb-2">
+        <div class="col-lg-12">
+            <RadzenDataGrid @ref="grid" Data="@companies" IsLoading="@isLoading" TItem="CompanyModel"
+                            AllowFiltering="false" AllowColumnResize="true" AllowAlternatingRows="false"
+                            FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                            AllowSorting="true" AllowPaging="true" PageSize="20"
+                            PagerHorizontalAlign="HorizontalAlign.Center"
+                            ShowPagingSummary="true" AllowColumnReorder="true">
+                <Columns>
+                    <RadzenDataGridColumn TItem="CompanyModel" Property="Name" Title="Service Name">
+                    </RadzenDataGridColumn>
+@*                     <RadzenDataGridColumn TItem="Company" Property="TimeIn" Title="Time In Minutes" TextAlign="TextAlign.Center" Filterable="false">
+                        <Template Context="order">
+                            <RadzenNumeric @bind-Value="order.TimeInMinutes" Name="TimeInMinutes" aria-label="Time" />
+                            <RadzenRequiredValidator Text="TimeInMinutes is required" Component="TimeInMinutes" Popup="true" />
+                        </Template>
+                    </RadzenDataGridColumn> *@
+                    @* <RadzenDataGridColumn TItem="Company" Property="Id" Title="Actions" Filterable="false" Sortable="false" Pickable="false" TextAlign="TextAlign.Center" MinWidth="350px">
+                        <Template Context="order">
+                            <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="my-1 ms-1" Click="@(args => OnDeleteRow.InvokeAsync(order))" @onclick:stopPropagation="true">
+                            </RadzenButton>
+                        </Template>
+                        <EditTemplate Context="order">
+                            <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="my-1 ms-1" Click="@(args => OnDeleteRow.InvokeAsync(order))" aria-label="Delete">
+                            </RadzenButton>
+                        </EditTemplate>
+                    </RadzenDataGridColumn> *@
+                </Columns>
+            </RadzenDataGrid>
+        </div>
+    </div>
+    @* <div class="row mb-2">
+        <div class="col-12">
+            <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                <h4 class="mb-sm-0 font-size-18">
+                </h4>
+                <div class="page-title-right">
+                    <button type="button" class="btn btn-sm btn-primary" @onclick="@(args => AddNew.InvokeAsync())" title="Add New CommonCategory"><span class="fas fa-plus"></span> Add Service</button>
+                </div>
+
+            </div>
+        </div>
+    </div> *@
+
+}
+
+
+@code {
+    [Parameter]
+    public string ObjectId { get; set; }
+    [Parameter]
+    public List<CompanyModel> companies { get; set; } = new List<CompanyModel>();
+    private SecuritySwhiechOperationModel switchOperation = new SecuritySwhiechOperationModel();
+    private CompanyModel company = new CompanyModel();
+    private KowToMateAdmin.Models.Security.LoginUserInfoViewModel loginUser = null;
+    bool isLoading = false;
+    RadzenDataGrid<CompanyModel> grid;
+    private bool isEnable = false;
+    private bool isDisable = false;
+
+    IEnumerable<DowpdownText> DowpdownTexts;
+    public class DowpdownText
+    {
+        public int Text { get; set; }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        company = await _companyService.GetByObjectId(ObjectId);
+        if (company!=null)
+        {
+            switchOperation = await _switchOperationService.GetById(company.Id);
+        }
+        loginUser = _workContext.LoginUserInfo;
+
+        var getIsLocalOperationCompanies = await _switchOperationService.GetAll<SecuritySwhiechOperationModel>();
+
+        if (getIsLocalOperationCompanies.Count == getIsLocalOperationCompanies.Where(x=>x.IsEnable == true).Count())
+        {
+            switchOperation.IsEnable = true;
+        }
+
+        switchOperation = new SecuritySwhiechOperationModel();
+
+        StateHasChanged();
+    }
+
+    private async Task SwitchToLocal()
+    {
+        if (companies != null && companies.Any())
+        {
+            if (await js.Confirmation("", $"Are you want to switch all company to local operation ?", SweetAlertTypeMessagee.question))
+            {
+                foreach (var companyObject in companies)
+                {
+                    var ftps = await _clientOrderFtpService.UpdateIsEnableTrueForLocalFtp(companyObject.Id);
+                    var switchOperationData = new SecuritySwhiechOperationModel()
+                        {
+                            ClientCompanyId = companyObject.Id,
+                            CreatedByContactId = loginUser.ContactId,
+                            UpdatedByContactId = loginUser.ContactId,
+                            IsEnable = true,
+                        };
+
+                    var switchInsertResponseOrUpdate = await _switchOperationService.Insert(switchOperationData);
+                }
+            }
+            navigationManager.NavigateTo($"/common/companies", true);
+        }
+        else
+        {
+            if (await js.Confirmation("", $"Are you want to switch to local ?", SweetAlertTypeMessagee.question))
+            {
+                var ftps = await _clientOrderFtpService.UpdateIsEnableTrueForLocalFtp(company.Id);
+
+                var switchOperationData = new SecuritySwhiechOperationModel()
+                    {
+                        ClientCompanyId = company.Id,
+                        CreatedByContactId = loginUser.ContactId,
+                        UpdatedByContactId = loginUser.ContactId,
+                        IsEnable = true,
+                    };
+
+                var switchInsertResponseOrUpdate = await _switchOperationService.Insert(switchOperationData);
+
+                navigationManager.NavigateTo($"/company/details/{company.ObjectId}", true);
+            }
+        }
+        
+    }
+
+    private async Task SwitchToLive()
+    {
+        if (companies != null && companies.Any())
+        {
+            if (await js.Confirmation("", $"Are you want to switch all company to local operation ?", SweetAlertTypeMessagee.question))
+            {
+                foreach (var companyObject in companies)
+                {
+                    var ftps = await _clientOrderFtpService.UpdateIsEnableTrueForLocalFtp(companyObject.Id);
+                    var switchOperationData = new SecuritySwhiechOperationModel()
+                        {
+                            ClientCompanyId = companyObject.Id,
+                            CreatedByContactId = loginUser.ContactId,
+                            UpdatedByContactId = loginUser.ContactId,
+                            IsEnable = false,
+                        };
+
+                    var switchInsertResponseOrUpdate = await _switchOperationService.Insert(switchOperationData);
+                }
+            }
+            navigationManager.NavigateTo($"/common/companies", true);
+        }
+        else
+        {
+            if (await js.Confirmation("", $"Are you want to switch all company to Live operation ?", SweetAlertTypeMessagee.question))
+            {
+                var ftps = await _clientOrderFtpService.UpdateIsEnableFalseForLocalFtp(company.Id);
+
+                var switchOperationData = new SecuritySwhiechOperationModel()
+                    {
+                        ClientCompanyId = company.Id,
+                        CreatedByContactId = loginUser.ContactId,
+                        UpdatedByContactId = loginUser.ContactId,
+                        IsEnable = false,
+                    };
+
+                var switchInsertResponseOrUpdate = await _switchOperationService.Insert(switchOperationData);
+
+                navigationManager.NavigateTo($"/company/details/{company.ObjectId}", true);
+            }
+        }
+    }
+}

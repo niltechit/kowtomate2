@@ -1,0 +1,244 @@
+﻿@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.Models.HR
+@using CutOutWiz.Core.Management
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Models.Security
+@using KowToMateAdmin.Models.Security
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+
+<div class="mb-2 row">
+	<label for="FirstName" class="col-sm-4 col-form-label fw-bold required-field">First Name</label>
+	<div class="col-sm-8">
+		<InputText class="form-control" @bind-Value="contact.FirstName"></InputText>
+		<ValidationMessage For="@(() => contact.FirstName)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label for="LastName" class="col-sm-4 col-form-label fw-bold">Last Name</label>
+	<div class="col-sm-8">
+		<InputText class="form-control" @bind-Value="contact.LastName"></InputText>
+		<ValidationMessage For="@(() => contact.LastName)" />
+	</div>
+</div>
+
+@if (@loginUser.CompanyType == (int)CompanyType.Client)
+{
+	@if (contact.Id <= 0)
+	{
+
+		<div class="mb-2 row">
+			<label for="UserName" class="col-sm-4 col-form-label fw-bold required-field">Username</label>
+			<div class="col-sm-8">
+				<InputText class="form-control" @bind-Value="contact.UserName"></InputText>
+				<ValidationMessage For="@(() => contact.UserName)" />
+			</div>
+		</div>
+	
+
+	<div class="mb-2 row">
+		<label for="Permissions" class="col-sm-4 col-form-label fw-bold required-field">Roles</label>
+		<div class="col-sm-8">
+			<RadzenDropDown AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+						@bind-Value=@contact.SelectedUserRoles Multiple="true" Placeholder="Select Role" Data=@roles TextProperty="Name" ValueProperty="ObjectId"
+						Class="w-100" />
+		</div>
+	</div>
+	}
+	@if (contact.Id<=0)
+	{
+
+		<div class="mb-2 row">
+			<label for="userpassword" class="col-sm-4 col-form-label fw-bold required-field">Password</label>
+			<div class="col-sm-8">
+				<div class="input-group auth-pass-inputgroup">
+					<InputText type="@passwordType" class="form-control" placeholder="password" aria-label="Password" aria-describedby="password-addon" @bind-Value="contact.Password"></InputText>
+					<button class="btn btn-light " type="button" id="roles-addon"><i @onclick="ShowPassword" class="@passwordIcon"></i></button>
+					<ValidationMessage For="@(() => contact.Password)" />
+				</div>
+			</div>
+		</div>
+
+		<div class="mb-2 row">
+			<label for="userpassword" class="col-sm-4 col-form-label fw-bold required-field">Confirm Password</label>
+			<div class="col-sm-8">
+				<div class="input-group auth-pass-inputgroup">
+					<InputText type="@passwordConfirmType" class="form-control" placeholder="Confirm password" aria-label="Password" aria-describedby="password-addon" @bind-Value="contact.ConfirmPassword"></InputText>
+					<button class="btn btn-light " type="button" id="password-addon"><i @onclick="ShowConfirmPassword" class="@passwordConfirmIcon"></i></button>
+					<ValidationMessage For="@(() => contact.ConfirmPassword)" />
+				</div>
+			</div>
+		</div>
+	}
+}
+
+@if (@loginUser.CompanyType != (int)CompanyType.Client)
+{
+	<div class="mb-2 row">
+		<label for="EmployeeId" class="col-sm-4 col-form-label fw-bold required-field">Employee Id</label>
+		<div class="col-sm-8">
+			<InputText class="form-control" @bind-Value="contact.EmployeeId"></InputText>
+			<ValidationMessage For="@(() => contact.EmployeeId)" />
+		</div>
+	</div>
+
+	@*<div class="mb-2 row">
+        <label for="CompanyId" class="col-sm-4 col-form-label fw-bold">Company</label>
+        <div class="col-sm-8">
+        <RadzenDropDown AllowClear="true" TValue="int"  @bind-Value="contact.CompanyId" AllowVirtualization="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowFiltering="true" Class="w-100"
+        Placeholder="- Select -" Data=@companies TextProperty="Name" ValueProperty="Id"/>
+        <ValidationMessage For="@(() => contact.CompanyId)" />
+        </div>
+        </div>*@
+
+	<div class="mb-2 row">
+		<label for="Designation" class="col-sm-4 col-form-label fw-bold">Designation</label>
+		<div class="col-sm-8">
+			<RadzenDropDown AllowClear="true" TValue="int?" @bind-Value="contact.DesignationId" AllowVirtualization="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowFiltering="true" Class="w-100"
+						Placeholder="- Select -" Data=@designations TextProperty="Name" ValueProperty="Id" />
+			<ValidationMessage For="@(() => contact.DesignationId)" />
+		</div>
+	</div>
+
+	@*<div class="mb-2 row">
+		<label for="Team" class="col-sm-4 col-form-label fw-bold">Team</label>
+		<div class="col-sm-8">
+			<RadzenDropDown AllowClear="true" TValue="int?" @bind-Value="contact.TeamId" AllowVirtualization="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowFiltering="true" Class="w-100"
+						Placeholder="- Select -" Data=@teams TextProperty="Name" ValueProperty="Id" />
+			<ValidationMessage For="@(() => contact.TeamId)" />
+		</div>
+	</div>*@
+}
+
+<div class="mb-2 row">
+	<label for="Email" class="col-sm-4 col-form-label fw-bold">Email</label>
+	<div class="col-sm-8">
+		<InputText class="form-control" @bind-Value="contact.Email"></InputText>
+		<ValidationMessage For="@(() => contact.Email)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label for="Phone" class="col-sm-4 col-form-label fw-bold">Phone</label>
+	<div class="col-sm-8">
+		<InputText class="form-control" @bind-Value="contact.Phone"></InputText>
+		@*<ValidationMessage For="@(() => contact.Phone)" />*@
+	</div>
+</div>
+
+@*<div class="mb-2 row">
+    <label for="ProfileImageUrl" class="col-sm-4 col-form-label fw-bold">ProfileImageUrl</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="contact.ProfileImageUrl"></InputText>
+        <ValidationMessage For="@(() => contact.ProfileImageUrl)" />
+    </div>
+</div>*@
+
+@if (contact.Id == 0)
+{
+	@*<div class="mb-2 row">
+		<label for="UserName" class="col-sm-4 col-form-label fw-bold required-field">Username</label>
+		<div class="col-sm-8">
+			<InputText class="form-control" @bind-Value="contact.UserName"></InputText>
+			<ValidationMessage For="@(() => contact.UserName)" />
+		</div>
+	</div>*@
+
+	@*<div class="mb-2 row">
+		<label for="Permissions" class="col-sm-4 col-form-label fw-bold required-field">Roles</label>
+		<div class="col-sm-8">
+			<RadzenDropDown AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+						@bind-Value=@contact.SelectedUserRoles Multiple="true" Placeholder="Select Role" Data=@roles TextProperty="Name" ValueProperty="ObjectId"
+						Class="w-100" />
+		</div>
+	</div>*@
+
+	@*	<div class="mb-2 row">
+		<label for="userpassword" class="col-sm-4 col-form-label fw-bold required-field">Password</label>
+		<div class="col-sm-8">
+			<div class="input-group auth-pass-inputgroup">
+				<InputText type="@passwordType" class="form-control" placeholder="password" aria-label="Password" aria-describedby="password-addon" @bind-Value="contact.Password"></InputText>
+				<button class="btn btn-light " type="button" id="roles-addon"><i @onclick="ShowPassword" class="@passwordIcon"></i></button>
+				<ValidationMessage For="@(() => contact.Password)" />
+			</div>
+		</div>
+	</div>
+
+	<div class="mb-2 row">
+		<label for="userpassword" class="col-sm-4 col-form-label fw-bold required-field">Confirm Password</label>
+		<div class="col-sm-8">
+			<div class="input-group auth-pass-inputgroup">
+				<InputText type="@passwordConfirmType" class="form-control" placeholder="Confirm password" aria-label="Password" aria-describedby="password-addon" @bind-Value="contact.ConfirmPassword"></InputText>
+				<button class="btn btn-light " type="button" id="password-addon"><i @onclick="ShowConfirmPassword" class="@passwordConfirmIcon"></i></button>
+				<ValidationMessage For="@(() => contact.ConfirmPassword)" />
+			</div>
+		</div>
+	</div>*@
+}
+@if (contact.Id > 0)
+{
+	<div class="mb-2 row">
+		<label for="AccountHeadType" class="col-sm-4 col-form-label fw-bold">Status</label>
+		<div class="col-sm-8">
+			<InputSelect @bind-Value="contact.Status" class="form-select">
+				<option value="0">- Select -</option>
+				@foreach (var headType in Enum.GetValues(typeof(GeneralStatus)))
+				{
+					<option value="@((int)headType)">@headType</option>
+				}
+			</InputSelect>
+			<ValidationMessage For="@(() => contact.Status)" />
+		</div>
+	</div>
+}
+
+@code {
+	[Parameter]
+	public ContactModel contact { get; set; }
+	[Parameter]
+	public string paramCompanyObjectId { get; set; }
+	[Parameter]
+	public List<DesignationModel> designations { get; set; }
+	[Parameter]
+	public List<CompanyModel> companies { get; set; }
+	[Parameter]
+	public List<TeamModel> teams { get; set; }
+	[Parameter]
+	public List<RoleViewModel> roles { get; set; }
+	[Parameter]
+	public LoginUserInfoViewModel loginUser { get; set; }
+
+	string passwordType = "password";
+	string passwordConfirmType = "password";
+	string passwordIcon = "fas fa-eye-slash";
+	string passwordConfirmIcon = "fas fa-eye-slash";
+
+	private async Task ShowPassword()
+	{
+		if (passwordIcon == "fas fa-eye-slash")
+		{
+			passwordType = "";
+			passwordIcon = "fas fa-eye";
+		}
+		else if (passwordIcon == "fas fa-eye")
+		{
+			passwordType = "password";
+			passwordIcon = "fas fa-eye-slash";
+		}
+	}
+	private async Task ShowConfirmPassword()
+	{
+		if (passwordConfirmIcon == "fas fa-eye-slash")
+		{
+			passwordConfirmType = "";
+			passwordConfirmIcon = "fas fa-eye";
+		}
+		else if (passwordConfirmIcon == "fas fa-eye")
+		{
+			passwordConfirmType = "password";
+			passwordConfirmIcon = "fas fa-eye-slash";
+		}
+	}
+}

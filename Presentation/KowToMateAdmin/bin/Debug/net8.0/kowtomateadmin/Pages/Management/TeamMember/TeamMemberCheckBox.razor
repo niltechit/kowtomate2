@@ -1,0 +1,36 @@
+﻿@using CutOutWiz.Core.Management
+
+<div>
+      <label for="TeamMember" class="col-sm-4 col-form-label fw-bold">Team Member</label>
+      <RadzenDropDown Multiple="true" Chips="true" MaxSelectedLabels="20"  Data=@teamMembers @bind-Value=@multipleValuesChip
+       Placeholder="Select Team Member..."  TextProperty="FullName" ValueProperty="ContactId"  Change=@(args => OnChangeDisabled(args, "DropDown with multiple selection")) Class="w-100" />
+
+</div>
+@code {
+
+    [Parameter]
+    public List<TeamMemberListModel> teamMembers { get; set; }
+
+    [Parameter]
+    public EventCallback<List<int>> OnAssignedTeamMember { get; set; }
+
+    IEnumerable<int> multipleValuesChip;
+
+    protected async Task OnChangeDisabled(object value, string name)
+    {
+        var str = value is IEnumerable<int> ? string.Join(", ", (IEnumerable<int>)value) : value;
+        var seletedTeamId = str.ToString().Split(",");
+        List<int> teamIds = new List<int>();
+        for (int i = 0; i< seletedTeamId.Length; i++)
+        {
+            //teamIds.Add(int.Parse(seletedTeamId[i]));
+            if (!string.IsNullOrEmpty(seletedTeamId[i]))
+            {
+               teamIds.Add(Convert.ToInt32(seletedTeamId[i]));  
+            }
+        }
+        await OnAssignedTeamMember.InvokeAsync(teamIds);
+    }
+}
+
+

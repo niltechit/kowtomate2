@@ -1,0 +1,43 @@
+﻿@using KowToMateAdmin.Pages.Common
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+            <NotAuthorized>
+                <h2>Sorry</h2>
+                <p>You're not authorized to reach ths page.</p>
+                <p>You may need to log in as a different user.</p>
+               @* <RedirectToLogin></RedirectToLogin>*@
+            </NotAuthorized>
+            <Authorizing>
+                <h3>Juat a sec</h3>
+                <p>Authorization in progress.</p>
+            </Authorizing>
+            </AuthorizeRouteView>
+            @*<FocusOnNavigate RouteData="@routeData" Selector="h1" />*@
+    </Found>
+    <NotFound>
+        <PageTitle>Not found</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+           @* <h3>Sorry</h3>
+           <p role="alert">There's nothing at this address.</p>*@
+           <PageNotFound/>
+        </LayoutView>
+    </NotFound>
+</Router>
+
+</CascadingAuthenticationState>
+
+@*<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>Not found</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <p role="alert">Sorry, there's nothing at this address.</p>
+        </LayoutView>
+    </NotFound>
+</Router>
+*@

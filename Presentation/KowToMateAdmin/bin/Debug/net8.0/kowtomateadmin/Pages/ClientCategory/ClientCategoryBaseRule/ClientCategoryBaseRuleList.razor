@@ -1,0 +1,440 @@
+﻿@page "/common/clientCategoryBaseRule"
+
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.Common;
+@using CutOutWiz.Services.ClientCommonCategoryService.ClientCategorys
+@using KowToMateAdmin.Helper
+@using KowToMateAdmin.Models.Security;
+@using CutOutWiz.Services.Models.ClientCategoryServices;
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IClientCategoryBaseRuleService _clientCategoryBaseRuleService
+@inject ICompanyManager _companyService
+@inject IWorkContext _workContext
+@inject IClientCategoryService _clientCategoryService
+@inject IJSRuntime js
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Client Category Base Rule</h4>
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New ClientCategoryBaseRule"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-12">
+        <RadzenDataGrid Data="@clientCategoryBaseRules" IsLoading="isLoading" TItem="ClientCategoryBaseRuleModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))"
+                        RowExpand="RowExpandOfClientCategoryBaseRule"
+                        ExpandMode="DataGridExpandMode.Single">
+            <Template Context="clientCategoryRule">
+                <RadzenDataGrid  TItem="ClientCategoryRuleModel" AllowPaging="true" AllowSorting="true" Data="@clientCategoryRules">
+            <Columns>
+                <RadzenDataGridColumn TItem="ClientCategoryRuleModel" Property="clientCategoryRule.Name" Title="Name" />
+                <RadzenDataGridColumn TItem="ClientCategoryRuleModel" Property="clientCategoryRule.Label" Title="Label" />
+                <RadzenDataGridColumn TItem="ClientCategoryRuleModel" Property="clientCategoryRule.Indicator" Title="Indicator" />
+                <RadzenDataGridColumn TItem="ClientCategoryRuleModel" Property="clientCategoryRule.ExecutionOrder" Title="ExecutionOrder" />
+                <RadzenDataGridColumn TItem="ClientCategoryRuleModel" Property="clientCategoryRule.FilterType" Title="Filter Type" Frozen="true" TextAlign="TextAlign.Center" Width="120px">
+                            <Template Context="rule">
+                                <span>@((ItemCategoryFilterType)rule.FilterType)</span>
+                            </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ClientCategoryRuleModel" Property="clientCategoryRule.CreatedDate" Title="CreatedDate" />
+                <RadzenDataGridColumn Width="120px" TItem="ClientCategoryRuleModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center" MinWidth="250px">
+                    <Template Context="data">
+                                <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await EditClientCategoryRule(data.Id))">
+                            <span class="fas fa-pencil-alt"></span>
+                        </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => DeleteClientCategoryRule(data.Id)">
+                            <span class="fas fa-times"></span>
+                        </button>
+                    </Template>
+               </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+            </Template>
+            <Columns>
+                <RadzenDataGridColumn TItem="ClientCategoryBaseRuleModel" Property="CompanyName" Title="Company Name" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="ClientCategoryBaseRuleModel" Property="Name" Title="Name" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="ClientCategoryBaseRuleModel" Property="CategoryName" Title="Category Name" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="ClientCategoryBaseRuleModel" Property="CreatedDate" Title="Created Date" Filterable="false" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="ClientCategoryBaseRuleModel" Property="IsActive" Title="IsActive" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn Width="120px" TItem="ClientCategoryBaseRuleModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center" MinWidth="250px">
+                    <Template Context="data">
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.Id))">
+                                <span class="fas fa-pencil-alt"></span>
+                            </button>
+                            	<button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.Id)">
+                            <span class="fas fa-times"></span>
+                            </button>
+                        <button type="button" @onclick="()=>AddNewRulePopUpOpen(data.Id)" class="btn btn-sm btn-outline-success btn-tbl-action ms-2">
+                                Add Rule
+                            </button>
+                      
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+@if (isPopupVisible)
+{
+    <EditForm Model=@clientCategoryBaseRule OnValidSubmit="@InsertUpdateClientCategoryBaseRule">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Client Category Base Rule</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator/>
+                        <div class="row">
+                            <ClientCategoryBaseRuleAddEdit clientCategoryBaseRule="clientCategoryBaseRule" companies="companies" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                       
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@if (isAddRulePopupVisible)
+{
+    <EditForm Model=@clientCategoryRule OnValidSubmit="@InsertUpdateClientCategoryRule">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Base Rule - @clientCategoryBaseRule.Name</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="AddNewRulePopUpClose"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <div class="mb-2 row">
+                                <label for="Name" class="col-sm-4 col-form-label fw-bold">Innner Rule Name</label>
+                                <div class="col-sm-8">
+                                    <InputText class="form-control" @bind-Value="clientCategoryRule.Name"></InputText>
+                                    <ValidationMessage For="@(() => clientCategoryRule.Name)" />
+                                </div>
+                            </div>
+                            <div class="mb-2 row">
+                                <label for="Label" class="col-sm-4 col-form-label fw-bold">Label</label>
+                                <div class="col-sm-8">
+                                    <InputSelect @bind-Value="clientCategoryRule.Label" class="form-select">
+                                        <option value="0">- Select -</option>
+                                        @foreach (var type in Enum.GetValues(typeof(ItemCategoryLabelType)))
+                                        {
+                                            <option value="@((int)type)">@type</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => clientCategoryRule.Label)" />
+                                </div>
+                            </div>
+                            <div class="mb-2 row">
+                                <label for="Name" class="col-sm-4 col-form-label fw-bold">Indicator</label>
+                                <div class="col-sm-8">
+                                    <InputText class="form-control" @bind-Value="clientCategoryRule.Indicator"></InputText>
+                                    <ValidationMessage For="@(() => clientCategoryRule.Indicator)" />
+                                </div>
+                            </div>
+                            <div class="mb-2 row">
+                                <label for="Name" class="col-sm-4 col-form-label fw-bold">Execution Order</label>
+                                <div class="col-sm-8">
+                                    <InputNumber class="form-control" @bind-Value="clientCategoryRule.ExecutionOrder"></InputNumber>
+                                    <ValidationMessage For="@(() => clientCategoryRule.ExecutionOrder)" />
+                                </div>
+                            </div>
+                            <div class="mb-2 row">
+                                <label for="ParentId" class="col-sm-4 col-form-label fw-bold">Type</label>
+                                <div class="col-sm-8">
+                                    <InputSelect @bind-Value="clientCategoryRule.FilterType" class="form-select">
+                                        <option value="0">- Select -</option>
+                                        @foreach (var type in Enum.GetValues(typeof(ItemCategoryFilterType)))
+                                        {
+                                            <option value="@((int)type)">@type</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => clientCategoryRule.FilterType)" />
+                                </div>
+                            </div>
+                            <div class="mb-2 row">
+                                <label class="col-sm-4 col-form-label fw-bold">Is Active</label>
+                                <div class="col-sm-8">
+                                    <label class="form-check-label" for="IsActive">
+                                        <InputCheckbox @bind-Value="clientCategoryRule.IsActive" id="IsActive" class="form-check-input"></InputCheckbox>
+                                    </label>
+                                    @*   <ValidationMessage For="@(() => clientCategoryBaseRule.IsActive)" /> *@
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @*@if (!string.IsNullOrWhiteSpace(country.ObjectId))
+                    {
+                    <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(country.ObjectId,country.Name)">Delete</button>
+                    }*@
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="AddNewRulePopUpClose">Close</button>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="DeleteModalNotificationForBaseRule" ConfirmationChanged="BaseRuleConfirmDelete_Click">
+</ModalNotification>
+
+<ModalNotification @ref="DeleteModalNotificationForRule" ConfirmationChanged="RuleConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification DeleteModalNotificationForBaseRule { get; set; }
+    protected ModalNotification DeleteModalNotificationForRule { get; set; }
+    private List<ClientCategoryBaseRuleModel> clientCategoryBaseRules = new List<ClientCategoryBaseRuleModel>();
+    bool isLoading = false;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    private ClientCategoryBaseRuleModel clientCategoryBaseRule = new ClientCategoryBaseRuleModel();
+    private ClientCategoryRuleModel clientCategoryRule = new ClientCategoryRuleModel();
+    bool isPopupVisible = false;
+    bool isAddRulePopupVisible = false;
+    bool isSubmitting;
+    private LoginUserInfoViewModel loginUser = null;
+    private List<ClientCategoryRuleModel> clientCategoryRules = new List<ClientCategoryRuleModel>();
+    int clientCategoryBaseRuleId = 0;
+    int clientCategoryRuleId = 0;
+
+    private List<CompanyModel> companies = new List<CompanyModel>();
+    private List<ClientCategoryModel> clientCategories = new List<ClientCategoryModel>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+        await LoadClientCategoryBaseRules();
+        await LoadClientCompany();
+    }
+
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<ClientCategoryBaseRuleModel> args)
+    {
+        await Edit(args.Data.Id);
+    }
+    private async Task Edit(int id)
+    {
+
+        clientCategoryBaseRule = await _clientCategoryBaseRuleService.GetById(id);
+        clientCategories = await _clientCategoryService.GetByCompanyId(clientCategoryBaseRule.CompanyId);
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    protected void Delete(int id)
+    {
+        clientCategoryBaseRuleId = id;
+        var msg = $"Are you sure you want to delete the base rule?";
+        DeleteModalNotificationForBaseRule.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task BaseRuleConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            clientCategoryBaseRule = await _clientCategoryBaseRuleService.GetById(clientCategoryBaseRuleId);
+
+            clientCategoryBaseRule.IsDeleted = true;
+
+            await _clientCategoryBaseRuleService.Update(clientCategoryBaseRule);
+            await LoadClientCategoryBaseRules();
+
+            clientCategoryBaseRuleId = 0;
+            StateHasChanged();
+        }
+    }
+    private async Task InsertUpdateClientCategoryBaseRule()
+    {
+        await Task.Yield();
+        isSubmitting = true;
+        var response = new CutOutWiz.Core.Response<int>();
+        if(clientCategoryBaseRule.Id == 0)
+        {
+            clientCategoryBaseRule.IsActive = true;
+            clientCategoryBaseRule.CreatedByContactId = loginUser.ContactId;
+            response = await _clientCategoryBaseRuleService.Insert(clientCategoryBaseRule);
+        }
+        else
+        {
+            clientCategoryBaseRule.IsActive = true;
+            clientCategoryBaseRule.UpdatedByContactId = loginUser.ContactId;
+            response = await _clientCategoryBaseRuleService.Update(clientCategoryBaseRule);
+        }
+
+        if (response.IsSuccess)
+        {
+            clientCategoryBaseRule = new ClientCategoryBaseRuleModel();
+
+            await LoadClientCategoryBaseRules();
+            CloseAddEditPopup();
+            StateHasChanged();
+        }
+
+        isSubmitting = false;
+        await js.DisplayMessage(response.Message);
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    void AddNew()
+    {
+        clientCategoryBaseRule = new ClientCategoryBaseRuleModel();
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    private async Task LoadClientCategoryBaseRules()
+    {
+        clientCategoryBaseRules = await _clientCategoryBaseRuleService.GetAll();
+    }
+
+    private async Task LoadClientCompany()
+    {
+        companies = await _companyService.GetAll();
+    }
+
+
+
+    #region Client Category Rule
+
+    void AddNewRulePopUpOpen()
+    {
+        isAddRulePopupVisible = true;
+        StateHasChanged();
+    }
+
+    void AddNewRulePopUpClose()
+    {
+        isAddRulePopupVisible = false;
+        StateHasChanged();
+    }
+
+
+    void AddNewRulePopUpOpen(int categoryBaseRuleId)
+    {
+
+        clientCategoryRule = new ClientCategoryRuleModel();
+        clientCategoryRule.ClientCategoryBaseRuleId = categoryBaseRuleId;
+
+        //Base rule name add on model
+        clientCategoryBaseRule.Name = clientCategoryBaseRules.Where(cc => cc.Id == categoryBaseRuleId).FirstOrDefault().Name;
+
+        AddNewRulePopUpOpen();
+
+    }
+
+
+    async void RowExpandOfClientCategoryBaseRule(ClientCategoryBaseRuleModel model)
+    {
+        clientCategoryBaseRule = model;
+        clientCategoryRules = await _clientCategoryBaseRuleService.GetCategoryRuleByCategorygBaseRuleId(clientCategoryBaseRule.Id);
+        StateHasChanged();
+    }
+
+    private async Task InsertUpdateClientCategoryRule()
+    {
+        await Task.Yield();
+        isSubmitting = true;
+        var response = new CutOutWiz.Core.Response<int>();
+        if (clientCategoryRule.Id == 0)
+        {
+            clientCategoryRule.IsActive = true;
+            clientCategoryRule.CreatedByContactId = loginUser.ContactId;
+            response = await _clientCategoryBaseRuleService.ClientCategoryRuleInsert(clientCategoryRule);
+        }
+        else
+        {
+            clientCategoryRule.IsActive = true;
+            clientCategoryRule.UpdatedByContactId = loginUser.ContactId;
+            response = await _clientCategoryBaseRuleService.ClientCategoryRuleUpdate(clientCategoryRule);
+        }
+
+        if (response.IsSuccess)
+        {
+            clientCategoryRule = new ClientCategoryRuleModel();
+            isSubmitting = false;
+            //Load updated category rule
+            clientCategoryRules = await _clientCategoryBaseRuleService.GetCategoryRuleByCategorygBaseRuleId(clientCategoryBaseRule.Id);
+            AddNewRulePopUpClose();
+        }
+        else
+        {
+            isSubmitting = false;
+        }
+
+        await js.DisplayMessage(response.Message);
+    }
+
+    private async Task EditClientCategoryRule(int id)
+    {
+        clientCategoryRule = await _clientCategoryBaseRuleService.ClientCategoryRuleGetById(id);
+
+        clientCategoryBaseRule = await _clientCategoryBaseRuleService.GetById(clientCategoryRule.ClientCategoryBaseRuleId);
+
+        isSubmitting = false;
+        AddNewRulePopUpOpen();
+    }
+
+    protected void DeleteClientCategoryRule(int id)
+    {
+        clientCategoryRuleId = id;
+        var msg = $"Are you sure you want to delete the rule?";
+        DeleteModalNotificationForRule.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task RuleConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            clientCategoryRule = await _clientCategoryBaseRuleService.ClientCategoryRuleGetById(clientCategoryRuleId);
+            clientCategoryRule.IsDeleted = true;
+
+            await _clientCategoryBaseRuleService.ClientCategoryRuleUpdate(clientCategoryRule);
+            //Load updated category rule
+            clientCategoryRules = await _clientCategoryBaseRuleService.GetCategoryRuleByCategorygBaseRuleId(clientCategoryBaseRule.Id);
+            StateHasChanged();
+
+            clientCategoryRuleId = 0;
+        }
+    }
+
+    #endregion
+}

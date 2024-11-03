@@ -1,0 +1,148 @@
+﻿@page "/internalMessage/templates"
+
+@attribute [Authorize(Roles = "InternalMessageTemplate.ViewList")]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.Email
+@using CutOutWiz.Core.Message
+@using CutOutWiz.Services.Email
+@using CutOutWiz.Services.InternalMessage
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IInternalMessageTemplateService _messageTemplateService
+@inject IEmailSenderAccountService _senderAccountService
+@inject NavigationManager NavigationManager
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Internal Message Templates
+            </h4>
+
+            <div class="page-title-right">
+                <a href="/internalMessage/template" class="btn btn-sm btn-primary" title="Add New Template"><span class="fas fa-plus"></span> Add New</a>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+                 <RadzenDataGrid Data="@templates" IsLoading="isLoading" TItem="InternalMessageTemplate"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+                <RadzenDataGridColumn TItem="InternalMessageTemplate" Property="AccessCode" Title="Access Code" Width="350px"  SortOrder="SortOrder.Ascending"/>
+                <RadzenDataGridColumn TItem="InternalMessageTemplate" Property="Subject" Title="Subject"/>
+                <RadzenDataGridColumn TItem="InternalMessageTemplate" Property="Status" Title="Status" FilterValue="@filterStatus" Width="120px" TextAlign="TextAlign.Center">
+                     <FilterTemplate>
+                        <RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                             Data="@(statuses)" AllowClear="true"/>
+                    </FilterTemplate>
+                    <Template Context="data">
+                        @if (data.Status == (int)GeneralStatus.Active)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Inactive</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="InternalMessageTemplate" Property="CreatedDate" Title="Created Date" Width="120px" TextAlign="TextAlign.Center" Filterable="false"/>
+                <RadzenDataGridColumn TItem="InternalMessageTemplate" Property="Id" Title="Actions" Width="80px" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.ObjectId))">
+                                <span class="fas fa-pencil-alt"></span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.ObjectId,data.Name)">
+                                <span class="fas fa-times"></span>
+                            </button>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    private List<InternalMessageTemplate> templates;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private string selectedObjectId = "";
+    List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+    private byte? filterStatus;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+        await LoadTemplates();
+
+        foreach (GeneralStatus item in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+        isLoading = false;
+    }
+
+    private async Task LoadTemplates()
+    {
+        templates = await _messageTemplateService.GetAll();
+    }
+
+        private async Task RowDoubleClick(DataGridRowMouseEventArgs<InternalMessageTemplate> args)
+    {
+        await Task.Yield();
+        NavigationManager.NavigateTo($"/internalMessage/template/{args.Data.ObjectId}", true);
+    }
+
+    private async Task Edit(string objectId)
+    {
+        await Task.Yield();
+        NavigationManager.NavigateTo($"/internalMessage/template/{objectId}", true);
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the template \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _messageTemplateService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadTemplates();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+    }
+}

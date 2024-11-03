@@ -1,0 +1,337 @@
+﻿@using CutOutWiz.Services.Models.FtpModels
+@using static CutOutWiz.Core.Utilities.Enums
+
+@*<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Client Company Id</label>
+    <div class="col-sm-8">
+        <InputNumber class="form-control" @bind-Value="fileServer.ClientCompanyId"></InputNumber>
+        <ValidationMessage For="@(() => fileServer.ClientCompanyId)" />
+    </div>
+</div>
+*@
+<div class="mb-2 row">
+	<label for="ParentId" class="col-sm-4 col-form-label fw-bold">Protocol Type</label>
+	<div class="col-sm-8">
+		<InputSelect @bind-Value="fileServer.InputProtocolType" class="form-select" @oninput="@(() => ChangeInputProtocolType())">
+			@foreach (var type in Enum.GetValues(typeof(InputProtocolTypeEnum)))
+			{
+				   <option value="@((int)type)">@type</option>
+			}
+		</InputSelect>
+		<ValidationMessage For="@(() => fileServer.InputProtocolType)" />
+	</div>
+</div>
+
+
+<div class="mb-2 row">
+	<label for="Password" class="col-sm-4 col-form-label fw-bold">Username</label>
+	<div class="col-sm-8">
+		<InputText class="form-control" @bind-Value="fileServer.Username"></InputText>
+		<ValidationMessage For="@(() => fileServer.Username)" />
+	</div>
+</div>
+@if (!isInputProtocolTypeSFTP)
+{
+	<div class="mb-2 row">
+		<label for="Password" class="col-sm-4 col-form-label fw-bold">Password</label>
+		<div class="col-sm-8">
+			<InputText class="form-control" @bind-Value="fileServer.Password"></InputText>
+			<ValidationMessage For="@(() => fileServer.Password)" />
+		</div>
+	</div>
+}
+else
+{
+	<div class="mb-2 row">
+		<label for="Password" class="col-sm-4 col-form-label fw-bold">Pass Phrase</label>
+		<div class="col-sm-8">
+			<InputText class="form-control" @bind-Value="fileServer.InputPassPhrase"></InputText>
+			<ValidationMessage For="@(() => fileServer.InputPassPhrase)" />
+		</div>
+	</div>
+	<div class="mb-2 row">
+		<label for="Password" class="col-sm-4 col-form-label fw-bold">Putty Key Path</label>
+		<div class="col-sm-8">
+			<InputText class="form-control" @bind-Value="fileServer.InputProtocolTypePuttyKeyPath"></InputText>
+			<ValidationMessage For="@(() => fileServer.InputProtocolTypePuttyKeyPath)" />
+		</div>
+	</div>
+}
+
+
+<div class="mb-2 row">
+	<label for="UserName" class="col-sm-4 col-form-label fw-bold">Host</label>
+	<div class="col-sm-8">
+		<InputText class="form-control" @bind-Value="fileServer.Host"></InputText>
+		<ValidationMessage For="@(() => fileServer.Host)" />
+	</div>
+</div>
+
+
+<div class="mb-2 row">
+	<label for="AccessKey" class="col-sm-4 col-form-label fw-bold">Port</label>
+	<div class="col-sm-8">
+		<InputNumber class="form-control" @bind-Value="fileServer.Port"></InputNumber>
+		<ValidationMessage For="@(() => fileServer.Port)" />
+	</div>
+</div>
+
+
+<div class="mb-2 row">
+	<label for="SshKeyPath" class="col-sm-4 col-form-label fw-bold">InputRootFolder</label>
+	<div class="col-sm-8">
+		<InputText class="form-control" @bind-Value="fileServer.InputRootFolder"></InputText>
+		<ValidationMessage For="@(() => fileServer.InputRootFolder)" />
+	</div>
+</div>
+@if (!isOutputOtherFTP)
+{
+	<div class="mb-2 row">
+		<label for="Protocol" class="col-sm-4 col-form-label fw-bold">OutputRootFolder</label>
+		<div class="col-sm-8">
+			<InputText class="form-control" @bind-Value="fileServer.OutputRootFolder"></InputText>
+			<ValidationMessage For="@(() => fileServer.OutputRootFolder)" />
+		</div>
+	</div>
+}
+
+<div class="mb-2 row">
+	<label class="col-sm-4 col-form-label fw-bold">Is Enable</label>
+	<div class="col-sm-8">
+		<InputCheckbox @bind-Value="fileServer.IsEnable" id="IsEnable" class="form-check-input"></InputCheckbox>
+		<label class="form-check-label" for="IsEnable">
+
+		</label>
+		<ValidationMessage For="@(() => fileServer.IsEnable)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label class="col-sm-4 col-form-label fw-bold">Is Internal Ftp</label>
+	<div class="col-sm-8">
+		<InputCheckbox @bind-Value="fileServer.IsInternalFtp" id="IsInternalFtp" class="form-check-input"></InputCheckbox>
+		<label class="form-check-label" for="IsInternalFtp">
+
+		</label>
+		<ValidationMessage For="@(() => fileServer.IsInternalFtp)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label class="col-sm-4 col-form-label fw-bold">Is Default</label>
+	<div class="col-sm-8">
+		<InputCheckbox @bind-Value="fileServer.IsDefault" id="IsDefault" class="form-check-input"></InputCheckbox>
+		<label class="form-check-label" for="IsDefault">
+
+		</label>
+		<ValidationMessage For="@(() => fileServer.IsDefault)" />
+	</div>
+</div>
+@*<div class="mb-2 row">
+    <label for="Status" class="col-sm-4 col-form-label fw-bold">Status</label>
+    <div class="col-sm-8">
+      <InputSelect @bind-Value="fileServer.Status" class="form-select">
+           <option value="0">- Select -</option>
+        @foreach (var status in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            <option value="@((int)status)">@status</option>
+        }
+         </InputSelect>
+        <ValidationMessage For="@(() => fileServer.Status)" />
+    </div>
+</div>*@
+
+<div class="mb-2 row">
+	<label class="col-sm-4 col-form-label fw-bold">Sent output Files Separate Ftp?</label>
+	<div class="col-sm-8">
+		<InputCheckbox @bind-Value="fileServer.SentOutputToSeparateFTP" id="SentOutputToSeparateFTP" @onclick="ChangeValue" class="form-check-input"></InputCheckbox>
+		<label class="form-check-label" for="SentOutputToSeparateFTP">
+
+		</label>
+		<ValidationMessage For="@(() => fileServer.SentOutputToSeparateFTP)" />
+	</div>
+</div>
+
+@if (isOutputOtherFTP)
+{
+	<div class="mb-2 row">
+		<label for="ParentId" class="col-sm-4 col-form-label fw-bold">Protocol Type</label>
+		<div class="col-sm-8">
+			<InputSelect @bind-Value="fileServer.OutputProtocolType" class="form-select" @oninput="@(() => ChangeOutputProtocolType())">
+				@foreach (var type in Enum.GetValues(typeof(OutputProtocolTypeEnum)))
+				{
+					<option value="@((int)type)">@type</option>
+				}
+			</InputSelect>
+			<ValidationMessage For="@(() => fileServer.OutputProtocolType)" />
+		</div>
+	</div>
+
+
+
+	<div class="mb-2 row">
+		<label for="Password" class="col-sm-4 col-form-label fw-bold">OutputUsername</label>
+		<div class="col-sm-8">
+			<InputText class="form-control" @bind-Value="fileServer.OutputUsername"></InputText>
+			<ValidationMessage For="@(() => fileServer.OutputUsername)" />
+		</div>
+	</div>
+
+	@if (!isOutputProtocolTypeSFTP)
+	{
+		<div class="mb-2 row">
+			<label for="Password" class="col-sm-4 col-form-label fw-bold">OutputPassword</label>
+			<div class="col-sm-8">
+				<InputText class="form-control" @bind-Value="fileServer.OutputPassword"></InputText>
+				<ValidationMessage For="@(() => fileServer.OutputPassword)" />
+			</div>
+		</div>
+	}
+	else
+	{
+		<div class="mb-2 row">
+			<label for="Password" class="col-sm-4 col-form-label fw-bold">Output Pass Phrase</label>
+			<div class="col-sm-8">
+				<InputText class="form-control" @bind-Value="fileServer.OutputPassPhrase"></InputText>
+				<ValidationMessage For="@(() => fileServer.OutputPassPhrase)" />
+			</div>
+		</div>
+		<div class="mb-2 row">
+			<label for="Password" class="col-sm-4 col-form-label fw-bold">Putty Key Path</label>
+			<div class="col-sm-8">
+				<InputText class="form-control" @bind-Value="fileServer.OutputProtocolTypePuttyKeyPath"></InputText>
+				<ValidationMessage For="@(() => fileServer.OutputProtocolTypePuttyKeyPath)" />
+			</div>
+		</div>
+	}
+
+	<div class="mb-2 row">
+		<label for="UserName" class="col-sm-4 col-form-label fw-bold">OutputHost</label>
+		<div class="col-sm-8">
+			<InputText class="form-control" @bind-Value="fileServer.OutputHost"></InputText>
+			<ValidationMessage For="@(() => fileServer.OutputHost)" />
+		</div>
+	</div>
+
+
+	<div class="mb-2 row">
+		<label for="AccessKey" class="col-sm-4 col-form-label fw-bold">OutputPort</label>
+		<div class="col-sm-8">
+			<InputNumber class="form-control" @bind-Value="fileServer.OutputPort"></InputNumber>
+			<ValidationMessage For="@(() => fileServer.OutputPort)" />
+		</div>
+	</div>
+
+
+	<div class="mb-2 row">
+		<label for="SshKeyPath" class="col-sm-4 col-form-label fw-bold">OutputRootFolder</label>
+		<div class="col-sm-8">
+			<InputText class="form-control" @bind-Value="fileServer.OutputFolderName"></InputText>
+			<ValidationMessage For="@(() => fileServer.OutputFolderName)" />
+		</div>
+	</div>
+}
+
+<div class="mb-2 row">
+	<label class="col-sm-4 col-form-label fw-bold">Is Temporary Delivery Uploading?</label>
+	<div class="col-sm-8">
+		<InputCheckbox @bind-Value="fileServer.IsTemporaryDeliveryUploading" id="IsTemporaryDeliveryUploading" @onclick="ChangeIsUploadTemporaryFtpValue" class="form-check-input"></InputCheckbox>
+		<label class="form-check-label" for="IsTemporaryDeliveryUploading">
+
+		</label>
+		<ValidationMessage For="@(() => fileServer.SentOutputToSeparateFTP)" />
+	</div>
+</div>
+
+@if (isUploadingTemporaryFtp)
+{
+	<div class="mb-2 row">
+		<label for="SshKeyPath" class="col-sm-4 col-form-label fw-bold">TemporaryDeliveryUploadFolder</label>
+		<div class="col-sm-8">
+			<InputText class="form-control" @bind-Value="fileServer.TemporaryDeliveryUploadFolder"></InputText>
+			<ValidationMessage For="@(() => fileServer.TemporaryDeliveryUploadFolder)"/>
+		</div>
+	</div>
+}
+
+<div class="mb-2 row">
+	<label for="DeliveryDeadlineInMinute" class="col-sm-4 col-form-label fw-bold">Deadline in minutes</label>
+	<div class="col-sm-8">
+		<InputNumber class="form-control" @bind-Value="fileServer.DeliveryDeadlineInMinute"></InputNumber>
+	    @*<ValidationMessage For="@(() => fileServer.DeliveryDeadlineInMinute)" />*@
+	</div>
+</div>
+
+
+@code {
+	[Parameter]
+	public ClientOrderFtpModel fileServer { get; set; }
+
+	bool isOutputOtherFTP = false;
+	bool isUploadingTemporaryFtp = false;
+	bool isInputProtocolTypeSFTP = false;
+	bool isOutputProtocolTypeSFTP = false;
+
+	protected override async Task OnInitializedAsync()
+	{
+		if (fileServer.SentOutputToSeparateFTP)
+		{
+			isOutputOtherFTP = true;
+			isUploadingTemporaryFtp = true;
+		}
+		if (fileServer.InputProtocolType == (int)InputProtocolTypeEnum.SFTP)
+		{
+			isInputProtocolTypeSFTP = true;
+		}
+		if (fileServer.OutputProtocolType == (int)OutputProtocolTypeEnum.SFTP)
+		{
+			isOutputProtocolTypeSFTP = true;
+		}
+	}
+
+
+	void ChangeValue()
+	{
+		if (isOutputOtherFTP)
+		{
+			isOutputOtherFTP = false;
+		}
+		else
+		{
+			isOutputOtherFTP = true;
+		}
+	}
+	void ChangeIsUploadTemporaryFtpValue()
+	{
+		if (isUploadingTemporaryFtp)
+		{
+			isUploadingTemporaryFtp = false;
+		}
+		else
+		{
+			isUploadingTemporaryFtp = true;
+		}
+	}
+	void ChangeInputProtocolType()
+	{
+		if (isInputProtocolTypeSFTP)
+		{
+			isInputProtocolTypeSFTP = false;
+		}
+		else
+		{
+			isInputProtocolTypeSFTP = true;
+		}
+	}
+	void ChangeOutputProtocolType()
+	{
+		if (isOutputProtocolTypeSFTP)
+		{
+			isOutputProtocolTypeSFTP = false;
+		}
+		else
+		{
+			isOutputProtocolTypeSFTP = true;
+		}
+	}
+}

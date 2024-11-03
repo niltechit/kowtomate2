@@ -1,0 +1,280 @@
+﻿@page "/report/completedfilescomparisonreport"
+
+@attribute [Authorize(Roles = PermissionConstants.Report_CompareReport)]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.ReportServices
+
+@inject ICompanyManager _companyService
+@inject IWorkContext _workContext
+@inject ICompletedFilesComparisionReportService _completedFilesComparisionReportService
+
+<style>
+    .table-sm > :not(caption) > * > * {
+        padding: 0.08rem .3rem !important;
+    }
+</style>
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Delivery Report
+            </h4>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-12">
+
+        <div class="card mb-2">
+            <div class="card-body p-2">
+                <div class="d-flex justify-content-start">
+                    <div class="d-flex justify-content-start">
+                        <div class="fw-bold px-2">Year </div>
+                        <RadzenDropDown @bind-Value=@selectedSalesYear class="form-control me-1" Style="width:180px; margin-left:2px" TextProperty="Name" ValueProperty="Value"
+                                        AllowFiltering="true" Change=@OnSalesYearChange Data="@salesYearDataList" Multiple="false" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
+
+                        <div class="fw-bold px-2">Client </div>
+                        <RadzenDropDown @bind-Value=@selectedCompanyIds Placeholder="- All -" class="form-control me-1" Style="width:220px; margin-left:2px" 
+                            AllowFiltering="true" Change=@OnSalesYearChange AllowClear="true" Data="@companies" TextProperty="Name" ValueProperty="Id" 
+                            Multiple="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body pt-2">
+                <div class="fw-bold">
+                    <span class="me-3">Monthly Delivered by Value</span>
+                    <RadzenCheckBox @bind-Value="@showDataLabels" Name="dataLabels"></RadzenCheckBox>
+                    <RadzenLabel Text="Show Data Labels" Component="dataLabels" />
+                </div>
+                <div class="row">
+                    <div class="col-lg-8">
+                        <RadzenChart>
+                            <RadzenLineSeries Smooth="true" Data="@previousYearSalesAmountData" CategoryProperty="Label" Title="@previousYear" LineType="LineType.Dashed" ValueProperty="Value">
+                                <RadzenMarkers MarkerType="MarkerType.Square" />
+                                <RadzenSeriesDataLabels Visible="@showDataLabels" />
+                            </RadzenLineSeries>
+                            <RadzenLineSeries Smooth="true" Data="@currentYearSalesAmountData" CategoryProperty="Label" Title="@currentYear" ValueProperty="Value">
+                                <RadzenMarkers MarkerType="MarkerType.Circle" />
+                                <RadzenSeriesDataLabels Visible="@showDataLabels" />
+                            </RadzenLineSeries>
+                            <RadzenCategoryAxis Padding="20" />
+                            <RadzenLegend Position="LegendPosition.Bottom" />
+                            <RadzenValueAxis Formatter="@FormatAsUSD">
+                                <RadzenGridLines Visible="true" />
+                                <RadzenAxisTitle Text="Monthly Sales (Amount in USD)" />
+                            </RadzenValueAxis>
+                        </RadzenChart>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <table class="table table-sm table-bordered m-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-center">Year</th>
+                                    <th class="text-center">@previousYear (Q)</th>
+                                    <th class="text-center">@currentYear (Q)</th>
+                                    <th class="text-center">@previousYear ($)</th>
+                                    <th class="text-center">@currentYear ($)</th>
+                                    <th class="text-center">Trend (%)</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                @foreach (var item in previousYearSalesAmountData)
+                                {
+                                    var newSale = currentYearSalesAmountData.FirstOrDefault(f => f.Label == item.Label).Value;
+                                    var increment = item.Value == 0 ? "∞" : (((newSale - item.Value) / item.Value) * 100).ToString("N2");
+                                    <tr>
+                                        <td class="text-center">@item.Label</td>
+                                        <td class="text-end">@previousYearSalesQtyData.FirstOrDefault(f => f.Label == item.Label).Value.ToString("N0")</td>
+                                        <td class="text-end text-primary">@currentYearSalesQtyData.FirstOrDefault(f => f.Label == item.Label).Value.ToString("N0")</td>
+                                        <td class="text-end">@item.Value.ToString("C")</td>
+                                        <td class="text-end text-primary">@currentYearSalesAmountData.FirstOrDefault(f => f.Label == item.Label).Value.ToString("C")</td>
+                                        
+                                        @if (increment.Contains("-"))
+                                        {
+                                            <td class="text-end text-danger">@increment%</td>
+                                        }
+                                        else
+                                        {
+                                            <td class="text-end text-success">@increment%</td>
+                                        }
+                                    </tr>
+                                }
+
+                                @{
+                                    var newSaleTotal = currentYearSalesAmountData.Sum(f=>f.Value);
+                                    var oldSaleTotal = previousYearSalesAmountData.Sum(f => f.Value);
+                                    var increment2 = oldSaleTotal == 0 ? "∞" : (((newSaleTotal - oldSaleTotal) / oldSaleTotal) * 100).ToString("N2");
+                                    }
+                                <tr class="fw-bold">
+                                        <td class="text-center">Total</td>
+                                        <td class="text-end">@previousYearSalesQtyData.Sum(f => f.Value).ToString("N0")</td>
+                                        <td class="text-end">@currentYearSalesQtyData.Sum(f => f.Value).ToString("N0")</td>
+                                    <td class="text-end">@oldSaleTotal.ToString("C")</td>
+                                    <td class="text-end text-primary">@newSaleTotal.ToString("C")</td>
+                                        
+                                        @if (increment2.Contains("-"))
+                                        {
+                                            <td class="text-end text-danger">@increment2%</td>
+                                        }
+                                        else
+                                        {
+                                            <td class="text-end text-success">@increment2%</td>
+                                        }
+                                    </tr>
+
+                            </tbody>
+
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body pt-2">
+                <div class="fw-bold">
+                    <span class="me-3">Last 30 Days Delivered by Value</span>     
+                    <RadzenCheckBox @bind-Value="@showDataLabelsLast30Days" Name="dataLabels"></RadzenCheckBox>
+                    <RadzenLabel Text="Show Data Labels" Component="dataLabels" />
+                </div>
+                <div class="row">
+                    <div class="col-lg-12">
+                        <RadzenChart>
+                            <RadzenLineSeries Smooth="true" Data="@previousYearLast30DaysAmountData" CategoryProperty="Label" Title="@previousYearLast30Days" LineType="LineType.Dashed" ValueProperty="Value">
+                                <RadzenMarkers MarkerType="MarkerType.Square" />
+                                <RadzenSeriesDataLabels Visible="@showDataLabelsLast30Days" />
+                            </RadzenLineSeries>
+                            <RadzenLineSeries Smooth="true" Data="@currentYearLast30DaysSalesAmountData" CategoryProperty="Label" Title="@currentYearLast30Days" ValueProperty="Value">
+                                <RadzenMarkers MarkerType="MarkerType.Circle" />
+                                <RadzenSeriesDataLabels Visible="@showDataLabelsLast30Days" />
+                            </RadzenLineSeries>
+                            <RadzenCategoryAxis Padding="20" />
+                            <RadzenLegend Position="LegendPosition.Bottom" />
+                            <RadzenValueAxis Formatter="@FormatAsUSD">
+                                <RadzenGridLines Visible="true" />
+                                <RadzenAxisTitle Text="Last 30 Days Sales (Amount in USD)" />
+                            </RadzenValueAxis>
+                        </RadzenChart>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6">
+                        <table class="table table-sm table-bordered m-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-center">Date</th>
+                                    <th class="text-center">Previous Year (Q)</th>
+                                    <th class="text-center">Last Year (Q)</th>
+                                    <th class="text-center">Previous Year ($)</th>
+                                    <th class="text-center">Last Year ($)</th>
+                                    <th class="text-center">Trend (%)</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                @foreach (var item in currentYearLast30DaysSalesAmountData.Take(16).ToList())
+                                {
+                                    var oldSale = previousYearLast30DaysAmountData.FirstOrDefault(f => f.Label == item.Label).Value;
+                                    var increment = oldSale == 0 ? "∞" : (((item.Value - oldSale) / oldSale) * 100).ToString("N2");
+                                    <tr>
+                                        <td class="text-center">@item.Label</td>
+                                        <td class="text-end">@previousYearLast30DaysQtyData.FirstOrDefault(f => f.Label == item.Label).Value.ToString("N0")</td>
+                                        <td class="text-end text-primary">@currentYearLast30DaysSalesQtyData.FirstOrDefault(f => f.Label == item.Label).Value.ToString("N0")</td>
+                                        <td class="text-end">@oldSale.ToString("C")</td>
+                                        <td class="text-end text-primary">@item.Value.ToString("C")</td>
+
+                                        @if (increment.Contains("-"))
+                                        {
+                                            <td class="text-end text-danger">@increment%</td>
+                                        }
+                                        else
+                                        {
+                                            <td class="text-end text-success">@increment%</td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-lg-6">
+                        <table class="table table-sm table-bordered m-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-center">Date</th>
+                                    <th class="text-center">Previous Year (Q)</th>
+                                    <th class="text-center">Last Year (Q)</th>
+                                    <th class="text-center">Previous Year ($)</th>
+                                    <th class="text-center">Last Year ($)</th>
+                                    <th class="text-center">Trend (%)</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                @foreach (var item in currentYearLast30DaysSalesAmountData.Skip(16).ToList())
+                                {
+                                    //var newSale = currentYearLast30DaysSalesAmountData.FirstOrDefault(f => f.Label == item.Label).Value;
+                                   // var increment = item.Value == 0 ? "∞" : (((newSale - item.Value) / item.Value) * 100).ToString("N2");
+                                    var oldSale = previousYearLast30DaysAmountData.FirstOrDefault(f => f.Label == item.Label).Value;
+                                    var increment = oldSale == 0 ? "∞" : (((item.Value - oldSale) / oldSale) * 100).ToString("N2");
+                                    
+                                    <tr>
+                                        <td class="text-center">@item.Label</td>
+                                        <td class="text-end">@previousYearLast30DaysQtyData.FirstOrDefault(f => f.Label == item.Label).Value.ToString("N0")</td>
+                                        <td class="text-end text-primary">@currentYearLast30DaysSalesQtyData.FirstOrDefault(f => f.Label == item.Label).Value.ToString("N0")</td>
+                                        <td class="text-end">@oldSale.ToString("C")</td>
+                                        <td class="text-end text-primary">@item.Value.ToString("C")</td>
+
+                                        @if (increment.Contains("-"))
+                                        {
+                                            <td class="text-end text-danger">@increment%</td>
+                                        }
+                                        else
+                                        {
+                                            <td class="text-end text-success">@increment%</td>
+                                        }
+                                    </tr>
+                                }
+
+                                <tr class="fw-bold">
+                                    @{
+                                        var oldDeliverdTotal = previousYearLast30DaysAmountData.Sum(f=>f.Value);
+                                        var newDeliveredTotal = currentYearLast30DaysSalesAmountData.Sum(f=>f.Value);
+
+                                        var increment22 = oldDeliverdTotal == 0 ? "∞" : (((newDeliveredTotal - oldDeliverdTotal) / oldDeliverdTotal) * 100).ToString("N2");
+                                    }
+                                    <td class="text-center">Total</td>
+                                    <td class="text-end">@previousYearLast30DaysQtyData.Sum(f=>f.Value).ToString("N0")</td>
+                                    <td class="text-end text-primary">@currentYearLast30DaysSalesQtyData.Sum(f => f.Value).ToString("N0")</td>
+                                    <td class="text-end">@oldDeliverdTotal.ToString("C")</td>
+                                    <td class="text-end text-primary">@newDeliveredTotal.ToString("C")</td>
+
+                                    @if (increment22.Contains("-"))
+                                    {
+                                        <td class="text-end text-danger">@increment22%</td>
+                                    }
+                                    else
+                                    {
+                                        <td class="text-end text-success">@increment22%</td>
+                                    }
+                                </tr>
+                            </tbody>
+
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+

@@ -1,0 +1,238 @@
+﻿@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.UI
+@using CutOutWiz.Services.UI
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+
+@inject IWorkContext _workContext
+@inject IGridViewSetupService _gridViewSetupService
+@inject AuthenticationStateProvider _authenticationStateProvider
+@inject NotificationService NotificationService
+
+<EditForm Model=@gridViewFilter OnValidSubmit="@gridViewSetupSaveChange">
+
+    <div class="modal" tabindex="-1" style="display:block;">
+        <div class="modal-dialog">
+            <div class="modal-content" style="width:617px !important">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add / Update View Filter</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                </div>
+                <div class="modal-body">
+                     <DataAnnotationsValidator />
+
+                    @if (!hideSelectoinMode)
+                    {
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label fw-bold">Save Mode</label>
+                            <div class="col-sm-8">
+                                <input type="radio" checked="checked" value="false" @onchange="@(() => { gridViewFilter.IsCreateNewTemplate = false; })" name="IsCreateNewTemplate" id="UpdateCurrentTemplate" class="form-radio-input" />
+                                <label class="form-check-label" for="UpdateCurrentTemplate">Update Current Filter</label>
+
+                                <input type="radio" value="true" @onchange="@(() => { gridViewFilter.IsCreateNewTemplate = true; gridViewFilter.Name = ""; })" name="IsCreateNewTemplate" id="AddNewTemplate" class="ms-2 form-radio-input" />
+                                <label class="form-check-label" for="AddNewTemplate">Create New Filter</label>
+
+                                <ValidationMessage For="@(() => gridViewFilter.IsCreateNewTemplate)" />
+                            </div>
+                        </div>
+                    }
+
+                    <div class="mb-2 row">
+                        <label for="Name" class="col-sm-4 col-form-label fw-bold">Filter Name</label>
+                        <div class="col-sm-8">
+                            <InputText class="form-control" @bind-Value="gridViewFilter.Name"></InputText>
+                            <ValidationMessage For="@(() => gridViewFilter.Name)" />
+                        </div>
+                    </div>
+
+                    <div class="mb-2 row">
+                        <label class="col-sm-4 col-form-label fw-bold">Filter Type</label>
+                        <div class="col-sm-8">
+                            <InputCheckbox @bind-Value="gridViewFilter.IsDefault" id="IsDefault" class="form-check-input"></InputCheckbox>
+                            <label class="form-check-label" for="IsDefault">
+                                Is Default Filter
+                            </label>
+                            <ValidationMessage For="@(() => gridViewFilter.IsDefault)" />
+                        </div>
+                    </div>
+
+                     <AuthorizeView Context="InnerContext" Roles="GF.PF.A,GF.PF.E">
+                    <div class="mb-2 row">
+                        <label class="col-sm-4 col-form-label fw-bold">Visibility</label>
+                        <div class="col-sm-8">
+                            <InputCheckbox @bind-Value="gridViewFilter.IsPublic" id="IsPublic" class="form-check-input"></InputCheckbox>
+                            <label class="form-check-label" for="IsPublic">
+                                Is Public
+                            </label>
+                            <span ></span>
+                            <ValidationMessage For="@(() => gridViewFilter.IsPublic)" />
+                            <div class="form-text">'Public Filter'' will be visible to to all users.</div>
+                        </div>
+                    </div>
+                    </AuthorizeView>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save</button>
+                  @if (gridViewFilter.Id > 0 && gridViewFilter.IsCreateNewTemplate == false)
+                  {
+                       if (gridViewFilter.IsPublic)
+                       {
+                         <AuthorizeView Context="InnerContext" Roles="GF.PF.D">
+                          <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete()">Delete</button>
+                            </AuthorizeView>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete()">Delete</button>
+                        }
+                    }
+
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    [Parameter]
+    public GridViewFilterModel selectedGridViewFilter { get; set; }
+
+    [Parameter]
+    public EventCallback<int> confirmationGridViewTemplateUpdate { get; set; }
+
+    protected ModalNotification ModalNotification { get; set; }
+
+    AuthenticationState authState;
+    GridViewFilterModel gridViewFilter = new GridViewFilterModel();
+    bool isSubmitting = false;
+    private LoginUserInfoViewModel loginUser = null;
+    bool hideSelectoinMode = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Yield();
+        loginUser = _workContext.LoginUserInfo;
+        authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+
+        gridViewFilter = new GridViewFilterModel
+        {
+            GridViewSetupId = selectedGridViewFilter.GridViewSetupId,
+            ContactId = selectedGridViewFilter.ContactId,
+            Id = selectedGridViewFilter.Id,
+            Name = selectedGridViewFilter.Name,
+            FilterJson = selectedGridViewFilter.FilterJson,
+            LogicalOperator = selectedGridViewFilter.LogicalOperator,
+            SortColumn = selectedGridViewFilter.SortColumn,
+            SortOrder = selectedGridViewFilter.SortOrder,
+            IsDefault = selectedGridViewFilter.IsDefault,
+            IsPublic = selectedGridViewFilter.IsPublic
+        };
+
+        if (gridViewFilter.Id ==0 || selectedGridViewFilter.Id == -1 || selectedGridViewFilter.GridViewSetupId == -1)
+        {
+            hideSelectoinMode = true;
+            gridViewFilter.Name = "";
+            gridViewFilter.IsCreateNewTemplate = true;
+        }
+        else
+        {
+            if (!authState.User.IsInRole(PermissionConstants.GridFilter_EditPublicFitler))
+            {
+                if (gridViewFilter.IsPublic)
+                {
+                    gridViewFilter.IsPublic = false;
+                    hideSelectoinMode = true;
+                    gridViewFilter.Name = "";
+                    gridViewFilter.IsCreateNewTemplate = true;
+                }
+                else
+                {
+                    gridViewFilter.IsCreateNewTemplate = false;
+                }
+            }
+            else
+            {
+                gridViewFilter.IsCreateNewTemplate = false;
+            }
+
+        }
+    }
+
+    async Task CloseAddEditPopup()
+    {
+        await confirmationGridViewTemplateUpdate.InvokeAsync();
+    }
+
+    protected void Delete()
+    {       
+        var msg = $"Are you sure you want to delete the filter \"{gridViewFilter.Name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _gridViewSetupService.GridViewFilterDelete(gridViewFilter.Id);
+
+            if (deleteResponse.IsSuccess)
+            {
+                ShowQuickNotification(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Success!", Detail = deleteResponse.Message, Duration = 5000 });       
+                await confirmationGridViewTemplateUpdate.InvokeAsync(-100);  //-100 means deleted
+            }
+            else
+            {
+                ShowQuickNotification(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error!", Detail = deleteResponse.Message, Duration = 5000 });       
+            }
+        }
+
+        isSubmitting = false;
+    }
+
+    async Task gridViewSetupSaveChange()
+    {
+        isSubmitting = true;
+
+        if (gridViewFilter.IsCreateNewTemplate)
+        {
+            gridViewFilter.ContactId = loginUser.ContactId;
+            var addResponse = await _gridViewSetupService.GridViewFilterInsert(gridViewFilter);
+            await ShowQuickMessage(addResponse);
+        }
+        else
+        {
+            var updateResponse = await _gridViewSetupService.GridViewFilterUpdate(gridViewFilter);
+
+            await ShowQuickMessage(updateResponse);
+        }
+
+        isSubmitting = false;
+    }
+
+
+    async Task ShowQuickMessage(Response<int> response)
+    {
+        if (response.IsSuccess)
+        {
+            ShowQuickNotification(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Success!", Detail = response.Message, Duration = 5000 });
+             await confirmationGridViewTemplateUpdate.InvokeAsync(response.Result);
+        }
+        else
+        {
+            ShowQuickNotification(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error!", Detail = response.Message, Duration = 5000 });
+        }
+    }
+
+    void ShowQuickNotification(NotificationMessage message)
+    {
+        NotificationService.Notify(message);
+    }
+
+
+}

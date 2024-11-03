@@ -1,0 +1,123 @@
+﻿@using CutOutWiz.Services.Models.Common
+@using static CutOutWiz.Core.Utilities.Enums
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="fileServer.Name"></InputText>
+        <ValidationMessage For="@(() => fileServer.Name)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="ParentId" class="col-sm-4 col-form-label fw-bold">Type</label>
+    <div class="col-sm-8">
+        <InputSelect @bind-Value="fileServer.FileServerType" class="form-select">
+           <option value="0">- Select -</option>
+        @foreach (var type in Enum.GetValues(typeof(FileServerType)))
+        {
+            <option value="@((int)type)">@type</option>
+        }
+         </InputSelect>
+        <ValidationMessage For="@(() => fileServer.FileServerType)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="UserName" class="col-sm-4 col-form-label fw-bold">Username</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="fileServer.UserName"></InputText>
+        <ValidationMessage For="@(() => fileServer.UserName)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Password" class="col-sm-4 col-form-label fw-bold">Password</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="fileServer.Password"></InputText>
+        <ValidationMessage For="@(() => fileServer.Password)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="AccessKey" class="col-sm-4 col-form-label fw-bold">Access Key</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="fileServer.AccessKey"></InputText>
+        <ValidationMessage For="@(() => fileServer.AccessKey)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="SecretKey" class="col-sm-4 col-form-label fw-bold">Secret Key</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="fileServer.SecretKey"></InputText>
+        <ValidationMessage For="@(() => fileServer.SecretKey)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="RootFolder" class="col-sm-4 col-form-label fw-bold">Root Folder</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="fileServer.RootFolder"></InputText>
+        <ValidationMessage For="@(() => fileServer.RootFolder)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="SshKeyPath" class="col-sm-4 col-form-label fw-bold">Ssh Key Path</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="fileServer.SshKeyPath"></InputText>
+        <ValidationMessage For="@(() => fileServer.SshKeyPath)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Host" class="col-sm-4 col-form-label fw-bold">Host</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="fileServer.Host"></InputText>
+        <ValidationMessage For="@(() => fileServer.Host)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Protocol" class="col-sm-4 col-form-label fw-bold">Protocol</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="fileServer.Protocol"></InputText>
+        <ValidationMessage For="@(() => fileServer.Protocol)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Is Default</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="fileServer.IsDefault" id="IsDefault" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="IsDefault">
+            
+        </label>
+        <ValidationMessage For="@(() => fileServer.IsDefault)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="Status" class="col-sm-4 col-form-label fw-bold">Status</label>
+    <div class="col-sm-8">
+      <InputSelect @bind-Value="fileServer.Status" class="form-select">
+           <option value="0">- Select -</option>
+        @foreach (var status in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            <option value="@((int)status)">@status</option>
+        }
+         </InputSelect>
+        <ValidationMessage For="@(() => fileServer.Status)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="Protocol" class="col-sm-4 col-form-label fw-bold">Sub Folder</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="fileServer.SubFolder"></InputText>
+        <ValidationMessage For="@(() => fileServer.SubFolder)" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public FileServerModel fileServer { get; set; }
+}

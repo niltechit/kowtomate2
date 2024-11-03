@@ -1,0 +1,60 @@
+﻿@using CutOutWiz.Services.Models.SOP
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IOrderSOPStandardServiceService _standardServiceService
+
+<div class="mb-2 row">
+    <label for="ParentSopServiceId" class="col-sm-4 col-form-label fw-bold">Main Service</label>
+    <div class="col-sm-8">
+        <InputSelect @bind-Value="standardService.ParentSopServiceId" class="form-select">
+            <option value="0">- Select -</option>
+            @foreach (var sopService in sopStandardServices)
+            {
+                <option value="@sopService.Id">@sopService.Name</option>
+            }
+        </InputSelect>
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="standardService.Name"></InputText>
+        <ValidationMessage For="@(() => standardService.Name)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="SortOrder" class="col-sm-4 col-form-label fw-bold">Sort Order</label>
+    <div class="col-sm-8">
+        <InputNumber class="form-control" @bind-Value="standardService.SortOrder"></InputNumber>
+        <ValidationMessage For="@(() => standardService.SortOrder)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Status" class="col-sm-4 col-form-label fw-bold">Status</label>
+    <div class="col-sm-8">
+      <InputSelect @bind-Value="standardService.Status" class="form-select">
+           <option value="0">- Select -</option>
+        @foreach (var status in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            <option value="@((int)status)">@status</option>
+        }
+         </InputSelect>
+        <ValidationMessage For="@(() => standardService.Status)" />
+    </div>
+</div>
+
+@code {
+
+    [Parameter]
+    public SOPStandardServiceModel standardService { get; set; }
+
+    private List<SOPStandardServiceModel> sopStandardServices = new List<SOPStandardServiceModel>();
+
+    protected override async Task OnInitializedAsync()
+    {
+       sopStandardServices= await _standardServiceService.GetAll(); 
+    }
+}

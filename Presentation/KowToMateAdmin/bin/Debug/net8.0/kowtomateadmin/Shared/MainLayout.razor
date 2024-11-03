@@ -1,0 +1,62 @@
+﻿@inherits LayoutComponentBase
+@using KowToMateAdmin.Pages.Security
+
+@inject IJSRuntime js
+
+<PageTitle>KowToMate ERP</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <!-- Begin page -->
+    <div id="layout-wrapper">
+            
+        <TopBar></TopBar>
+
+        <!-- ========== Left Sidebar Start ========== -->
+        <SideBar></SideBar>
+        <!-- Left Sidebar End -->
+        <!-- ============================================================== -->
+        <!-- Start right Content here -->
+        <!-- ============================================================== -->
+        <div class="main-content">
+
+            <div class="page-content" style="margin-top:2%">
+                <div class="container-fluid">
+
+                    @Body
+                   
+                </div> <!-- container-fluid -->
+            </div>
+            <!-- End Page-content -->
+
+                
+            <Footer></Footer>
+        </div>
+        <!-- end main content-->
+
+    </div>
+    <!-- END layout-wrapper -->
+
+    <!-- Right Sidebar -->
+    @*<RightBar></RightBar>*@
+    <!-- /Right-bar -->
+
+    <!-- Right bar overlay-->
+    <div class="rightbar-overlay"></div>
+    </Authorized>
+    <NotAuthorized>       
+        <Login></Login>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code{
+    //protected bool isLoggedIn = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await js.InvokeVoidAsync("initUi");
+        }
+    }
+}

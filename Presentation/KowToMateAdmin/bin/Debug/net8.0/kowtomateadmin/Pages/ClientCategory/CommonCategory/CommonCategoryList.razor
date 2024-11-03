@@ -1,0 +1,569 @@
+﻿@page "/common/commoncategory"
+
+@attribute [Authorize(Roles = PermissionConstants.Category_CanViewAllCommonCategoryList)]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.ClientCommonCategoryService.CommonCategories
+@using CutOutWiz.Services.ClientCommonCategoryService.CommonCategoryServices
+@using CutOutWiz.Services.EncryptedMethodServices
+@using CutOutWiz.Services.MapperHelper
+@using KowToMateAdmin.Helper
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+@using CutOutWiz.Services.Models.ClientCategoryServices
+
+@inject IWorkContext _workContext
+@inject ICommonCategoryService _CommonCategoryService
+@inject ICommonServiceService _CommonService
+@inject IJSRuntime js
+@inject ICommonCategoryServiceService _commonCategoryServiceService
+@inject IEncryptedMethodService _encryptedMethodServices
+@inject IMapperHelperService _mapperHelperService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                @if (CommonCategories?.Any() == true)
+                {
+                    @:Common Categories(@CommonCategories.Count)
+                }
+                else
+                {
+                    @:Common Categories
+                }
+            </h4>
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New CommonCategory"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+        <div style="height: 700Px; overflow-y: auto; overflow-x: auto;">
+        <RadzenDataGrid Data="@CommonCategories" IsLoading="isLoading" TItem="CommonCategoryModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+                <RadzenDataGridColumn TItem="CommonCategoryModel" Property="Name" Title="Category Name" SortOrder="SortOrder.Ascending" />
+                    
+                    <RadzenDataGridColumn TItem="CommonCategoryModel" Property="CategoryServices" Title="Services" TextAlign="TextAlign.Center" Width="400" Filterable="false">
+                        <Template Context="data">
+                            <div style="white-space: normal; word-break: break-word; max-width: 400px;">
+                                @foreach (var service in data.CategoryServices?.Split(','))
+                                {
+                                    <div>@service</div>
+                                }
+                            </div>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+
+                    @* <AuthorizeView Roles="ClientOrder.ClientCategoryPriceCanSee"> *@
+                    <AuthorizeView Roles=@PermissionConstants.Category_CanViewClientCategoryPrice>
+                    <RadzenDataGridColumn TItem="CommonCategoryModel" Property="PriceInUSD" Title="Price In USD" TextAlign="TextAlign.Right" OrderIndex="1" Filterable="false">
+                        <Template Context="order">
+                            @if (decimal.TryParse(_encryptedMethodServices.DecryptData(order.PriceInUSD), out var price))
+                            {
+                                <p title="Price In USD">@price.ToString("C")</p>
+                            }
+                            else
+                            {
+                                <p title="Price In USD">Invalid price</p>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                </AuthorizeView>
+
+                    <RadzenDataGridColumn TItem="CommonCategoryModel" Property="TimeInMinutes" Title="Time In Minutes" TextAlign="TextAlign.Right" Filterable="false">
+                        <Template Context="order">
+                            @if (decimal.TryParse(order.TimeInMinutes.ToString(), out var timeInMinutes))
+                            {
+                                <p title="Time In Minutes">@timeInMinutes.ToString("N2")</p>
+                            }
+                            else
+                            {
+                                <p title="Time In Minutes">Invalid time</p>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="CommonCategoryModel" Property="Status" Title="Status" FilterValue="@filterStatus" TextAlign="TextAlign.Center">
+                    <FilterTemplate>
+                        @* <RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                        Data="@(statuses)" AllowClear="true" /> *@
+                    </FilterTemplate>
+                    <Template Context="role">
+                        @if (role.IsActive == true)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Inactive</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="CommonCategoryModel" Property="CreatedByUsername" Title="Created By" TextAlign="TextAlign.Center" Filterable="false" />
+
+               
+                <RadzenDataGridColumn Width="200px" TItem="CommonCategoryModel" Property="CreatedDate" Title="CreatedDate" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        @((data.CreatedDate != null) ? data.CreatedDate.ToString("dd-MMM-yyyy hh:mm tt") : string.Empty)
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn Width="120px" TItem="CommonCategoryModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.Id))">
+                            <span class="fas fa-pencil-alt"></span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.Id, data.Name)">
+                            <span class="fas fa-times"></span>
+                        </button>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+        </div>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@commonCategoryService OnValidSubmit="@InsertUpdateCommonCategory">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Category</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            @* <CommonCategoryAddEdit commonCategory="commonCategory" /> *@
+                            <CategoryAddOrEdit categoryService="commonCategoryService" commonServices="commonServices" commonServicess="commonServicess" OnDeleteRow="DeleteRow" SelectedServiceList="OnSelectedServiceList" selectedServiceIds="selectedServiceIds" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<CommonCategoryModel> CommonCategories;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    private CommonCategoryServiceViewModel commonCategoryService = new CommonCategoryServiceViewModel();
+
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private int selectedObjectId = 0;
+
+    List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+    private byte? filterStatus;
+
+    List<CustomEnumTypes> filterTypes = new List<CustomEnumTypes>();
+    private byte? filterTypeStatus;
+    private List<CommonCategoryServiceModel> commonCategoryServices;
+    private List<CommonServiceModel> commonServices;
+    private List<CommonServiceModel> commonServicess;
+    private List<CommonCategoryServiceModel> commonCategoryServicess;
+    private List<CommonCategoryServiceModel> deletedCommonServices = new List<CommonCategoryServiceModel>();
+    private CommonCategoryModel commonCategory = new CommonCategoryModel();
+    private CommonCategoryModel editedCommonCategory = new CommonCategoryModel();
+    private List<int> selectedServiceIds = new List<int>();
+    private List<int> categoriesSelectedServiceIds = new List<int>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+        await LoadCommonCategories();
+
+        //Populate Status
+        foreach (GeneralStatus item in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+
+        deletedCommonServices = new List<CommonCategoryServiceModel>();
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadCommonCategories()
+    {
+        commonServices = await _CommonService.GetAll();
+        commonServices = commonServices.Where(x => x.IsActive == true).ToList();
+        CommonCategories = await _CommonCategoryService.GetAll();
+
+        foreach (var category in CommonCategories)
+        {
+            var commonCategoriesServices = await _CommonCategoryService.GetCommonServices(category.Id);
+            var servicesNames = string.Join(",", commonCategoriesServices.Select(x => x.Name));
+            category.CategoryServices = servicesNames;
+        }
+    }
+
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<CommonCategoryModel> args)
+    {
+        await Edit(args.Data.Id);
+    }
+
+    private async Task InsertUpdateCommonCategory()
+    {
+        isSubmitting = true;
+
+        if (commonCategoryService.Id == 0)
+        {
+            // check Common Category name is exists
+            var checkCommonCategoryIsExists = CommonCategories.Where(x => x.Name.Contains(commonCategoryService.Name)).FirstOrDefault();
+            if (checkCommonCategoryIsExists!= null)
+            {
+                ModalNotification.ShowMessage("Error", "Record already exist.");
+                isSubmitting = false;
+                return;
+            }
+            if (commonServicess?.Any() != true)
+            {
+                ModalNotification.ShowMessage("Error", "Please select at least one service!");
+                isSubmitting = false;
+                return;
+            }
+            commonCategory = new CommonCategoryModel
+                {
+                    Name = commonCategoryService.Name,
+                    CreatedByUsername = loginUser.Username,
+                    CreatedDate = DateTime.Now,
+                    PriceInUSD = _encryptedMethodServices.EncryptData(commonCategoryService.PriceInUSD),
+                    TimeInMinutes = commonCategoryService.TimeInMinutes,
+                };
+
+            var addResponse = await _CommonCategoryService.Insert(commonCategory);
+
+
+
+            foreach (var service in commonServicess)
+            {
+                service.PriceInUSD = DividePercentage((decimal)service.TimeInMinutes, (decimal)commonCategoryService.TimeInMinutes, Convert.ToDecimal(commonCategoryService.PriceInUSD));
+
+                var commonCategorySErvice = new CommonCategoryServiceModel
+                        {
+                            CommonCategoryId = addResponse.Result,
+                            CommonServiceId = service.Id,
+                            TimeInMinutes = service.TimeInMinutes,
+                            PriceInUSD = _encryptedMethodServices.EncryptData(service.PriceInUSD),
+                            IsActive = true,
+                            IsDeleted = false,
+                        };
+
+                var categoryServiceAdd = await _commonCategoryServiceService.Insert(commonCategorySErvice);
+
+                if (!addResponse.IsSuccess)
+                {
+                    ModalNotification.ShowMessage("Error", addResponse.Message);
+                    isSubmitting = false;
+                    return;
+                }
+            }
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+        else
+        {
+            bool updateProcessStart = false;
+            if (editedCommonCategory.Name == commonCategoryService.Name)
+            {
+                updateProcessStart = true;
+            }
+            else
+            {
+                var checkEditedCateogryName = CommonCategories.Where(x => x.Name.Contains(commonCategoryService.Name)).FirstOrDefault();
+                if (checkEditedCateogryName != null && checkEditedCateogryName.Name == commonCategoryService.Name)
+                {
+                    ModalNotification.ShowMessage("Error", "Record already exist.");
+                    isSubmitting = false;
+                    return;
+                }
+                updateProcessStart = true;
+            }
+
+            if (commonServicess?.Any() != true)
+            {
+                ModalNotification.ShowMessage("Error", "Please select at least one service!");
+                isSubmitting = false;
+                return;
+            }
+
+            commonCategory = new CommonCategoryModel
+                {
+                    Id = commonCategoryService.Id,
+                    Name = commonCategoryService.Name,
+                    UpdatedByUsername = loginUser.Username,
+                    UpdatedDate = DateTime.Now,
+                    PriceInUSD = _encryptedMethodServices.EncryptData(commonCategoryService.PriceInUSD),
+                    TimeInMinutes = commonCategoryService.TimeInMinutes,
+                    IsActive = commonCategoryService.IsActive
+                };
+
+            var updateResponse = await _CommonCategoryService.Update(commonCategory);
+
+
+            if (deletedCommonServices != null && deletedCommonServices.Any())
+            {
+                foreach (var service in deletedCommonServices)
+                {
+                    var deleteResponse = await _CommonCategoryService.DeleteCategoryService(service.Id, commonCategoryService.Id);
+                }
+            }
+
+            if (commonServicess.Count() > 0 && commonServicess.Any())
+            {
+
+                foreach (var service in commonServicess)
+                {
+                    service.PriceInUSD = DividePercentage((decimal)service.TimeInMinutes, (decimal)commonCategoryService.TimeInMinutes, Convert.ToDecimal(commonCategoryService.PriceInUSD));
+
+                    var commonCategorySErvice = new CommonCategoryServiceModel
+                        {
+                            CommonCategoryId = commonCategory.Id,
+                            CommonServiceId = service.Id,
+                            TimeInMinutes = service.TimeInMinutes,
+                            PriceInUSD = _encryptedMethodServices.EncryptData(service.PriceInUSD),
+                            IsActive = true,
+                            IsDeleted = false,
+                        };
+
+
+                    var checkCommonCategoryServiceExists = await _CommonCategoryService.GetCommonCategoryServiceByServiceIdAndCategoryId(service.Id, commonCategoryService.Id);
+
+                    if (checkCommonCategoryServiceExists.Result != null)
+                    {
+                        commonCategorySErvice = new CommonCategoryServiceModel
+                            {
+                                Id = checkCommonCategoryServiceExists.Result.Id,
+                                CommonCategoryId = commonCategory.Id,
+                                CommonServiceId = service.Id,
+                                TimeInMinutes = service.TimeInMinutes,
+                                PriceInUSD = _encryptedMethodServices.EncryptData(service.PriceInUSD),
+                                IsActive = true,
+                                IsDeleted = false,
+                            };
+                        var categoryServiceAdd = await _commonCategoryServiceService.Update(commonCategorySErvice);
+                    }
+                    else
+                    {
+                        var categoryServiceAdd = await _commonCategoryServiceService.Insert(commonCategorySErvice);
+                    }
+                }
+
+            }
+
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+
+        commonCategory = new CommonCategoryModel();
+        isSubmitting = false;
+
+        // Get Common Service
+        commonCategoryServicess = new List<CommonCategoryServiceModel>();
+        selectedServiceIds = new List<int>();
+        categoriesSelectedServiceIds = new List<int>();
+        commonServicess = new List<CommonServiceModel>();
+        commonCategoryService = new CommonCategoryServiceViewModel();
+        await LoadCommonCategories();
+        CloseAddEditPopup();
+    }
+
+    static string DividePercentage(decimal values, decimal totalValue, decimal totalPrice)
+    {
+        var percentage = ((decimal)values / totalValue) * 100;
+
+        var percentageOfPrice = (totalPrice * percentage) / 100;
+
+        return percentageOfPrice.ToString();
+    }
+    async void AddNew()
+    {
+        commonCategory = new CommonCategoryModel { Status = (int)GeneralStatus.Active };
+        commonServices = await _CommonService.GetAll();
+        selectedServiceIds = new List<int>();
+        categoriesSelectedServiceIds = new List<int>();
+        isSubmitting = false;
+        ShowAddEditPopup();
+        StateHasChanged();
+    }
+
+    private async Task Edit(int id)
+    {
+        commonCategory = await _CommonCategoryService.GetById(id);
+        editedCommonCategory = await _CommonCategoryService.GetById(id);
+        // Get Common Service
+        commonServicess = await _CommonCategoryService.GetCommonServices(commonCategory.Id);
+        commonCategoryServicess = await _CommonCategoryService.GetCommonCategoryServices(commonCategory.Id);
+        selectedServiceIds = commonServicess.Select(x => x.Id).ToList();
+        categoriesSelectedServiceIds = commonServicess.Select(x => x.Id).ToList();
+        commonServices.RemoveAll(f => commonServicess.Any(x => x.Id == f.Id));
+        commonCategory.PriceInUSD = _encryptedMethodServices.DecryptData(commonCategory.PriceInUSD);
+			commonCategoryService = await _mapperHelperService.MapToSingleAsync<CommonCategoryModel, CommonCategoryServiceViewModel>(commonCategory);
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+        commonCategoryService = new CommonCategoryServiceViewModel();
+        commonServicess = new List<CommonServiceModel>();
+        selectedServiceIds = new List<int>();
+    }
+
+    protected void Delete(int objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the CommonCategory \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    #region Insert
+
+
+    private async Task OnSelectedServiceList(object value)
+    {
+        selectedServiceIds = ((IEnumerable<int>)value).ToList();
+        categoriesSelectedServiceIds.AddRange(selectedServiceIds);
+        // Assuming categoriesSelectedServiceIds and selectedServiceIds are of type List<int>
+        var set = new HashSet<int>(categoriesSelectedServiceIds);
+        set.UnionWith(selectedServiceIds);
+        categoriesSelectedServiceIds = set.ToList();
+
+        selectedServiceIds = new List<int>();
+        selectedServiceIds.AddRange(categoriesSelectedServiceIds);
+
+        var services = await LoadCommonServices(selectedServiceIds);
+        commonServicess = services.ToList(); // Update the commonServicess list
+        commonServices.RemoveAll(f => commonServicess.Any(x => x.Id == f.Id));
+        commonCategoryService.TimeInMinutes = commonServicess.Sum(x => x.TimeInMinutes);
+        StateHasChanged(); // Trigger UI update
+    }
+
+
+    private async Task<IEnumerable<CommonServiceModel>> LoadCommonServices(List<int> selectedServiceIds)
+    {
+        List<CommonServiceModel> services = new List<CommonServiceModel>();
+        foreach (var id in selectedServiceIds)
+        {
+            var service = await _CommonService.GetById(id);
+            service.TimeIn = service.TimeInMinutes.ToString();
+            services.Add(service);
+        }
+        return services;
+    }
+
+    async Task DeleteRow(CommonServiceModel order)
+    {
+
+        if (await js.DeleteConfirm("Are you sure?", $"Delete the '{order.Name}' service from this Category ?", SweetAlertTypeMessagee.warning))
+        {
+            commonServicess.Remove(order);
+            selectedServiceIds.Remove(order.Id);
+            var serviceList = commonServicess;
+            commonServicess = new List<CommonServiceModel>();
+            commonServicess = serviceList;
+            commonServices.Add(order);
+            var mappedService = await _mapperHelperService.MapToSingleAsync<CommonServiceModel, CommonCategoryServiceModel>(order);
+            deletedCommonServices.Add(mappedService);
+            //await LoadCommonServices(selectedServiceIds);
+            commonCategoryService.TimeInMinutes = commonServicess.Sum(x => x.TimeInMinutes);
+            this.StateHasChanged();
+        }
+    }
+    #endregion
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+
+            var commonCategory = new CommonCategoryModel
+            {
+                    Id = selectedObjectId,
+                    IsActive = false,
+                    IsDeleted = true,
+                    UpdatedByUsername = loginUser.Username,
+            };
+
+            var deleteResponse = await _CommonCategoryService.Update(commonCategory);
+
+            if (deleteResponse.IsSuccess)
+            {
+                // Here Common Category Service Delete
+                var getCommonCategoryServices = await _commonCategoryServiceService.GetCommonCategoryServicesByCategoryId(selectedObjectId);
+
+                foreach (var categoryService in getCommonCategoryServices)
+                {
+                    var commonCategoryService = new CommonCategoryServiceModel
+                        {
+                            Id = categoryService.Id,
+                            IsDeleted = true,
+                            IsActive = false,
+                    };
+                    var commonCategoryServiceUpdate = await _commonCategoryServiceService.Update(categoryService);
+                }
+
+                await LoadCommonCategories();
+                commonCategory = new CommonCategoryModel();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+
+        isSubmitting = false;
+    }
+}

@@ -1,0 +1,67 @@
+﻿@using CutOutWiz.Services.Models.Security
+@using static CutOutWiz.Core.Utilities.Enums
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="module.Name"></InputText>
+        <ValidationMessage For="@(() => module.Name)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Icon" class="col-sm-4 col-form-label fw-bold">Icon</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="module.Icon"></InputText>
+        <ValidationMessage For="@(() => module.Icon)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="DisplayOrder" class="col-sm-4 col-form-label fw-bold">Display Order</label>
+    <div class="col-sm-8">
+        <InputNumber class="form-control" @bind-Value="module.DisplayOrder"></InputNumber>
+        <ValidationMessage For="@(() => module.DisplayOrder)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Permissions" class="col-sm-4 col-form-label fw-bold">Permissions</label>
+    <div class="col-sm-8">
+       <RadzenDropDown AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                            @bind-Value=@module.SelectedModulePermissons Multiple="true" Placeholder="Select..." Data=@permissions TextProperty="DisplayName" ValueProperty="ObjectId"
+                            Class="w-100" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Status" class="col-sm-4 col-form-label fw-bold">Status</label>
+    <div class="col-sm-8">
+      <InputSelect @bind-Value="module.Status" class="form-select">
+           <option value="0">- Select -</option>
+        @foreach (var status in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            <option value="@((int)status)">@status</option>
+        }
+         </InputSelect>
+        <ValidationMessage For="@(() => module.Status)" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public ModuleModel module { get; set; }
+
+    [Parameter]
+    public List<PermissionModel> permissions { get; set; }
+
+    //https://blazor.radzen.com/dropdown
+    //[Parameter]
+    //public IEnumerable<string> selectedModulePermissons { get; set; }
+
+    void OnChange(object value, string name)
+    {
+        var str = value is IEnumerable<object> ? string.Join(", ", (IEnumerable<object>)value) : value;
+       // console.Log($"{name} value changed to {str}");
+    }
+}

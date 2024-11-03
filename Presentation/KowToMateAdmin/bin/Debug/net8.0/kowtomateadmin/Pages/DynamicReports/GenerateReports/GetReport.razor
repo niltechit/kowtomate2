@@ -1,0 +1,285 @@
+﻿@page "/report/getreports"
+
+@using System.Linq.Dynamic.Core
+@using CutOutWiz.Core.Utilities;
+@using CutOutWiz.Services.DynamicReports;
+@using CutOutWiz.Services.ImportExport;
+@using KowToMateAdmin.Services;
+@using static CutOutWiz.Core.Utilities.Enums;
+
+@inject IDynamicReportInfoService _dynamicReportInfoService
+@inject IDataImportExportService _dataImportService
+@inject IGridFilterService _gridFilterService
+@inject IJSRuntime js
+@inject NotificationService _notificationService
+@inject IWorkContext _workContext
+@*@attribute [Authorize(Roles = "DynamicReport.CanViewGetDynamicReport")]*@
+
+<style>
+    .ui-dropdown-items-wrapper {
+        max-height: 400px !important;
+    }
+</style>
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Get Reports
+            </h4>
+            @*<div class="page-title-right">
+            <button type="button" class="btn btn-sm btn-primary me-2" disabled="@isExporting || @isSearching" @onclick="DownloadExcelDocument" title="Export">
+            @if (isExporting)
+            {
+            @:<span class="fas i fa-spinner fa-spin"></span> Exporting
+            }
+            else
+            {
+            @:<span class="fas i fa-file-export"></span> Export
+            }
+            </button>
+            </div>*@
+        </div>
+    </div>
+</div>
+
+<!-- end page title -->
+<div class="row">
+    <div class="col-lg-12">
+        <div class="mb-2 row">
+            <label for="Report" class="col-sm-2 col-form-label fw-bold">Select a Report</label>
+            <div class="col-sm-8">
+                <RadzenDropDown AllowClear="true" TValue="int?" @bind-Value="selectedDynamicReportInfoId" Change="OnSelectedReportChange" AllowVirtualization="true"
+                                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowFiltering="true" Class="w-100"
+                                Placeholder="- Select a Report -" Data=@dynamicReportList TextProperty="Name" ValueProperty="Id" All />
+            </div>
+        </div>
+
+        <div class="row mb-3">
+
+            @*@if (selectDynamicReportInfo.AllowCompanyFilter)
+            {
+            <div class="col-auto">
+            <label for="staticEmail2" class="visually-hidden">Company</label>
+            <RadzenDropDown Multiple="false" Placeholder="-- Select Company --" Data="@companies"  AllowClear="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"  AllowFiltering="true" TextProperty="Name" ValueProperty="Id" @bind-Value="dynamicReportFilter.ClientCompanyId" />
+            </div>
+            }*@
+
+
+            @* @if (tableColumns != null && tableColumns.Count() > 0)
+            {
+            <RadzenDataFilter @ref="dataFilter" Auto="false" Data="mainProducts" TItem="IDictionary<string, object>">
+            <Properties>
+
+            @foreach(var prop in tableColumns.Where(f=> f.Id != 1 && f.Id != 4).OrderBy(f=>f.DisplayName))
+            {
+            <RadzenDataFilterProperty TItem="IDictionary<string, object>" Property="@prop.FieldName" Type="GetTypeByString(prop.FieldTypeEnum)" FilterValue="GetDefaultFilterValue(prop.FieldTypeEnum)" Title="@prop.DisplayName" />
+            }
+
+            </Properties>
+            </RadzenDataFilter>
+            } *@
+
+            @if (selectDynamicReportInfo.AllowStartDateFilter)
+            {
+                <div class="col-auto">
+                    <label for="StartDate" class="visually-hidden">Start Date</label>
+                    <RadzenDatePicker ShowTime="true" Placeholder="Start Date" HourFormat="12" DateFormat="MM/dd/yyyy h:mm tt" @bind-Value="dynamicReportFilter.StartDate" />
+                </div>
+            }
+
+            @if (selectDynamicReportInfo.AllowEndDateFilter)
+            {
+                <div class="col-auto">
+                    <label for="EndDate" class="visually-hidden">End Date</label>
+                    <RadzenDatePicker ShowTime="true" Placeholder="End Date" HourFormat="12" DateFormat="MM/dd/yyyy h:mm tt" @bind-Value="dynamicReportFilter.EndDate" />
+                </div>
+            }
+
+            <div class="col-auto">
+                <label for="Actions" class="visually-hidden">Action</label>
+                <button type="button" disabled="@(isExporting || isSearching)" class="btn btn-sm btn-primary me-2" @onclick="FindResults" title="Show Result">
+                    @if (isSearching)
+                    {
+                        @:<span class="fas i fa-spinner fa-spin"></span> Showing Result
+                    }
+                    else
+                    {
+                        @:<span class="fas i fa-search"></span> Show Result
+                    }
+                </button>
+
+                <button type="button" class="btn btn-sm btn-success me-2" disabled="@(isSearching || isExporting)" @onclick="DownloadExcelDocument" title="Export">
+                    @if (isExporting)
+                    {
+                        @:<span class="fas i fa-spinner fa-spin"></span> Exporting
+                    }
+                    else
+                    {
+                        @:<span class="fas i fa-file-export"></span> Export
+                    }
+                </button>
+            </div>
+
+        </div>
+
+        @if (showProgressBar)
+        {
+            <RadzenProgressBar Value="progressBarCurrentValue" Max="100" />
+        }
+
+        @*<RadzenDataGrid @ref="grid" TItem="IDictionary<string, object>" @bind-Value=@selectedProducts LoadData="@LoadData" Count="@count"*@
+
+        @if (showGrid)
+        {
+            <RadzenDataGrid @ref="grid" TItem="IDictionary<string, object>" @bind-Value=@selectedProducts
+                            Data="@mainProducts"
+                            AllowFiltering="@selectDynamicReportInfo.AllowFiltering"
+                            AllowGrouping="true"
+                            AllowColumnPicking="true"
+                            PickedColumnsChanged="@PickedColumnsChanged"
+                            ColumnReordered="@OnColumnReordered"
+                            FilterMode="FilterMode.Advanced"
+                            FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                            AllowPaging="@selectDynamicReportInfo.AllowPaging"
+                            AllowSorting="@selectDynamicReportInfo.AllowSorting"
+                            IsLoading=@(isLoading)
+                            SelectionMode="DataGridSelectionMode.Multiple"
+                            PageSizeOptions="@pageSizeOptions"
+                            PageSize="@selectDynamicReportInfo.PageSize"
+                            ShowPagingSummary="true"
+                            Render="@OnGridRender"
+                            PagingSummaryFormat="@pagingSummaryFormat">
+                <Columns>
+                    @foreach (var column in tableColumns)
+                    {
+                        <RadzenDataGridColumn TItem="IDictionary<string, object>" Title="@column.DisplayName" Type="GetTypeByString(column.FieldTypeEnum)"
+                                              Property="@GetColumnPropertyExpression(column.FieldName, GetTypeByString(column.FieldTypeEnum))"
+                                              Filterable="@column.Filterable" Groupable="@column.Groupable" Sortable="@column.Sortable" Width="@column.WidthWithPx" TextAlign="(TextAlign)column.TextAlign">
+                            <Template>
+                                @if (column.FieldTypeEnum == TableFieldTypeSm.Integer
+                               || column.FieldTypeEnum == TableFieldTypeSm.Decimal
+                               || column.FieldTypeEnum == TableFieldTypeSm.Date)
+                                {
+                                    <div style="background-color:@column.BackgroundColor;color:@column.TextColor">@string.Format("{0:" + column.DispalyFormat + "}", @context[@column.FieldName])</div>
+                                }
+                                else if (column.FieldTypeEnum == TableFieldTypeSm.Boolean)
+                                {
+                                    var value = context[@column.FieldName];
+                                    @if (value is Boolean valueAsTest && valueAsTest == true)
+                                    {
+                                        <div style="background-color:#158419;color:#FFFFFF">YES</div>
+                                    }
+                                    else
+                                    {
+                                        <div style="background-color:#F30F0F;color:#FFFFFF">NO</div>
+                                    }
+                                }
+                                else
+                                {
+                                    var bgColor = "";
+                                    var fieldValue = context[@column.FieldName];
+                                    if (!string.IsNullOrEmpty(column.BackgroundColorRules))
+                                    {
+                                        if (column.BackgroundColorRules.Contains("="))
+                                        {
+                                            //YES=#158419,NO=#F30F
+                                            //bgColor = StringHelper.GetColorValueUsingKeyFormString(header.BackgroundColorRules, formattedValue);
+                                            var bdCustom = StringHelper.GetColorValueUsingKeyFormString(column.BackgroundColorRules, fieldValue?.ToString());
+
+                                            if (string.IsNullOrEmpty(bdCustom))
+                                            {
+                                                bgColor = $"background-color:{bdCustom}";
+                                            }
+                                        }
+                                    }
+                                    else if (!string.IsNullOrEmpty(column.BackgroundColor))
+                                    {
+                                        bgColor = $"background-color:{column.BackgroundColor}";
+                                    }
+
+                                    <div style="@bgColor;color:@column.TextColor">@context[@column.FieldName]</div>
+                                }
+
+                            </Template>
+
+                            <FooterTemplate>
+                                @if ((column.ShowFooterTotal || column.ShowFooterAverage) && (column.FieldTypeEnum == TableFieldTypeSm.Integer || column.FieldTypeEnum == TableFieldTypeSm.Decimal))
+                                {
+                                    decimal sum = 0;
+                                    int count = 0;
+
+                                    if (column.FieldTypeEnum == TableFieldTypeSm.Integer)
+                                    {
+                                        foreach (var item in mainProducts)
+                                        {
+                                            if (item.ContainsKey(column.FieldName) && item[column.FieldName] != null)
+                                            {
+                                                sum += item[column.FieldName] is int decimalValue ? decimalValue : 0;
+                                                // sum += (decimal)item[column.FieldName];
+                                                count++;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        foreach (var item in mainProducts)
+                                        {
+                                            if (item.ContainsKey(column.FieldName) && item[column.FieldName] != null)
+                                            {
+                                                sum += item[column.FieldName] is decimal decimalValue ? decimalValue : 0;
+                                                // sum += (decimal)item[column.FieldName];
+                                                count++;
+                                            }
+                                        }
+                                    }
+
+                                    var seperator = "";
+                                    if (column.ShowFooterTotal)
+                                    {
+                                        if (!string.IsNullOrEmpty(column.FooterTotalLabel))
+                                        {
+                                            @:@column.FooterTotalLabel: @string.Format("{0:" + column.DispalyFormat + "}", sum)
+                                        }
+                                        else
+                                        {
+                                            @:Total: @string.Format("{0:" + column.DispalyFormat + "}", sum)
+                                        }
+
+                                        seperator = ", ";
+                                    }
+
+                                    if (column.ShowFooterAverage && count > 0)
+                                    {
+                                        if (!string.IsNullOrEmpty(column.FooterAverageLabel))
+                                        {
+                                            @:@column.FooterAverageLabel: @string.Format("{0:" + column.DispalyFormat + "}", sum / count)
+                                        }
+                                        else
+                                        {
+                                            @:@seperator Average: @string.Format("{0:" + column.DispalyFormat + "}", sum / count)
+                                        }
+                                    }
+                                }
+
+                            </FooterTemplate>
+                            <GroupFooterTemplate>
+                                @if (column.ShowGroupTotal)
+                                {
+                                    decimal sum = context.Data.Items.Cast<IDictionary<string, object>>().Sum(o => Convert.ToDecimal(o[column.FieldName]));
+                                    @:Total: @sum.ToString(column.DispalyFormat)
+                                }
+                            </GroupFooterTemplate>
+
+                        </RadzenDataGridColumn>
+                    }
+                </Columns>
+            </RadzenDataGrid>
+        }
+    </div>
+</div>
+
+@code {
+
+}

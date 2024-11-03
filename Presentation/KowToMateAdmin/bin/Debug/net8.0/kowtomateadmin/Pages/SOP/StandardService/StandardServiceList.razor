@@ -1,0 +1,247 @@
+﻿@page "/sop-standard-service"
+
+@attribute [Authorize(Roles = "SOP.ManageStandardService")]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.SOP
+@using CutOutWiz.Services.SOP
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IOrderSOPStandardServiceService _standardServiceService
+
+<!-- start page title -->
+<div class="row">
+	<div class="col-12">
+		<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+			<h4 class="mb-sm-0 font-size-18">
+				SOP Standard Services
+			</h4>
+			<div class="page-title-right">
+				<button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New StandardService"><span class="fas fa-plus"></span> Add New</button>
+			</div>
+		</div>
+	</div>
+</div>
+<!-- end page title -->
+<div class="row">
+    <div class="col-lg-12">
+		 <RadzenDataGrid Data="@standardServices" IsLoading="isLoading" TItem="SOPStandardServiceModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+                <RadzenDataGridColumn TItem="SOPStandardServiceModel" Property="Name" Title="Name" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="SOPStandardServiceModel" Property="SortOrder" Title="Sort Order" />
+
+                <RadzenDataGridColumn TItem="SOPStandardServiceModel" Property="Status" Title="Status" FilterValue="@filterStatus" TextAlign="TextAlign.Center">
+                    <FilterTemplate>
+                        <RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                                        Data="@(statuses)" AllowClear="true" />
+                    </FilterTemplate>
+                    <Template Context="role">
+                        @if (role.Status == (int)GeneralStatus.Active)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Inactive</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SOPStandardServiceModel" Property="CreatedDate" Title="Created Date" TextAlign="TextAlign.Center" Filterable="false" />
+                <RadzenDataGridColumn Width="120px" TItem="SOPStandardServiceModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.ObjectId))">
+                            <span class="fas fa-pencil-alt"></span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.ObjectId,data.Name)">
+                            <span class="fas fa-times"></span>
+                        </button>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+	<EditForm Model=@standardService OnValidSubmit="@InsertUpdateStandardService">
+		<div class="modal" tabindex="-1" style="display:block;">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title">SOP Standard Service</h5>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+					</div>
+					<div class="modal-body">
+						<DataAnnotationsValidator />
+						<div class="row">
+							<StandardServiceAddEdit standardService="standardService" />
+							<div class="col">
+							</div>
+						</div>
+					</div>
+					<div class="modal-footer">
+						<button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+						@if (!string.IsNullOrWhiteSpace(standardService.ObjectId))
+						{
+							<button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(standardService.ObjectId,standardService.Name)">Delete</button>
+						}
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+	protected ModalNotification ModalNotification { get; set; }
+	IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+	bool isSubmitting;
+	private List<SOPStandardServiceModel> standardServices;
+	private SOPStandardServiceModel standardService = null;
+	bool isPopupVisible = false;
+	private LoginUserInfoViewModel loginUser = null;
+	private string selectedObjectId = "";
+	List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+    private byte? filterStatus;
+
+	protected override async Task OnInitializedAsync()
+	{
+        isLoading = true;
+		loginUser = _workContext.LoginUserInfo;
+		await LoadStandardServices();
+
+		//Pooulate Status
+		foreach (GeneralStatus item in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+        isLoading = false;
+	}
+
+	private async Task LoadStandardServices()
+	{
+		standardServices = await _standardServiceService.GetAll();
+	}
+
+	private async Task RowDoubleClick(DataGridRowMouseEventArgs<SOPStandardServiceModel> args)
+    {
+        await Edit(args.Data.ObjectId);
+    }
+
+	private async Task InsertUpdateStandardService()
+	{
+		isSubmitting = true;
+
+		if (standardService.Id == 0)
+		{
+			standardService.CreatedByContactId = loginUser.ContactId;
+			standardService.ObjectId = Guid.NewGuid().ToString();
+
+			var addResponse = await _standardServiceService.Insert(standardService);
+
+			if (!addResponse.IsSuccess)
+			{
+				ModalNotification.ShowMessage("Error", addResponse.Message);
+				isSubmitting = false;
+				return;
+			}
+		}
+		else
+		{
+			standardService.UpdatedByContactId = loginUser.ContactId;
+			var updateResponse = await _standardServiceService.Update(standardService);
+
+			if (!updateResponse.IsSuccess)
+			{
+				ModalNotification.ShowMessage("Error", updateResponse.Message);
+				isSubmitting = false;
+				return;
+			}
+		}
+
+		standardService = new SOPStandardServiceModel();
+		isSubmitting = false;
+
+		await LoadStandardServices();
+		CloseAddEditPopup();
+	}
+
+	string StatusText()
+	{
+		if (standardService.Status == (int)GeneralStatus.Active)
+		{
+			return "<span class='badge bg-success'>Active</span>";
+		}
+
+		return "<span class='badge bg-info text-dark'>Inactive</span>";
+	}
+
+	void AddNew()
+	{
+		standardService = new SOPStandardServiceModel { Status = (int)GeneralStatus.Active };
+
+		isSubmitting = false;
+		ShowAddEditPopup();
+	}
+
+	private async Task Edit(string objectId)
+	{
+		standardService = await _standardServiceService.GetByObjectId(objectId);
+		ShowAddEditPopup();
+	}
+
+	void ShowAddEditPopup()
+	{
+		isPopupVisible = true;
+	}
+
+	void CloseAddEditPopup()
+	{
+		isPopupVisible = false;
+	}
+
+	protected void Delete(string objectId, string name)
+	{
+		selectedObjectId = objectId;
+		var msg = $"Are you sure you want to delete the standardService \"{name}\"?";
+		ModalNotification.ShowConfirmation("Confirm Delete", msg);
+	}
+
+	protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+	{
+		if (deleteConfirmed)
+		{
+			var deleteResponse = await _standardServiceService.Delete(selectedObjectId);
+
+			if (deleteResponse.IsSuccess)
+			{
+				await LoadStandardServices();
+				standardService = new SOPStandardServiceModel();
+				CloseAddEditPopup();
+			}
+			else
+			{
+				ModalNotification.ShowMessage("Error", deleteResponse.Message);
+			}
+		}
+
+		isSubmitting = false;
+	}
+}

@@ -1,0 +1,311 @@
+﻿@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Services.Models.ClientOrders;
+@using CutOutWiz.Core.Dashboards
+@using CutOutWiz.Services.ClientOrders;
+@using CutOutWiz.Services.Dashboards
+@using KowToMateAdmin.Models.Security
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IJSRuntime js
+@inject AuthenticationStateProvider _authenticationStateProvider
+@inject IDashboardService _dashboardService
+@inject IWorkContext _workContext
+@inject IClientOrderService _clientOrderService
+<PageTitle>Dashboard</PageTitle>
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Dashboard
+            </h4>
+            @*<div class="page-title-right">
+            <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New Designation"><span class="fas fa-plus"></span> Add New</button>
+            </div>*@
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+<div class="row">
+
+    
+			<div class="col-xl-3">
+				<div class="card overflow-hidden">
+			<div class="bg-primary bg-soft" style="background: rgba(125, 165, 47, .25) !important;">
+						<div class="row">
+							<div class="col-7">
+                        <div class="p-3">
+                            <h5 class="" style="color: #212E1D !important;" >Welcome Back !</h5>
+                            <p style="color: #212E1D !important;">Client Dashboard</p>
+								</div>
+							</div>
+							<div class="col-5 align-self-end">
+								<img src="assets/images/profile-img.png" alt="" class="img-fluid">
+							</div>
+						</div>
+					</div>
+					<div class="card-body pt-0">
+						<div class="row">
+							<div class="col-sm-4">
+								<div class="avatar-md profile-user-wid mb-4" style="width:90px;" >
+									<img src="assets/images/users/deadpool.png" style="width:80px;height:80px;" alt="" class="img-thumbnail rounded-circle">
+								</div>
+                        <h5 class="font-size-15 text-truncate" style="padding-top:28px">@loginUser.FullName</h5>
+								@*<p class="text-muted mb-0 text-truncate">@</p>*@
+							</div>
+
+
+                    <div class="col-sm-8">
+                        <div class="pt-4">
+
+                            <div class="row">
+                                <div class="col-6">
+                                    <h5 class="font-size-15">@statList.Where(f => f.FieldType == "OrderStatusWiseCount").Sum(f=>f.FieldValue).ToString("N0")</h5>
+                                    <p class="text-muted mb-0">Total Orders</p>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <a href="/myprofile" style="background: #7da52f !important; border: thin solid #7da52f !important;" class="btn btn-primary waves-effect waves-light btn-sm">View Profile <i class="mdi mdi-arrow-right ms-1"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+      @*  <div class="card">
+            <div class="card-body">
+                <h4 class="card-title mb-4">Image Status (Total: @statList.Where(f=> f.FieldType == "OrderItemStatusWiseCount").Sum(f=>f.FieldValue).ToString("N0")) </h4>
+                <div class="row">
+                    <div class="col-sm-12">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle table-nowrap mb-0">
+                              
+                                <tbody>
+                                    @foreach (var fileStat in statList.Where(f => f.FieldType == "OrderItemStatusWiseCount"))
+                                    {
+                                        <tr>
+                                            <td>
+                                                <span class=@cssHelper.GivenBackgroundColorForStatus((int)fileStat.FieldName)>
+                                                    @(
+                                                        (InternalOrderItemStatus)(int)fileStat.FieldName
+                                                        )
+                                                </span>
+                                              
+                                            </td>
+                                            <td>
+                                                @fileStat.FieldValue.ToString("N0")
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>*@
+    </div>
+    <div class="col-xl-9">
+        <div class="row">
+           @* <div class="col-md-3">
+
+                <div class="row">
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <span>Filter</span>
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <div class="col-auto">
+                        <label for="staticEmail2" class="visually-hidden">Email</label>
+                        <RadzenDatePicker @bind-Value=@StartDate Change="()=> OnInitializedAsync()" />
+
+                    </div>
+                    <div class="col-auto">
+                        <label for="staticEmail2" class="visually-hidden">Email</label>
+
+                        <RadzenDatePicker @bind-Value=@EndDate Change="()=> OnInitializedAsync()" />
+
+                    </div>
+                </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="col-md-9">*@
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card mini-stats-wid">
+                            <div class="card-body">
+                                <div class="d-flex">
+                                    <div class="flex-grow-1">
+                                        <p class="text-muted fw-medium">Completed Order</p>
+                                        <h4 class="mb-0">
+                                            @(statList.FirstOrDefault(f => f.FieldType == "OrderStatusWiseCount" && f.FieldName == (int)ExternalOrderStatus.Completed)?.FieldValue.ToString("N0") ?? "0")
+                                        </h4>
+                                    </div>
+
+                                    <div class="flex-shrink-0 align-self-center ">
+                                        <div class="avatar-sm rounded-circle mini-stat-icon" style="background:#7da52f">
+                                            <span style="background: #7da52f !important;" class="avatar-title rounded-circle bg-primary">
+                                                <i class="bx bx-archive-in font-size-24"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card mini-stats-wid">
+                            <div class="card-body">
+                                <div class="d-flex">
+                                    <div class="flex-grow-1">
+                                        <p class="text-muted fw-medium">Pending Orders</p>
+                                        <h4 class="mb-0">@statList.Where(f => f.FieldType == "OrderStatusWiseCount" && f.FieldName != (int)ExternalOrderStatus.Completed).Sum(f => f.FieldValue).ToString("N0")</h4>
+                                    </div>
+
+                                    <div class="flex-shrink-0 align-self-center ">
+                                        <div class="avatar-sm rounded-circle bg-primary mini-stat-icon">
+                                            <span style="background: #7da52f !important;" class="avatar-title rounded-circle bg-primary">
+                                                <i class="bx bx-archive-in font-size-24"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card mini-stats-wid">
+                            <div class="card-body">
+                                <div class="d-flex">
+                                    <div class="flex-grow-1">
+                                        <p class="text-muted fw-medium">Completed File</p>
+                                        <h4 class="mb-0">@statList.FirstOrDefault(f => f.FieldType == "OrderItemStatusWiseCount" && f.FieldName == (int)InternalOrderItemStatus.Completed)?.FieldValue.ToString("N0")</h4>
+                                    </div>
+
+                                    <div class="flex-shrink-0 align-self-center">
+                                        <div class="avatar-sm rounded-circle bg-primary mini-stat-icon">
+                                            <span style="background: #7da52f !important;" class="avatar-title rounded-circle bg-primary">
+                                                <i class="bx bx-purchase-tag-alt font-size-24"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+               @*     <div class="col-md-3">
+                        <div class="card mini-stats-wid">
+                            <div class="card-body">
+                                <div class="d-flex">
+                                    <div class="flex-grow-1">
+                                        <p class="text-muted fw-medium">Pending File</p>
+                                        <h4 class="mb-0">@statList.Where(f => f.FieldType == "OrderItemStatusWiseCount" && f.FieldName != (int)ExternalOrderStatus.Completed).Sum(f => f.FieldValue).ToString("N0")</h4>
+                                    </div>
+
+                                    <div class="flex-shrink-0 align-self-center">
+                                        <div class="avatar-sm rounded-circle bg-primary mini-stat-icon">
+                                            <span style="background: #7da52f !important;" class="avatar-title rounded-circle bg-primary">
+                                                <i class="bx bx-purchase-tag-alt font-size-24"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>*@
+                </div>
+            @*</div>*@
+
+        </div>
+        <!-- end row -->
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title mb-4">Latest Order</h4>
+                <div class="table-responsive">
+                    <table class="table align-middle table-nowrap mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="align-middle">Order Number</th>
+                                <th class="align-middle">Status</th>
+                                <th class="align-middle">Image Count</th>
+                                <th class="align-middle">Order Place Date</th>
+                                <th class="align-middle">Order Details</th>
+
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            @foreach (var order in clientOrders)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="form-check font-size-16">
+                                            @order.OrderNumber
+                                        </div>
+                                    </td>
+                                    <td><a href="javascript: void(0);" class="text-body fw-bold">@((ExternalOrderStatus)order.ExternalOrderStatus)</a> </td>
+                                    <td>@order.NumberOfImage</td>
+                                    <td>
+                                        @order.CreatedDate
+                                    </td>
+                                    <td>
+                                        <!-- Button trigger modal -->
+                                        <button style="background: #7da52f !important; border: thin solid #7da52f !important;" type="button" class="btn btn-primary btn-sm btn-rounded waves-effect waves-light" data-bs-toggle="modal" data-bs-target=".transaction-detailModal">
+                                            <a style="color:#fff" href="/order/Details/@order.ObjectId">View Details</a>
+                                        </button>
+                                    </td>
+                                </tr>
+
+                            }
+
+                        </tbody>
+                    </table>
+                </div>
+                <!-- end table-responsive -->
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    AuthenticationState authState;
+    private LoginUserInfoViewModel loginUser = null;
+
+    private List<DashboardStatsItem> statList = new List<DashboardStatsItem>();
+
+    public CssHelper cssHelper = new CssHelper();
+    List<ClientOrderModel> clientOrders = new List<ClientOrderModel>();
+
+    DateTime StartDate = DateTime.Now.AddDays(-30);
+    DateTime EndDate = DateTime.Now;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+        authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // string ip = HttpContext.Connection?.RemoteIpAddress.ToString();
+
+        if (firstRender)
+        {
+            var clientOrdersTemp = _clientOrderService.GetAllByCompanyIdAndDates(loginUser.CompanyId, StartDate, EndDate);
+            //clientOrders = clientOrders.Where(x => x.CreatedDate >= StartDate && x.CreatedDate <= EndDate).Take(10).ToList();
+            var statListTemp = _dashboardService.GetClientDashboardStatsByFilter(loginUser.CompanyId, StartDate, EndDate);
+            await Task.WhenAll(clientOrdersTemp, statListTemp);
+            clientOrders = clientOrdersTemp.Result;
+            statList = statListTemp.Result;
+            // loginUser = _workContext.LoginUserInfo;
+            // clientOrders = await _clientOrderService.GetAllByCompanyId(loginUser.CompanyId);
+            // clientOrders = clientOrders.Take(10).ToList();
+            // statList = await _dashboardService.GetClientDashboardStatsByFilter(loginUser.CompanyId, StartDate, EndDate);
+             StateHasChanged();
+            //await js.InvokeVoidAsync("initDashboard");
+        }
+    }
+}

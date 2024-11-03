@@ -1,0 +1,236 @@
+﻿@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Security
+@using CutOutWiz.Services;
+@using KowToMateAdmin.Helper;
+@using KowToMateAdmin.Models.Security;
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject ICustomAuthenticationService _authenticationService
+@inject NavigationManager NavigationManager
+@inject IWorkContext _workContext
+@inject IContactManager _contactManager
+@inject IJSRuntime js
+@inject IHttpContextAccessor HttpContextAccessor
+
+<div class="account-pages mt-4">
+	<div class="container">
+		<div class="row justify-content-center">
+			<div class="col-md-8 col-lg-6 col-xl-5">
+				<div class="card overflow-hidden mb-2">
+					<div class="bg-primary bg-soft">
+						<div class="row">
+							<div class="col-7">
+								<div class="text-primary p-4">
+									<h5 class="text-primary">Welcome Back !</h5>
+									<p>Sign in to continue to KowToMate.</p>
+								</div>
+							</div>
+							<div class="col-5 align-self-end">
+								<img src="assets/images/profile-img.png" alt="" class="img-fluid">
+							</div>
+						</div>
+					</div>
+					<div class="card-body pt-0 pb-0">
+						<div class="auth-logo">
+							<a href="/" class="auth-logo-light">
+								<div class="avatar-md profile-user-wid mb-2">
+									<span class="avatar-title rounded-circle bg-light">
+										<img src="assets/images/logo-light.svg" alt="" class="rounded-circle" height="34">
+									</span>
+								</div>
+							</a>
+
+							<a href="#" class="auth-logo-dark">
+								<div class="avatar-md profile-user-wid mb-2">
+									<span class="avatar-title rounded-circle bg-light">
+										<img src="assets/images/logo.svg" alt="" class="rounded-circle" height="34">
+									</span>
+								</div>
+							</a>
+						</div>
+						<div class="p-2">
+
+							<EditForm Model=@loginInfo OnValidSubmit="@DoLogin" class="form-horizontal">
+
+								<DataAnnotationsValidator />
+
+								@if (!string.IsNullOrWhiteSpace(errorMessage))
+								{
+									<div class="alert alert-danger" role="alert">
+										@errorMessage
+									</div>
+								}
+
+								<div class="mb-3">
+									<label for="username" class="form-label">Username</label>
+									<InputText class="form-control" @bind-Value="loginInfo.Username" placeholder="Enter username"></InputText>
+									<ValidationMessage For="@(() => loginInfo.Username)" />
+								</div>
+
+
+
+								@*<div class="mb-3">
+								<label class="form-label">Password</label>
+								<div class="input-group auth-pass-inputgroup">
+								<InputText @bind-Value="loginInfo.Password" type="password" class="form-control" placeholder="Enter password" aria-label="Password" aria-describedby="password-addon"></InputText>
+								<button class="btn btn-light " type="button" id="password-addon"><i class="mdi mdi-eye-outline"></i></button>
+								</div>
+								</div>*@
+								<div class="mb-3">
+									<label for="userpassword" class="col-sm-4 col-form-label fw-bold required-field">Password</label>
+									<div class="input-group auth-pass-inputgroup">
+										<InputText type="@passwordType" class="form-control" placeholder="password" aria-label="Password" aria-describedby="password-addon" @bind-Value="loginInfo.Password"></InputText>
+										<button class="btn btn-light " type="button" id="password-addon"><i @onclick="ShowPassword" class="@passwordIcon"></i></button>
+
+									</div>
+									<ValidationMessage For="@(() => loginInfo.Password)" />
+								</div>
+								<div class="form-check">
+									<InputCheckbox @bind-Value="loginInfo.RememberMe" class="form-check-input" id="remember-check"></InputCheckbox>
+									<label class="form-check-label" for="remember-check">
+										Remember me
+									</label>
+								</div>
+
+								<div class="mt-3 d-grid">
+									<button class="btn btn-primary waves-effect waves-light" type="submit" disabled="@isSubmitting">Log In</button>
+								</div>
+
+								<div class="mt-2 text-center">
+									<a href="/password/reset/mail" class="text-muted"><i class="mdi mdi-lock me-1"></i> Forgot your password?</a>
+								</div>
+								<div class="mt-3 text-center">
+									<p>Don't have an account ? <a href="/company/signup" class="fw-medium text-primary"> Signup Now </a> </p>
+
+								</div>
+							</EditForm>
+						</div>
+					</div>
+				</div>
+
+				<div class="text-center">
+
+					<p>© @DateTime.Now.Year  Developed <i class="mdi mdi-heart text-danger"></i> KowToMate</p>
+
+				</div>
+
+			</div>
+		</div>
+	</div>
+</div>
+<!-- end account-pages -->
+
+<ModalNotification @ref="modalNotification">
+</ModalNotification>
+
+@code {
+	protected ModalNotification modalNotification { get; set; }
+	private LoginViewModel loginInfo = new LoginViewModel();
+	private bool isSubmitting = false;
+
+	private string errorMessage = "";
+	string passwordType = "password";
+	string passwordIcon = "fas fa-eye-slash";
+
+	private async Task DoLogin()
+	{
+		errorMessage = "";
+		var user = new UserModel();
+		var company = new CompanyModel();
+		//var response = await _authenticationService.AuthenticateUser(loginInfo);
+		(user, company) = await _authenticationService.AuthenticationUser(loginInfo);
+
+		if (user == null || string.IsNullOrEmpty(user.Username))
+		{
+			errorMessage = "Your username and/or password do not match. Please try again.";
+			isSubmitting = false;
+			return;
+		}
+
+		var ip = "";
+		if (HttpContextAccessor.HttpContext != null && HttpContextAccessor.HttpContext.Connection.RemoteIpAddress != null)
+		{
+			ip = HttpContextAccessor.HttpContext.Connection.RemoteIpAddress?.ToString();
+		}
+		if (company.CompanyType !=(int)CompanyType.Client)
+		{
+			if (!string.IsNullOrWhiteSpace(user.DownloadFolderPath))
+			{
+				var contactIp = user.DownloadFolderPath;
+				var removeString = "//" + ip + "/KD";
+				//var removeString = "//" + ip + "/KD";
+				//await js.DisplayMessage($"last ip : {removeString} First IP : {contactIp}");
+				//return;
+
+				if (contactIp != removeString)
+				{
+					if (!await js.YesConfirmation("", $"Your Id is login another pc {user.DownloadFolderPath}", SweetAlertTypeMessagee.question))
+					{
+						return;
+					}
+
+				}
+
+			}
+		}
+		
+		
+		//  LocalRedirect("/");
+
+		// return LocalRedirect(returnUrl);
+		//returnUrl = returnUrl ?? Url.Content("~/");
+
+		// *** !!! This is where you would validate the user !!! ***
+		// In this example we just log the user in
+
+		// (Always log the user in for this demo)
+		//var claims = new List<Claim>
+		//        {
+		//            new Claim(ClaimTypes.Name, "First Name"),
+		//            new Claim(ClaimTypes.Role, "Administrator"),
+		//        };
+
+		//var claimsIdentity = new ClaimsIdentity(
+		//    claims, CookieAuthenticationDefaults.AuthenticationScheme);
+		//    //https://github.com/dotnet/aspnetcore/issues/13601#issuecomment-679870698
+		//var authProperties = new AuthenticationProperties
+		//    {
+		//        IsPersistent = true
+		//    };
+
+		//    try
+		//    {
+		//        //https://docs.microsoft.com/en-us/aspnet/core/blazor/security/?view=aspnetcore-6.0
+		//        await httpContextAccessor.HttpContext.SignInAsync(
+		//        CookieAuthenticationDefaults.AuthenticationScheme,
+		//        new ClaimsPrincipal(claimsIdentity),
+		//        authProperties);
+
+		//        //return LocalRedirect(returnUrl);
+		//    }
+		//    catch
+		//    {
+
+		//    }
+
+		isSubmitting = false;
+		Guid key = Guid.NewGuid();
+		BlazorCookieLoginMiddleware.Logins[key] = loginInfo;
+		NavigationManager.NavigateTo($"/authorizelogin?key={key}", true);
+	}
+	private async Task ShowPassword()
+	{
+		if (passwordIcon == "fas fa-eye-slash")
+		{
+			passwordType = "";
+			passwordIcon = "fas fa-eye";
+		}
+		else if (passwordIcon == "fas fa-eye")
+		{
+			passwordType = "password";
+			passwordIcon = "fas fa-eye-slash";
+		}
+	}
+}

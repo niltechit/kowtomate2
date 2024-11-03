@@ -1,0 +1,571 @@
+﻿@page "/teamstatusdashboard/teamstatusdashboard-list/"
+
+@using CutOutWiz.Core.Utilities;
+@using CutOutWiz.Core.Management;
+@using CutOutWiz.Services.Models.Security;
+@using CutOutWiz.Core;
+@using CutOutWiz.Services.Management;
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Security;
+@using KowToMateAdmin.Helper;
+@using KowToMateAdmin.Models.Security;
+@using static CutOutWiz.Core.Utilities.Enums;
+
+@inject IContactManager _contactManager
+@inject IWorkContext _workContext
+@inject ITeamService _teamService
+@inject IRoleManager _roleManager
+@inject ITeamMemberService _teamMemberService
+@inject IManageTeamMemberChangelogService _manageTeammemberChangeLog
+@inject IJSRuntime js
+
+<!-- start page title -->
+
+<div class="row">
+    <div class="col-xl-12">
+        <div class="card">
+            <div class="card-header">
+                <h3>Team Name: @teamName</h3>
+            </div>
+            <div class="card-body">
+               
+                <!-- Nav tabs -->
+                <ul class="nav nav-tabs" role="tablist">
+                 
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#currentTeamMember" role="tab">
+                            <span class="d-block d-sm-none"><i class="fas fa-home"></i></span>
+                            <span class="d-none d-sm-block">Current Team Member</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#supportingMembers" role="tab">
+                            <span class="d-block d-sm-none"><i class="far fa-user"></i></span>
+                            <span class="d-none d-sm-block">Supporting member</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#supportotherTeam" role="tab">
+                            <span class="d-block d-sm-none"><i class="far fa-user"></i></span>
+                            <span class="d-none d-sm-block">Support Other Team</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+              
+                <!-- Tab panes -->
+                <div class="tab-content p-3 text-muted">
+                    <div class="tab-pane active" id="currentTeamMember" role="tabpanel">
+                       <div class="row">
+                            @if (availableMembers !=null && availableMembers.Any())
+                            {
+                                <div class="col-lg-12">
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                                                <h4 class="mb-sm-0 font-size-18">
+                                                    Active Team Members
+                                                </h4>
+                                                <AuthorizeView Roles="Team.CanProvideSupport">
+                                                <div class="page-title-right">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="ViewSupportMemberOnTeamPopup" title="Manage Support"><span class="fas fa-plus"></span> Manage Support</button>
+                                                </div>
+                                                </AuthorizeView>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <RadzenDataGrid @ref="grid" Data="@availableMembers" IsLoading="isLoading" TItem="ContactModel"
+                                                AllowFiltering="true" AllowColumnResize="true"
+                                                FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                                AllowSorting="true" AllowPaging="true" PageSize="50"
+                                                PagerHorizontalAlign="HorizontalAlign.Center"
+                                                ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                                                RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))"
+                                                SelectionMode="DataGridSelectionMode.Multiple"
+                                                AllowRowSelectOnRowClick=@allowRowSelectOnRowClick
+                                                @bind-Value="@selectedContacts"
+                                                RowRender="@OnRowRender">
+                                        <Columns>
+
+                                            @* This is for select row*@
+                                            <RadzenDataGridColumn TItem="ContactModel" TextAlign="TextAlign.Center" Width="30px" Frozen="true" Sortable="false"
+                                                              Filterable="false" Groupable="false" Reorderable="false" Pickable="false">
+                                                <HeaderTemplate>
+                                                    <RadzenCheckBox TriState="false" TValue="bool" Value="@(availableMembers == null ? false : availableMembers.Any(i => selectedContacts != null && selectedContacts.Contains(i)))"
+                                                                Change="@(args => selectedContacts = args && availableMembers != null ? availableMembers.ToList() : null)" />
+                                                </HeaderTemplate>
+                                                <Template Context="data">
+                                                    <RadzenCheckBox TriState="false" Value="@(selectedContacts != null && selectedContacts.Contains(data))"
+                                                                TValue="bool" Change=@(args => { if(!allowRowSelectOnRowClick) { grid.SelectRow(data); }}) />
+
+                                                </Template>
+                                            </RadzenDataGridColumn>
+
+                                            <RadzenDataGridColumn TItem="ContactModel" Property="FirstName" Title="First Name" SortOrder="SortOrder.Ascending">
+                                                <Template Context="contact">
+                                                    <a title="Order Detail" href="/teamstatusdashboard/teammemberassignimageandorder/@teamId/@contact.Id">@contact.FirstName  @contact.LastName</a>
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                             <RadzenDataGridColumn TItem="ContactModel" Property="EmployeeId" Title="Employee Id" />
+                                            <RadzenDataGridColumn TItem="ContactModel" Property="TeamName" Title="Team Name" />
+                                            @if (loginUser.CompanyType == (int)CompanyType.Admin)
+                                            {
+                                                <RadzenDataGridColumn TItem="ContactModel" OrderIndex=2 Property="Status" Title="Status" FilterValue="@filterStatus" TextAlign="TextAlign.Center" Width="200px" Frozen="true">
+                                                    <FilterTemplate>
+                                                        <RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                                                                Data="@(internalOrderItemStatusList)" AllowClear="true" />
+                                                    </FilterTemplate>
+                                                    <Template Context="contact">
+
+                                                        @if (contact.Status != null)
+                                                        {
+                                                            <span class=@cssHelper.GivenBackgroundColorForStatus((int)contact.Status)>
+                                                                @(
+                                                                    (InternalOrderItemStatus)contact.Status
+                                                                    )
+                                                            </span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span>N/A</span>
+                                                        }
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                            }
+                                            <RadzenDataGridColumn TItem="ContactModel" Property="DownloadFolderPath" Title="Download Path" />
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                </div>
+                            }
+                            else
+                            {
+                                <div>Team Member Not Available</div>
+                            }
+                        </div>
+                    </div>
+                    <div class="tab-pane" id="supportingMembers" role="tabpanel">
+                        <div class="row">
+                            @if (availableSupportingMember != null && availableSupportingMember.Any())
+                            {
+                                <div class="col-lg-12">
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                                                <h4 class="mb-sm-0 font-size-18">
+                                                    Supporting Members
+                                                </h4>
+                                                <AuthorizeView Roles="Team.CanCancelSupport">
+                                                <div class="page-title-right">
+                                                    <button type="button" class="btn btn-sm btn-danger" @onclick="ViewCancelSupportMemberOnTeamPopup" title="Cancel Support"><span class="fas fa-plus"></span> Cancel Support</button>
+                                                </div>
+                                                </AuthorizeView>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                    <RadzenDataGrid @ref="gridSupportingMember" Data="@availableSupportingMember" IsLoading="isLoading" TItem="ContactModel"
+                                                AllowFiltering="true" AllowColumnResize="true"
+                                                FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                                AllowSorting="true" AllowPaging="true" PageSize="50"
+                                                PagerHorizontalAlign="HorizontalAlign.Center"
+                                                ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                                                RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))"
+                                                SelectionMode="DataGridSelectionMode.Multiple"
+                                                AllowRowSelectOnRowClick=@allowRowSelectOnRowClick
+                                                @bind-Value="@selectedCancelSupportContact"
+                                                RowRender="@OnRowRender">
+                                        <Columns>
+
+                                            @* This is for select row*@
+                                            <RadzenDataGridColumn TItem="ContactModel" TextAlign="TextAlign.Center" Width="30px" Frozen="true" Sortable="false"
+                                                              Filterable="false" Groupable="false" Reorderable="false" Pickable="false">
+                                                <HeaderTemplate>
+                                                    <RadzenCheckBox TriState="false" TValue="bool" Value="@(availableSupportingMember == null ? false : availableSupportingMember.Any(i => selectedCancelSupportContact != null && selectedCancelSupportContact.Contains(i)))"
+                                                                Change="@(args => selectedCancelSupportContact = args && availableSupportingMember != null ? availableSupportingMember.ToList() : null)" />
+                                                </HeaderTemplate>
+                                                <Template Context="data">
+                                                    <RadzenCheckBox TriState="false" Value="@(selectedCancelSupportContact != null && selectedCancelSupportContact.Contains(data))"
+                                                                TValue="bool" Change=@(args => { if(!allowCancelMemberRowSelectOnClick) { gridSupportingMember.SelectRow(data); }}) />
+
+                                                </Template>
+                                            </RadzenDataGridColumn>
+
+                                            <RadzenDataGridColumn TItem="ContactModel" Property="FirstName" Title="First Name" SortOrder="SortOrder.Ascending">
+                                                <Template Context="contact">
+                                                    <a title="Order Detail" href="/teamstatusdashboard/teammemberassignimageandorder/@teamId/@contact.Id">@contact.FirstName  @contact.LastName</a>
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                            <RadzenDataGridColumn TItem="ContactModel" Property="EmployeeId" Title="Employee Id" />
+                                            <RadzenDataGridColumn TItem="ContactModel" Property="TeamName" Title="Team Name" />
+                                            @if (loginUser.CompanyType == (int)CompanyType.Admin)
+                                            {
+                                                <RadzenDataGridColumn TItem="ContactModel" OrderIndex=2 Property="Status" Title="Status" FilterValue="@filterStatus" TextAlign="TextAlign.Center" Width="200px" Frozen="true">
+                                                    <FilterTemplate>
+                                                        <RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                                                                Data="@(internalOrderItemStatusList)" AllowClear="true" />
+                                                    </FilterTemplate>
+                                                    <Template Context="contact">
+
+                                                        @if (contact.Status != null)
+                                                        {
+                                                            <span class=@cssHelper.GivenBackgroundColorForStatus((int)contact.Status)>
+                                                                @(
+                                                                    (InternalOrderItemStatus)contact.Status
+                                                                    )
+                                                            </span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span>N/A</span>
+                                                        }
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                            }
+                                            <RadzenDataGridColumn TItem="ContactModel" Property="DownloadFolderPath" Title="Download Path" />
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                </div>
+                            }
+                            else
+                            {
+                                <div>Supporting Member Not Available</div>
+                            }
+                        </div>
+                       
+                    </div>
+                    <div class="tab-pane" id="supportotherTeam" role="tabpanel">
+                        @if (availableWhoSupportAnotherMember != null && availableWhoSupportAnotherMember.Any())
+                        {
+                            <div class="row">
+                                <div class="col-lg-12">
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                                                <h4 class="mb-sm-0 font-size-18">
+                                                    Support Another Team
+                                                </h4>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <RadzenDataGrid @ref="grid" Data="@availableWhoSupportAnotherMember" IsLoading="isLoading" TItem="ContactModel"
+                                                AllowFiltering="true" AllowColumnResize="true"
+                                                FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                                AllowSorting="true" AllowPaging="true" PageSize="50"
+                                                PagerHorizontalAlign="HorizontalAlign.Center"
+                                                ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                                                RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))"
+                                                SelectionMode="DataGridSelectionMode.Multiple"
+                                                AllowRowSelectOnRowClick=@allowRowSelectOnRowClick
+                                                @bind-Value="@selectedContacts"
+                                                RowRender="@OnRowRender">
+                                        <Columns>
+
+                                            @* This is for select row*@
+                                            <RadzenDataGridColumn TItem="ContactModel" TextAlign="TextAlign.Center" Width="30px" Frozen="true" Sortable="false"
+                                                              Filterable="false" Groupable="false" Reorderable="false" Pickable="false">
+                                                <HeaderTemplate>
+                                                    <RadzenCheckBox TriState="false" TValue="bool" Value="@(availableWhoSupportAnotherMember == null ? false : availableWhoSupportAnotherMember.Any(i => selectedContacts != null && selectedContacts.Contains(i)))"
+                                                                Change="@(args => selectedContacts = args && availableWhoSupportAnotherMember != null ? availableWhoSupportAnotherMember.ToList() : null)" />
+                                                </HeaderTemplate>
+                                                <Template Context="data">
+                                                    <RadzenCheckBox TriState="false" Value="@(selectedContacts != null && selectedContacts.Contains(data))"
+                                                                TValue="bool" Change=@(args => { if(!allowCancelMemberRowSelectOnClick) { grid.SelectRow(data); }}) />
+
+                                                </Template>
+                                            </RadzenDataGridColumn>
+
+                                            <RadzenDataGridColumn TItem="ContactModel" Property="FirstName" Title="First Name" SortOrder="SortOrder.Ascending">
+                                                <Template Context="contact">
+                                                    <a title="Order Detail" href="/teamstatusdashboard/teammemberassignimageandorder/@teamId/@contact.Id">@contact.FirstName  @contact.LastName</a>
+                                                </Template>
+                                            </RadzenDataGridColumn>
+                                             <RadzenDataGridColumn TItem="ContactModel" Property="EmployeeId" Title="Employee Id" />
+                                            <RadzenDataGridColumn TItem="ContactModel" Property="TeamName" Title="Team Name" />
+                                            @if (loginUser.CompanyType == (int)CompanyType.Admin)
+                                            {
+                                                <RadzenDataGridColumn TItem="ContactModel" OrderIndex=2 Property="Status" Title="Status" FilterValue="@filterStatus" TextAlign="TextAlign.Center" Width="200px" Frozen="true">
+                                                    <FilterTemplate>
+                                                        <RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                                                                Data="@(internalOrderItemStatusList)" AllowClear="true" />
+                                                    </FilterTemplate>
+                                                    <Template Context="contact">
+
+                                                        @if (contact.Status != null)
+                                                        {
+                                                            <span class=@cssHelper.GivenBackgroundColorForStatus((int)contact.Status)>
+                                                                @(
+                                                                    (InternalOrderItemStatus)contact.Status
+                                                                    )
+                                                            </span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span>N/A</span>
+                                                        }
+                                                    </Template>
+                                                </RadzenDataGridColumn>
+                                            }
+                                            <RadzenDataGridColumn TItem="ContactModel" Property="DownloadFolderPath" Title="Download Path" />
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div>No One Provide Support To Another Team</div>
+                        }
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+@if(showSupportMemberOnTeamPopup)
+{
+   @* <AuthorizeView Context="AssignSupportMemberToAnotherTeam" Roles="Order.AssignNewOrderItemToEditor">*@
+    <EditForm Model=@assignTeamMemberForSupport OnValidSubmit="@EnableTeamMemberForAnotherTeamSupport">
+
+            <div class="modal" tabindex="-1" style="display:block;">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                    <div class="modal-header">
+                                <h6>Assign Support Member</h6>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAssignSupportMemberOnTeamPopup"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="row" style="margin-bottom:19px;">
+                                    <div class="form-group">
+                                        <label>Select Team</label>
+                                        <InputSelect @bind-Value="assignTeamMemberForSupport.AssignTeamId" class="form-select">
+                                            <option value="0">- Select -</option>
+                                            @foreach (var type in companyTeams)
+                                            {
+                                                <option value="@(type.Id)">@type.Name</option>
+                                            }
+                                        </InputSelect>
+                                    <ValidationMessage For="@(() => assignTeamMemberForSupport.AssignTeamId)" />
+                                    </div>
+                                <div class="form-group">
+                                    <label>Assign Note</label>
+                                    <InputText class="form-control" @bind-Value="assignNote"></InputText>
+                                    </div>
+                                </div>
+                                <div class="row" style="max-height: 300px;overflow: auto;">
+                                    <div class="col-lg-12">
+                                <RadzenDataGrid Data="@selectedContacts" TItem="ContactModel"
+                                            SelectionMode="DataGridSelectionMode.Multiple">
+                                        <Columns>
+                                        <RadzenDataGridColumn TItem="ContactModel" Property="FirstName" Title="First Name" TextAlign="TextAlign.Left" Width="250px" />
+                                        <RadzenDataGridColumn TItem="ContactModel" Property="EmployeeId" Title="EmployeeId" TextAlign="TextAlign.Left" Width="100px" />
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="submit" class="btn btn-primary">Assign Support Member</button>
+                            </div>
+                    </div>
+                </div>
+            </div>
+        </EditForm>
+@*   </AuthorizeView>*@
+}
+
+
+@code {
+    private List<ContactModel> availableMembers;
+    private List<ContactModel> availableSupportingMember;
+    private List<ContactModel> availableWhoSupportAnotherMember;
+    bool isLoading = false;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    private LoginUserInfoViewModel loginUser = null;
+    List<CustomEnumTypes> internalOrderItemStatusList = new List<CustomEnumTypes>();
+    int teamId = 0;
+    private byte? filterStatus;
+    public CssHelper cssHelper = new CssHelper();
+    RadzenDataGrid<ContactModel> grid;
+    RadzenDataGrid<ContactModel> gridSupportingMember;
+    List<TeamModel> companyTeams = new List<TeamModel>();
+    TeamModel team = new TeamModel();
+    private IList<ContactModel> selectedContacts = new List<ContactModel>();
+    private IList<ContactModel> selectedCancelSupportContact = new List<ContactModel>();
+    bool showSupportMemberOnTeamPopup = false;
+    AssignTeamMemberForSupport assignTeamMemberForSupport = new AssignTeamMemberForSupport();
+    string assignNote = "";
+    bool allowRowSelectOnRowClick = false;
+    bool allowCancelMemberRowSelectOnClick = false;
+    string teamName = "N/A";
+    protected override async Task OnInitializedAsync()
+    {
+
+        foreach (InternalOrderItemStatus item in Enum.GetValues(typeof(InternalOrderItemStatus)))
+        {
+            internalOrderItemStatusList.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+
+
+
+        loginUser = _workContext.LoginUserInfo;
+        await LoadContacts();
+    }
+
+    private void OnRowRender(RowRenderEventArgs<ContactModel> args)
+    {
+        if (args.Data != null && args.Data.IsUserActive)
+        {
+            args.Attributes["class"] = "row-success";
+        }
+    }
+
+    private async Task LoadTeams()
+    {
+        companyTeams = await _teamService.GetAll();
+    }
+
+    private async Task LoadContacts()
+    {
+        var contactListModel = await _teamService.GetByContactId(loginUser.ContactId);
+        teamId = contactListModel.TeamId;
+
+        var response = await _teamService.GetById(contactListModel.TeamId);
+
+        if(response != null)
+        {
+            teamName = response.Name;
+        }
+
+        if (contactListModel != null)
+        {
+            availableMembers = await _contactManager.GetAvailableTeamMembersByTeamId(contactListModel.TeamId);
+            availableSupportingMember = await _contactManager.GetSupportMembersByTeamId(contactListModel.TeamId);
+            availableWhoSupportAnotherMember = await _contactManager.GetTeamMembersWhoSupportAnotherByTeamId(contactListModel.TeamId);
+        }
+    }
+
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<ContactModel> args)
+    {
+        //await Edit(args.Data.ObjectId);
+    }
+
+    private async Task ViewSupportMemberOnTeamPopup()
+    {
+        if (!selectedContacts.Any())
+        {
+            await js.DisplayMessage("Select at least one person");
+            return;
+        }
+        await LoadTeams();
+        showSupportMemberOnTeamPopup = true;
+        StateHasChanged();
+    }
+
+
+    private async Task ViewCancelSupportMemberOnTeamPopup()
+    {
+        if (!selectedCancelSupportContact.Any())
+        {
+            await js.DisplayMessage("Select at least one person");
+            return;
+        }
+        var contactViewModel = await _teamService.GetByContactId(loginUser.ContactId);
+
+        foreach (var contact in selectedCancelSupportContact.ToList())
+        {
+            var responseSupportingMember = await _teamMemberService.GetSupportingMember(contact, contactViewModel.TeamId);
+            //update team member log
+
+            ManageTeamMemberChangeLogModel manageTeamMemberChangelog = new ManageTeamMemberChangeLogModel
+             {
+                    CancelByContactId = loginUser.ContactId,
+                    CancelTime = DateTime.Now,
+                    CancelNote = " ",
+                    ManagementTeamMemberId = responseSupportingMember.Result.Id
+             };
+
+            var updateResponse = await _manageTeammemberChangeLog.Update(manageTeamMemberChangelog);
+
+           var response = await _teamMemberService.CancelSupportingMember(contact,contactViewModel.TeamId);
+        }
+       
+        selectedCancelSupportContact = new List<ContactModel>();
+        await LoadContacts();
+    }
+
+    private async Task EnableTeamMemberForAnotherTeamSupport()
+    {
+        if (assignTeamMemberForSupport.AssignTeamId <= 0)
+        {
+            await js.DisplayMessage("Select a team");
+            return;
+        }
+        List<TeamMember> supportingTeamMembers = new List<TeamMember>();
+
+        var teamRole = await _roleManager.GetByName(RoleNameConstant.EditorRoleName);
+
+        foreach (var contact in selectedContacts)
+        {
+            TeamMember teamMember = new TeamMember
+            {
+                ContactId = contact.Id,
+                TeamId = assignTeamMemberForSupport.AssignTeamId,
+                TeamRoleId = teamRole.Id,
+                CreatedByContactId = loginUser.ContactId,
+                ObjectId = Guid.NewGuid().ToString(),
+                IsSupportingMember = true
+           };
+
+            supportingTeamMembers.Add(teamMember);
+
+        }
+
+        var response = await _teamMemberService.InsertSupportingMember(supportingTeamMembers);
+
+        await InsertSupportTeamMemberLog(response.Result);
+        selectedContacts = new List<ContactModel>();
+        await LoadContacts();
+    }
+
+    private async Task InsertSupportTeamMemberLog(List<int> insertIds)
+    {
+
+        List<ManageTeamMemberChangeLogModel> manageTeamMemberChangelogs = new List<ManageTeamMemberChangeLogModel>();
+        int i = 0;
+        foreach (var contact in selectedContacts)
+        {
+
+            var contactListModel = await _teamService.GetByContactId(contact.Id);
+            var currentTeamId = contactListModel.TeamId;
+
+            ManageTeamMemberChangeLogModel manageTeamMemberChangelog = new ManageTeamMemberChangeLogModel
+                {
+                    TeamId = assignTeamMemberForSupport.AssignTeamId,
+                    MemberContactId = contact.Id,
+                    AssignByContactId = loginUser.ContactId,
+                    AssignTime = DateTime.Now,
+                    AssignNote = assignNote,
+                    IsSupportingMember = true,
+                    ManagementTeamMemberId = insertIds[i],
+                    SupportFromTeamId = currentTeamId
+                };
+
+            manageTeamMemberChangelogs.Add(manageTeamMemberChangelog);
+            i += 1;
+        }
+
+        await _manageTeammemberChangeLog.Insert(manageTeamMemberChangelogs);
+
+        await CloseAssignSupportMemberOnTeamPopup();
+    }
+
+    private async Task CloseAssignSupportMemberOnTeamPopup()
+    {
+        showSupportMemberOnTeamPopup = false;
+        StateHasChanged();
+    }
+}

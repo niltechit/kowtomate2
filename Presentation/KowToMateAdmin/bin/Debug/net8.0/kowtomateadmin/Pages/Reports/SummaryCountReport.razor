@@ -1,0 +1,246 @@
+﻿@page "/operationreport/imagesummarycount"
+@using CutOutWiz.Services.Models.Common;
+@using CutOutWiz.Services.Models.Dashboard;
+@using CutOutWiz.Services.ReportServices;
+@using CutOutWiz.Services.Managers.Common;
+
+@attribute [Authorize(Roles = "report.CanViewSummaryCount")]
+
+@inject AuthenticationStateProvider _authenticationStateProvider
+@inject IOperationReportService _operationReportService
+@inject IWorkContext _workContext
+@inject ICompanyManager _companyService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Reports
+            </h4>
+            <div class="page-title-right">
+
+                @*<a href="/management/teams" class="btn btn-sm btn-secondary" @onclick="AddNew" title="Back"><span class="fas fa-plus"></span> Back</a>*@
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+
+    <div class="col-auto">
+        <label for="staticEmail2" class="visually-hidden">Email</label>
+        <RadzenDropDown Multiple="false" Placeholder="-- Select Company --" Data="@companies" TextProperty="Name" ValueProperty="Id" @bind-Value="companyId"  />
+
+    </div>
+    <div class="col-auto">
+        <label for="staticEmail2" class="visually-hidden">Email</label>
+        <RadzenDatePicker @bind-Value=@StartDate ShowTime="true" ShowSeconds="true" HoursStep="1.5" MinutesStep="5" SecondsStep="10" DateFormat="MM/dd/yyyy HH:mm:ss"  />
+
+    </div>
+    <div class="col-auto">
+        <label for="staticEmail2" class="visually-hidden">Email</label>
+      
+        <RadzenDatePicker @bind-Value=@EndDate ShowTime="true" ShowSeconds="true" HoursStep="1.5" MinutesStep="5" SecondsStep="10" DateFormat="MM/dd/yyyy HH:mm:ss" />
+
+    </div>
+
+    <div class="col-auto">
+       
+
+    <button class="btn btn-success" @onclick="@LoadDatetimeRangeImageCount">Submit</button>
+
+    </div>
+
+</div>
+
+
+
+<div class="col-xl-12">
+	<div class="row">
+		<div class="col-md-3">
+			<div class="card mini-stats-wid">
+				<div class="card-body">
+					<div class="d-flex">
+						<div class="flex-grow-1">
+							<!--!--><p class="text-muted fw-medium">Total Received Images</p>
+                            <h4 class="mb-0">
+                                @if (getCompletedAndReceivedImages!=null)
+                                {
+                                    @getCompletedAndReceivedImages.TotalReceivedImages
+                                }
+                                else
+                                {
+                                    <span> 0</span>
+                                }
+                            </h4>
+                        </div><!--!-->
+						<!--!--><div class="flex-shrink-0 align-self-center"><div class="mini-stat-icon avatar-sm rounded-circle bg-primary"><span class="avatar-title"><i class="bx bx-copy-alt font-size-24"></i></span></div></div>
+					</div>
+				</div>
+			</div>
+		</div><!--!-->
+		<div class="col-md-3">
+			<div class="card mini-stats-wid">
+				<div class="card-body">
+					<div class="d-flex">
+						<div class="flex-grow-1">
+							<!--!--><p class="text-muted fw-medium">Total Completed Images</p>
+                            <h4 class="mb-0">
+                                @if (getCompletedAndReceivedImages != null)
+                                {
+                                    @getCompletedAndReceivedImages.TotalCompletedImages
+                                }
+                                else
+                                {
+                                    <span> 0</span>
+                                }
+                            </h4>
+						</div><!--!-->
+						<!--!--><div class="flex-shrink-0 align-self-center "><div class="avatar-sm rounded-circle bg-primary mini-stat-icon"><span class="avatar-title rounded-circle bg-primary"><i class="bx bx-archive-in font-size-24"></i></span></div></div>
+					</div>
+				</div>
+			</div>
+		</div><!--!-->
+		<div class="col-md-3">
+			<div class="card mini-stats-wid">
+				<div class="card-body">
+					<div class="d-flex">
+						<div class="flex-grow-1">
+                            <!--!--><p class="text-muted fw-medium">Total Pending Images</p>
+                            <h4 class="mb-0">
+                                @if (getCompletedAndReceivedImages != null)
+                                {
+                                    @getCompletedAndReceivedImages.TotalPendingImages
+                                }
+                                else
+                                {
+                                    <span> 0</span>
+                                }
+                            </h4>
+						</div><!--!-->
+						<!--!--><div class="flex-shrink-0 align-self-center"><div class="avatar-sm rounded-circle bg-primary mini-stat-icon"><span class="avatar-title rounded-circle bg-primary"><i class="bx bx-purchase-tag-alt font-size-24"></i></span></div></div>
+					</div>
+				</div>
+			</div>
+		</div><!--!-->
+
+        <div class="col-md-3">
+            <div class="card mini-stats-wid">
+                <div class="card-body">
+                    <div class="d-flex">
+                        <div class="flex-grow-1">
+                            <!--!--><p class="text-muted fw-medium">Deadline Over Percentage</p>
+                            <h4 class="mb-0">
+                                @if (getCompletedAndReceivedImages != null)
+                                {
+                                    @getCompletedAndReceivedImages.TotalDeadlineOverImagesPercentage
+                                }
+                                else
+                                {
+                                    <span> 0</span>
+                                }
+                            % </h4>
+                        </div><!--!-->
+                        <!--!--><div class="flex-shrink-0 align-self-center"><div class="avatar-sm rounded-circle bg-primary mini-stat-icon"><span class="avatar-title rounded-circle bg-primary"><i class="bx bx-purchase-tag-alt font-size-24"></i></span></div></div>
+                    </div>
+                </div>
+            </div>
+        </div><!--!-->
+        <div class="col-md-3">
+            <div class="card mini-stats-wid">
+                <div class="card-body">
+                    <div class="d-flex">
+                        <div class="flex-grow-1">
+                            <!--!--><p class="text-muted fw-medium">Avg Lead Time</p>
+                            <h4 class="mb-0">
+                                @if (getCompletedAndReceivedImages != null)
+                                {
+                                    @getCompletedAndReceivedImages.LeadTimeInMinutes
+                                } 
+                                else
+                                {
+                                    <span> 0</span>
+                                }
+                                Minutes
+                            </h4>
+                        </div><!--!-->
+                        <!--!--><div class="flex-shrink-0 align-self-center"><div class="avatar-sm rounded-circle bg-primary mini-stat-icon"><span class="avatar-title rounded-circle bg-primary"><i class="bx bx-purchase-tag-alt font-size-24"></i></span></div></div>
+                    </div>
+                </div>
+            </div>
+        </div><!--!-->
+	</div><!--!-->
+</div>
+
+
+<div class="container">
+    <div class="row">
+        <div class="col-sm-12 col-lg-6 offset-lg-3 my-5">
+            <RadzenChart>
+                <RadzenPieSeries Data="@receivedPaymentChartDataList" Title="Total"  CategoryProperty="LabelName" ValueProperty="Value">
+                    <RadzenSeriesDataLabels Visible="@showDataLabels" />
+                </RadzenPieSeries>
+            </RadzenChart>
+        </div>
+    </div>
+</div>
+@if (spinShow)
+{
+    <div class="loader">
+     <Grid />
+    </div>
+}
+
+@code {
+
+    bool showDataLabels = true;
+
+    private int companyId = 0;  //VC company Id
+    DateTime StartDate = DateTime.Now.AddDays(-30);
+    DateTime EndDate = DateTime.Now;
+    List<CompanyModel> companies;
+    bool isLoading = false;
+    List<DatetimeRangeImageCountModel> receivedPaymentChartDataList = new ();
+    OperationSummaryReportModel getCompletedAndReceivedImages = new OperationSummaryReportModel();
+    bool spinShow = false;
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Yield();
+        companies = await _companyService.GetAllClientCompany();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadDatetimeRangeImageCount();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadDatetimeRangeImageCount()
+    {
+        //receivedPaymentChartDataList = new List<DatetimeRangeImageCountModel>();
+        spinShow = true;
+        isLoading = true;
+        StateHasChanged();
+        getCompletedAndReceivedImages = await _operationReportService.GetImagesReceivedAndCompletedDataByDatetimeRange(companyId, StartDate, EndDate);
+
+        var  receivedPaymentChartDataList1 = new List<DatetimeRangeImageCountModel>();
+
+
+        if (getCompletedAndReceivedImages!=null)
+        {
+
+            receivedPaymentChartDataList1.Add(new DatetimeRangeImageCountModel { LabelName = "Total Received Images", Value = getCompletedAndReceivedImages.TotalReceivedImages });
+            receivedPaymentChartDataList1.Add(new DatetimeRangeImageCountModel { LabelName = "Total Completed Images", Value = getCompletedAndReceivedImages.TotalCompletedImages });
+            receivedPaymentChartDataList1.Add(new DatetimeRangeImageCountModel { LabelName = "Total Pending Images", Value = getCompletedAndReceivedImages.TotalPendingImages });
+        }
+
+        receivedPaymentChartDataList = receivedPaymentChartDataList1;
+        isLoading = false;
+        spinShow = false;
+        StateHasChanged();
+    }
+}

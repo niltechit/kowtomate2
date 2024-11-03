@@ -1,0 +1,856 @@
+﻿@page "/security/contacts"
+@page "/security/contacts/{paramCompanyObjectId}"
+@attribute [Authorize(Roles = "Contact.ViewList")]
+
+@using CutOutWiz.Core.Utilities;
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.EmailModels
+@using CutOutWiz.Core.Management
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Models.HR
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.ClaimManagementService
+@using CutOutWiz.Services.Email;
+@using CutOutWiz.Services.EmailMessage
+@using CutOutWiz.Services.Management
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Helper
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Models;
+@using KowToMateAdmin.Pages.Shared
+@using CutOutWiz.Services.HR
+@using static CutOutWiz.Core.Utilities.Enums
+@using CutOutWiz.Services.MapperHelper
+
+@inject IMapperHelperService _mapperHelperService
+@inject IWorkContext _workContext
+@inject IContactManager _contactManager
+@inject ICompanyManager _companyService
+@inject IRoleManager _roleManager
+@inject IUserService _userService
+@inject IDesignationService _designationService
+@inject IWorkflowEmailService _workflowEmailService
+@inject ITeamService _teamService
+@inject ITeamMemberService _teamMemberService
+@inject NavigationManager _navManager
+@inject IJSRuntime js
+@inject IConfiguration _configuration
+@inject IOperationEmailService _operationEmailService
+@inject IClaimsService _claimsService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Users</h4>
+            <div class="page-title-right">
+                <AuthorizeView Roles="Contact.Add">
+                    <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New Contact"><span class="fas fa-plus"></span> Add New</button>
+                </AuthorizeView>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+        <RadzenDataGrid Data="@contacts" IsLoading="isLoading" TItem="ContactListModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        AllowColumnPicking="true" AllowColumnReorder="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        AllowGrouping="@string.IsNullOrWhiteSpace(paramCompanyObjectId)"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        Render="@OnGridRender"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))"
+                        ColumnWidth="150px">
+            <Columns>
+                @if (loginUser.CompanyType != (int)CompanyType.Client)
+                {
+                    <RadzenDataGridColumn TItem="ContactListModel" Property="EmployeeId" Title="Employee ID" Frozen="true" Groupable="false" SortOrder="SortOrder.Ascending" Width="100px" />
+                }
+                <RadzenDataGridColumn TItem="ContactListModel" Property="FirstName" Title="First Name" Groupable="false" />
+                <RadzenDataGridColumn TItem="ContactListModel" Property="LastName" Title="Last Name" Groupable="false" />
+                @if (loginUser.CompanyType != (int)CompanyType.Client)
+                {
+                    @if (string.IsNullOrWhiteSpace(paramCompanyObjectId))
+                    {
+                        <RadzenDataGridColumn TItem="ContactListModel" Property="CompanyName" Title="Company Name" />
+                    }
+                    <RadzenDataGridColumn TItem="ContactListModel" Property="DesignationName" Title="Designation" Groupable="false" />
+                }
+                <RadzenDataGridColumn TItem="ContactListModel" Property="Email" Title="Email" Groupable="false" />
+                <RadzenDataGridColumn TItem="ContactListModel" Property="Phone" Title="Phone" Groupable="false" Width="120px" />
+                <RadzenDataGridColumn TItem="RoleViewModel" Property="Status" Title="Status" FilterValue="@filterStatus" TextAlign="TextAlign.Center">
+                    <FilterTemplate>
+                        <RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                                        Data="@(statuses)" AllowClear="true" />
+                    </FilterTemplate>
+                    <Template Context="role">
+                        @if (role.Status == (int)GeneralStatus.Active)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Inactive</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ContactListModel" Property="CreatedDate" Title="Created Date" Groupable="false" Filterable="false" />
+
+                <RadzenDataGridColumn Width="250px" TItem="ContactListModel" Property="Id" Title="Actions" Groupable="false" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="contact">
+
+                        @if (contact.UserId == 0)
+                        {
+                            <button class="btn btn-sm btn-outline-primary" @onclick='(async () => await SetManageUserMode("CREATE", contact.ObjectId))'>
+                                Create User
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-outline-primary" @onclick='(async () => await SetManageUserMode("CHANGE_ROLE", contact.ObjectId))'>
+                                Change Role
+                            </button>
+                            @* <button class="btn btn-sm btn-outline-danger " @onclick='(async () => await SetManageUserMode("CHANGE_PASSWORD", contact.ObjectId))'>
+                        Change Password
+                        </button> *@
+                            <button class="btn btn-sm btn-outline-danger " @onclick='(async ()=> ChangePasswordOnClicked(contact))'>
+                                Change Password
+                            </button>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn Width="80px" TItem="ContactListModel" Property="Id" Title="Actions" Groupable="false" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="contact">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(contact.ObjectId))">
+                            <span class="fas fa-pencil-alt"></span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(contact.ObjectId,contact.FirstName)">
+                            <span class="fas fa-times"></span>
+                        </button>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@contact OnValidSubmit="@InsertUpdateContact">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">User</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        @* <DataAnnotationsValidator/> *@
+
+                        <div class="row">
+                            <ContactAddEdit teams="teams" contact="contact" paramCompanyObjectId="paramCompanyObjectId" companies="companies" designations="designations" loginUser="loginUser" roles="roles" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @if (!string.IsNullOrWhiteSpace(contact.ObjectId))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(contact.ObjectId,contact.FirstName)">Delete</button>
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@if (isManageUserPopupVisible)
+{
+    <EditForm Model=@user OnValidSubmit="@InsertUpdateUser">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">@ManageUserTitle</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseManageUserPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <ContactManageUser ManageUserMode="@ManageUserMode" user="@user" roles="@roles" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        @if (!ManageUserMode.Equals("CHANGE_PASSWORD"))
+                        {
+                            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        }
+                        else if (ManageUserMode.Equals("CHANGE_PASSWORD"))
+                        {
+                            @* <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Send Password Recovery Email</button> *@
+                            <KowToMateAdmin.Pages.Security.PasswordResetForm userInfo="userInfo" />
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseManageUserPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+
+@if (isPasswordPopupVisible)
+{
+    <EditForm Model=@userInfo OnValidSubmit="@ChangePassword">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Password Reset</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="ClosePasswordEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <KowToMateAdmin.Pages.Security.PasswordResetForm userInfo="userInfo" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="ClosePasswordEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@if (spinShow)
+{
+    <div class="spinner"></div>
+}
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    [Parameter]
+    public string paramCompanyObjectId { get; set; }
+    protected ModalNotification ModalNotification { get; set; }
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    bool isSubmitting;
+    bool isPasswordPopupVisible;
+    private List<ContactListModel> contacts;
+    private ContactModel contact = new ContactModel();
+    bool isPopupVisible = false;
+    bool isManageUserPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private List<DesignationModel> designations = null;
+    private List<CompanyModel> companies = null;
+    private string selectedObjectId = "";
+    private UserListModel user = new UserListModel();
+    private string ManageUserMode = null;
+    private string ManageUserTitle = null;
+    private List<RoleViewModel> roles = null;
+    private List<TeamModel> teams = null;
+    private UserViewModel userInfo = new UserViewModel();
+
+    List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+    private byte? filterStatus;
+    bool spinShow = false;
+    private ContactListModel userContactInfo;
+    string passwordType = "password";
+    string passwordIcon = "fas fa-eye-slash";
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+
+        //Populate Status
+        foreach (GeneralStatus item in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+
+        designations = await _designationService.GetAll();
+        companies = await _companyService.GetAll();
+
+        if (string.IsNullOrWhiteSpace(paramCompanyObjectId))
+        {
+            var roleModels = await _roleManager.GetAll(loginUser.CompanyObjectId);
+            roles = await _mapperHelperService.MapToListAsync<RoleModel, RoleViewModel>(roleModels);
+        }
+        else
+        {
+            var roleModels = await _roleManager.GetAll(paramCompanyObjectId);
+            roles = await _mapperHelperService.MapToListAsync<RoleModel, RoleViewModel>(roleModels);
+        }
+
+        teams = await _teamService.GetAll();
+        await LoadContacts();
+        isLoading = false;
+    }
+
+    void OnGridRender(DataGridRenderEventArgs<ContactListModel> args)
+    {
+
+        if (args.FirstRender)
+        {
+            if (loginUser.CompanyType != (int)CompanyType.Client)
+            {
+                if (string.IsNullOrWhiteSpace(paramCompanyObjectId))
+                {
+                    args.Grid.Groups.Add(new GroupDescriptor() { Title = "Company", Property = "CompanyName", SortOrder = SortOrder.Ascending });
+                    StateHasChanged();
+                }
+            }
+        }
+    }
+
+    private async Task LoadContacts()
+    {
+        if (!string.IsNullOrWhiteSpace(paramCompanyObjectId))
+        {
+            contacts = await _contactManager.GetAllContactByCompanyObjectId(paramCompanyObjectId);
+        }
+        else
+        {
+            contacts = await _contactManager.GetListWithDetails(loginUser.CompanyId);
+        }
+    }
+
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<ContactListModel> args)
+    {
+        await Edit(args.Data.ObjectId);
+    }
+
+    private async Task InsertUpdateContact()
+    {
+        isSubmitting = true;
+        spinShow = true;
+
+        if (loginUser.CompanyType == (int)CompanyType.Admin)
+        {
+            if (contact.Id == 0)
+            {
+                //if (contact.SelectedUserRoles.Count()==0 && !contact.SelectedUserRoles.Any())
+                //{
+                //	await js.DisplayMessage("Please Select Role");
+                //	isSubmitting = false;
+                //}
+                //else
+
+                //{
+                contact.CreatedByContactId = loginUser.ContactId;
+                contact.ObjectId = Guid.NewGuid().ToString();
+
+                // At first check Employee id is available or not
+
+                var checkEmployeeId = await _contactManager.GetByEmployeeId(contact.EmployeeId);
+
+                if (checkEmployeeId != null && checkEmployeeId.Id > 0)
+                {
+                    await js.DisplayMessage("The provided employee id can not duplicate data insert");
+                    this.StateHasChanged();
+                    return;
+                }
+
+                var addResponse = await _contactManager.Insert(contact);
+
+                foreach (var role in contact.SelectedUserRoles)
+                {
+                    var roleModel = await _roleManager.GetByObjectId(role);
+
+                    TeamMember teamMember = new TeamMember
+                        {
+                            ContactId = addResponse.Result,
+                            TeamId = (int)contact.TeamId,
+                            CreatedByContactId = (int)loginUser.ContactId,
+                            ObjectId = Guid.NewGuid().ToString(),
+                            TeamRoleId = roleModel.Id
+                        };
+                    await _teamMemberService.Insert(teamMember);
+                }
+
+                //await CreateTeamMember();
+
+                if (!addResponse.IsSuccess)
+                {
+                    ModalNotification.ShowMessage("Error", addResponse.Message);
+                    isSubmitting = false;
+                    return;
+                }
+                //user.Username = contact.UserName;
+                //user.Password = contact.Password;
+                //user.ConfirmPassword = contact.ConfirmPassword;
+                //user.SelectedUserRoles = contact.SelectedUserRoles;
+                //user.ContactId = addResponse.Result;
+                //await CreateUser();
+                isSubmitting = false;
+                spinShow = false;
+                CloseAddEditPopup();
+                await js.DisplayMessage("Successfully Create");
+                //}
+
+            }
+            else
+            {
+                contact.UpdatedByContactId = loginUser.ContactId;
+                var updateResponse = await _contactManager.Update(contact);
+
+                if (!updateResponse.IsSuccess)
+                {
+                    ModalNotification.ShowMessage("Error", updateResponse.Message);
+                    isSubmitting = false;
+                    return;
+                }
+                isSubmitting = false;
+                CloseAddEditPopup();
+            }
+
+        }
+        else
+        {
+            if (contact.Id == 0)
+            {
+                if (contact.SelectedUserRoles.Count() == 0 && !contact.SelectedUserRoles.Any())
+                {
+                    await js.DisplayMessage("Please Select Role");
+                    isSubmitting = false;
+                    return;
+                }
+                else
+
+                {
+                    contact.CreatedByContactId = loginUser.ContactId;
+                    contact.ObjectId = Guid.NewGuid().ToString();
+
+                    var addResponse = await _contactManager.Insert(contact);
+
+                    //foreach(var role in contact.SelectedUserRoles)
+                    //{
+                    //	Role roleModel = await _roleManager.GetByObjectId(role);
+                    //	TeamMember teamMember = new TeamMember
+                    //		{
+                    //			ContactId = addResponse.Result,
+                    //			TeamId = (int)contact.TeamId,
+                    //			CreatedByContactId = (int)loginUser.ContactId,
+                    //			ObjectId = Guid.NewGuid().ToString(),
+                    //			TeamRoleId = roleModel.Id
+                    //};
+                    //await _teamMemberService.Insert(teamMember);
+                    //}
+
+                    //await CreateTeamMember();
+
+                    if (!addResponse.IsSuccess)
+                    {
+                        ModalNotification.ShowMessage("Error", addResponse.Message);
+                        isSubmitting = false;
+                        return;
+                    }
+                    user.Username = contact.UserName;
+                    user.Password = contact.Password;
+                    user.ConfirmPassword = contact.ConfirmPassword;
+                    user.SelectedUserRoles = contact.SelectedUserRoles;
+                    user.ContactId = addResponse.Result;
+                    await CreateUser();
+                    var company = await _companyService.GetById(loginUser.CompanyId);
+                    await SendMailToAllOperation("Add", company);
+
+                    isSubmitting = false;
+                    spinShow = false;
+                    CloseAddEditPopup();
+                    await js.DisplayMessage("Successfully Create");
+                }
+
+            }
+            else
+            {
+                contact.UpdatedByContactId = loginUser.ContactId;
+                var updateResponse = await _contactManager.Update(contact);
+
+                if (!updateResponse.IsSuccess)
+                {
+                    ModalNotification.ShowMessage("Error", updateResponse.Message);
+                    isSubmitting = false;
+                    return;
+                }
+                isSubmitting = false;
+                spinShow = false;
+                CloseAddEditPopup();
+            }
+
+        }
+        //contact = new Contact();
+        isSubmitting = false;
+
+        await LoadContacts();
+        //CloseAddEditPopup();
+    }
+
+    private async Task AddNew()
+    {
+        contact = new ContactModel { Status = (int)GeneralStatus.Active };
+
+        if (!string.IsNullOrWhiteSpace(paramCompanyObjectId))
+        {
+            var paramCompany = await _companyService.GetByObjectId(paramCompanyObjectId);
+
+            if (paramCompany != null)
+            {
+                contact.CompanyId = paramCompany.Id;
+            }
+            else
+            {
+                _navManager.NavigateTo($"/", true);
+            }
+        }
+        else
+        {
+            contact.CompanyId = loginUser.CompanyId;
+        }
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(string objectId)
+    {
+        contact = await _contactManager.GetByObjectId(objectId);
+        var roleModels = await _roleManager.GetAllUserRoleByContactObjectId(objectId);
+        roles = await _mapperHelperService.MapToListAsync<RoleModel, RoleViewModel>(roleModels);
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the contact \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _contactManager.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadContacts();
+                contact = new ContactModel();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+        isSubmitting = false;
+    }
+
+
+    #region Email Notifications
+    ///// <summary>
+    ///// Sends a user password recovery mail
+    ///// </summary>
+    ///// <param name="model"></param>
+    //private void SendPassswordRecoveryEmail(Contact model)
+    //{
+    //        var adminBaseUrl = _workContext.AdminBaseUrl;
+
+    //        var emailModel = new PasswordResetNofitication
+    //        {
+    //            ToEmail = model.Email,
+    //            ToEmailName = model.Contact.FullName,
+    //            TempPassword = model.RandomPassword,
+    //            PasswordResetToken = model.PasswordResetToken,
+    //            PasswordResetUrl = adminBaseUrl + "/account/forgotpassword/" + model.PasswordResetToken
+    //        };
+
+    //        _workflowEmailService.SendPasswordResetNotificationForUser(emailModel);
+    //}
+    #endregion
+
+
+    //----------manage user --------------
+
+    void ShowManageUserPopup()
+    {
+        isManageUserPopupVisible = true;
+    }
+
+    void CloseManageUserPopup()
+    {
+        isManageUserPopupVisible = false;
+        StateHasChanged();
+    }
+
+    private async Task SetManageUserMode(string mode, string contactObjectId)
+    {
+        ManageUserMode = mode;
+        var contactListModel = contacts.FirstOrDefault(f => f.ObjectId == contactObjectId);
+
+        user = new UserListModel
+            {
+                Username = contactListModel.UserName,
+                Email = contactListModel.Email,
+                FirstName = contactListModel.FirstName,
+                Id = contactListModel.UserId,
+                ContactId = contactListModel.Id,
+                CompanyId = contactListModel.CompanyId,
+                Status = (int)GeneralStatus.Active,
+                ObjectId = contactListModel.UserObjectId
+            };
+
+        if (ManageUserMode.Equals("CREATE"))
+        {
+            ManageUserTitle = "Create User";
+        }
+        else if (ManageUserMode.Equals("CHANGE_ROLE"))
+        {
+            var userRoles = await _userService.GetRolesByUserObjectId(contactListModel.UserObjectId);
+            user.SelectedUserRoles = userRoles;
+            ManageUserTitle = "User Role";
+
+        }
+        else if (ManageUserMode.Equals("CHANGE_PASSWORD"))
+        {
+            ManageUserTitle = "User Password";
+        }
+
+        isSubmitting = false;
+        ShowManageUserPopup();
+    }
+
+    private async Task InsertUpdateUser()
+    {
+        isSubmitting = true;
+
+        if (ManageUserMode.Equals("CREATE"))
+        {
+            await CreateUser();
+            await LoadContacts();
+        }
+        else if (ManageUserMode.Equals("CHANGE_ROLE"))
+        {
+            await ChangeRole();
+            await LoadContacts();
+        }
+        else if (ManageUserMode.Equals("CHANGE_PASSWORD"))
+        {
+            //await ChangePassword();
+        }
+
+        isSubmitting = false;
+    }
+
+    private async Task CreateUser()
+    {
+        var salt = _userService.CreateRandomSalt();
+        var hashedPassword = _userService.GetHashPassword(user.Password, salt);
+
+        var userOfContact = new UserModel
+            {
+                Username = user.Username,
+                CompanyId = loginUser.CompanyId,
+                ContactId = user.ContactId,
+                CreatedByContactId = loginUser.ContactId,
+                ObjectId = Guid.NewGuid().ToString(),
+                PasswordHash = hashedPassword,
+                PasswordSalt = salt,
+                Status = (int)(GeneralStatus.Active),
+                ProfileImageUrl = user.ProfileImageUrl,
+                PasswordResetToken = user.PasswordResetToken,
+                RegistrationToken = user.RegistrationToken,
+                SelectedUserRoles = user.SelectedUserRoles
+            };
+
+        await _userService.Insert(userOfContact);
+        await _userService.UserRoleInsertOrUpdateByUserObjectId(userOfContact.ObjectId, userOfContact.SelectedUserRoles.ToList(), (int)userOfContact.CreatedByContactId);
+
+        CloseManageUserPopup();
+    }
+
+    private async Task ChangeRole()
+    {
+        await _userService.UserRoleInsertOrUpdateByUserObjectId(user.ObjectId, user.SelectedUserRoles.ToList(), (int)loginUser.ContactId);
+
+        CloseManageUserPopup();
+    }
+
+    #region Password Changes
+
+    // private async Task ChangePassword()
+    // {
+    // 	//Send password change email to user
+    // 	//var adminBaseUrl = _configurationProvider.GetConfigurationValue<string>("SWProperty.AdminUrl");
+    // 	//Set password reset totekn
+    // 	var baseUrl = "https://localhost:7073";
+    // 	var toeken = Guid.NewGuid().ToString().ToLower();
+
+    // 	var emailModel = new PasswordResetNofitication
+    // 		{
+    // 			CompanyId = user.CompanyId,
+    // 			ToEmail = user.Email,
+    // 			ToEmailName = user.FirstName,
+    // 			ContactFirstName = user.FirstName,
+    // 			PasswordResetToken = toeken,
+    // 			PasswordResetUrl = baseUrl + "/account/resetpassword/" + toeken
+    // 		};
+
+    // 	var sentResponse = await _workflowEmailService.SendPasswordResetNotificationForUser(emailModel);
+
+    // 	if (sentResponse)
+    // 	{
+    // 		ModalNotification.ShowMessage("Success", "Recovery Email sent to " + emailModel.FromEmail);
+    // 		CloseManageUserPopup();
+    // 	}
+    // 	else
+    // 	{
+    // 		ModalNotification.ShowMessage("Error", "Error on send email.");
+    // 	}
+    // }
+    void ChangePasswordOnClicked(ContactListModel userContact)
+    {
+        //commonService = new Common { Status = (int)GeneralStatus.Active };
+
+        isSubmitting = false;
+        userContactInfo = userContact;
+        ShowPasswordEditPopup();
+    }
+
+    void ShowPasswordEditPopup()
+    {
+        isPasswordPopupVisible = true;
+    }
+    void ClosePasswordEditPopup()
+    {
+        isPasswordPopupVisible = false;
+    }
+    private async Task ChangePassword()
+    {
+        userInfo.UserId = userContactInfo.UserId;
+
+        var claims = await _claimsService.GetClaimsAsync();
+        var employeePasswordChangePermission = claims.Where(claim => claim.Value == PermissionConstants.Security_UserPasswordChangeForAdmin).FirstOrDefault();
+        var passwordChagesResponse = await _userService.ChangePassword(userInfo, employeePasswordChangePermission);
+
+        if (passwordChagesResponse.IsSuccess)
+        {
+            await js.DisplayMessage($"Password Reset Successfull !!");
+            //_navManager.NavigateTo("/authorizelogout", true);
+            isPasswordPopupVisible = false;
+            StateHasChanged();
+        }
+        else
+        {
+            await js.DisplayMessage($"Failed to change password !!");
+        }
+
+    }
+    private async Task ShowPassword()
+    {
+        if (passwordIcon == "fas fa-eye-slash")
+        {
+            passwordType = "";
+            passwordIcon = "fas fa-eye";
+        }
+        else if (passwordIcon == "fas fa-eye")
+        {
+            passwordType = "password";
+            passwordIcon = "fas fa-eye-slash";
+        }
+    }
+
+    #endregion Password Changes
+
+    //Todo:Rakib
+
+    //private async Task CreateTeamMember()
+    //{
+    //    foreach(var roleObjectId in contact.SelectedUserRoles)
+    //    {
+    //        Role role = await _teamRoleService.GetByObjectId(roleObjectId);//Todo: Rakib this db call is unecessary as if my seleteduserroles bind objectid that why i do it .
+    //        TeamMember teamMember = new TeamMember
+    //            {
+    //                ContactId = contactId,
+    //                TeamId = contact.TeamId ?? 0,//ToDO:Rakib
+    //                TeamRoleId = role.Id,
+    //                CreatedByContactId = loginUser.ContactId,
+    //                ObjectId = Guid.NewGuid().ToString()
+    //            };
+    //        await _teamMemberService.Insert(teamMember);
+    //    }
+
+    //}
+
+    #region Mail Sending
+    private async Task SendMailToAllOperation(string callerType, CompanyModel company)
+    {
+        var userList = await _operationEmailService.GetUserListByCompanyIdAndPermissionName(Convert.ToInt32(_configuration["CompanyId"]), PermissionConstants.SendMailCompanyCreateForOPeration);
+        foreach (var user in userList)
+        {
+            var detailUrl = $"{_configuration["AppMainUrl"]}/company/details/{company.ObjectId}";
+
+            var newUserNotificationViewModel = new NewUserNotificatonViewModel
+                {
+                    CompanyName = company.Name,
+                    DetailUrl = detailUrl,
+                    ToEmail = user.Email,
+                    ToEmailName = user.FirstName,
+                    CompanyEmail = company.Email,
+                    CreateByUserName = loginUser.FirstName,
+                    ContactId = loginUser.ContactId
+                };
+
+            newUserNotificationViewModel.MailType = callerType;
+            await _workflowEmailService.NewUserCreateEmailSendNofication(newUserNotificationViewModel);
+        }
+    }
+
+    private async Task SendMailToRegistrationUserNameAndPassword(string callerType, ContactModel contact, UserModel user, string password)
+    {
+        var newCompanySignUpNotification = new NewCompanySignUpNotification
+            {
+                ClientFirstName = contact.FirstName,
+                UserName = user.Username,
+                Password = password,
+                LoginUrl = $"{_configuration["AppMainUrl"]}",
+                ContactId = loginUser.ContactId,
+                ToEmail = contact.Email,
+            };
+
+        newCompanySignUpNotification.MailType = callerType;
+        await _workflowEmailService.SendCompanyUsernameAndPassword(newCompanySignUpNotification);
+
+    }
+    #endregion
+}

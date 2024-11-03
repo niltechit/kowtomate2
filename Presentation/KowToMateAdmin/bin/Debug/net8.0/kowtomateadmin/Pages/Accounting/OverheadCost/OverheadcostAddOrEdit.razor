@@ -1,0 +1,49 @@
+﻿@using CutOutWiz.Services.Models.Accounting
+
+<div class="mb-2 row">
+	<label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Select Year/Month</label>
+	<div class="col-sm-8">
+		<RadzenDatePicker @bind-Value=@value ShowDays=false DateFormat="yyyy/MM" CurrentDateChanged=@OnCurrentDateChanged Name="DatePickerYearMonth" />
+	</div>
+</div>
+
+<div class="mb-4 row">
+	<label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Amount</label>
+	<div class="col-sm-8">
+		<InputNumber class="form-control" placeholder="Time In Minutes" @bind-Value="overheadCost.Amount"></InputNumber>
+		<ValidationMessage For="@(() => overheadCost.Amount)" />
+	</div>
+</div>
+
+@code {
+
+	[Parameter]
+	public OverheadCostingModel overheadCost { get; set; }
+
+	 [Parameter]
+	 public string OperationType { get; set; }
+
+	DateTime value = DateTime.Now;
+
+	protected override void OnInitialized()
+	{
+		base.OnInitialized();
+		// Initialize overheadCost if it is not already set
+		if (overheadCost == null)
+		{
+			overheadCost = new OverheadCostingModel();
+		}
+
+		// Set initial year and month based on current date
+		overheadCost.Year = value.Year;
+		overheadCost.Month = value.Month;
+	}
+
+	void OnCurrentDateChanged(DateTime args)
+	{
+		value = new DateTime(args.Year, args.Month, 1);
+
+		overheadCost.Year = args.Year;
+		overheadCost.Month = args.Month;
+	}
+}

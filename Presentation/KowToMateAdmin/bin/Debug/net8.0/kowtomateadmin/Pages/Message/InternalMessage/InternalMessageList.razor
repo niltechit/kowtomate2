@@ -1,0 +1,101 @@
+﻿@page "/internalMessage/messages"
+
+@attribute [Authorize(Roles = "InternalMessage.ViewList")]
+
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.Email
+@using CutOutWiz.Core.Message
+@using CutOutWiz.Services.Email
+@using CutOutWiz.Services.InternalMessage
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IInternalMessageService _internalMessageService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Internal Notification
+            </h4>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+        <RadzenDataGrid Data="@internalMessages" IsLoading="isLoading" TItem="InternalMessageModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions">
+            <Columns>
+                <RadzenDataGridColumn TItem="InternalMessageModel" Property="Subject" Title="Subject" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="InternalMessageModel" Property="Body" Title="Body" TextAlign="TextAlign.Center" Filterable="false"/>
+                <RadzenDataGridColumn TItem="InternalMessageModel" Property="SendTime" Title="Send Time" TextAlign="TextAlign.Center" Filterable="false" />
+                <AuthorizeView Context="auth" Roles="InternalMessage.CanDelete">
+                    <RadzenDataGridColumn Width="120px" TItem="InternalMessageModel" Property="SendTime" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                        <Template Context="data">
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data)">
+                                <span class="fas fa-times"></span>
+                            </button>
+                        </Template>
+                    </RadzenDataGridColumn>
+                </AuthorizeView>
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+    private List<InternalMessageModel> internalMessages;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private string selectedObjectId = "";
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+        await LoadInternalMessages();
+    }
+
+    private async Task LoadInternalMessages()
+    {
+        internalMessages = await _internalMessageService.GetByContactId(loginUser.ContactId);
+    }
+
+    protected void Delete(InternalMessageModel internalMessage)
+    {
+        selectedObjectId = internalMessage.ObjectId;
+        var msg = $"Are you sure you want to delete the internalMessage \"{internalMessage.Body}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _internalMessageService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadInternalMessages();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+    }
+}

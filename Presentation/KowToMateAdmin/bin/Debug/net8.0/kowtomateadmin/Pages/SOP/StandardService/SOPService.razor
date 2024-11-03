@@ -1,0 +1,20 @@
+﻿@using CutOutWiz.Services.Models.SOP
+@inject IOrderSOPStandardServiceService _standardServiceService
+
+@if (standardServices != null && standardServices.Any())
+{
+    <h4 class="card-title">Services</h4>
+
+    <dl>
+	    @foreach (var item in standardServices)
+	    {
+           @* <dt></dt>*@
+            <dd class="mb-2"><i class="far far fa-check-square text-primary me-2"></i>@item.Name</dd>
+	    }
+    </dl>
+}
+         
+@code {
+    [Parameter]
+    public List<SOPStandardServiceModel> standardServices {get;set;}
+}

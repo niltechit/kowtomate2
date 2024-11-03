@@ -1,0 +1,36 @@
+﻿@using CutOutWiz.Services.Models.Common
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="shift.Name"></InputText>
+        <ValidationMessage For="@(() => shift.Name)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Start Time</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="shift.StartTime"></InputText>
+        <ValidationMessage For="@(() => shift.Name)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">End Time</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="shift.EndTime"></InputText>
+        <ValidationMessage For="@(() => shift.Name)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Code" class="col-sm-4 col-form-label fw-bold">Code</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="shift.Code"></InputText>
+        <ValidationMessage For="@(() => shift.Code)" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public ShiftModel shift { get; set; }
+}

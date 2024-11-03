@@ -1,0 +1,231 @@
+﻿@page "/company/details/{objectid}"
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Core.Management
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.AutomationAppServices.FtpOrderProcess
+@using CutOutWiz.Services.Management
+@using CutOutWiz.Services.OperationSwitchService
+@using KowToMateAdmin.Helper
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Common.ClientOrderFtp
+@using KowToMateAdmin.Pages.Management.Team
+@using KowToMateAdmin.Pages.OrderUpload
+@using KowToMateAdmin.Pages.Security.GeneralSetting
+
+@attribute [Authorize(Roles = "Company.ViewCompanyDetails")]
+
+@inject ITeamService _teamService
+@inject ICompanyTeamManager _companyTeamService
+@inject ICompanyManager _companyService
+@inject IWorkContext _workContext
+@inject ISwitchOperation _switchOperationService
+@inject IClientOrderFtpService _clientOrderFtpService
+@inject IJSRuntime js
+@inject NavigationManager navigationManager
+<!-- start page title -->
+<div class="row">
+	<div class="col-12">
+		<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+			<h4 class="mb-sm-0 font-size-18">Company: @company.Name</h4>
+			<div class="page-title-right">
+				@if (company.Code != CompanyCodeConstants.AdminCompany && company.Code != CompanyCodeConstants.BaseClientCompany)
+				{
+					<button type="button" class="btn btn-sm btn-primary" @onclick="AssignCompanyTeam" title="Assign Company Team"><span class="fas fa-plus"></span> Assign Team For Order</button>
+				}
+			</div>
+
+		</div>
+	</div>
+</div>
+
+<!-- end page title -->
+
+@* <KowToMateAdmin.Pages.Switch.SwitchComponent ObjectId="@ObjectId"></KowToMateAdmin.Pages.Switch.SwitchComponent> *@
+
+<div class="row">
+	<div class="col-xl-12">
+		<div class="card">
+			<div class="card-body">
+				<RadzenTabs Change=@OnChange TabPosition="TabPosition.Top" Class="w-100 mx-auto" RenderMode="TabRenderMode.Client">
+					<Tabs>
+						<RadzenTabsItem Text="Info">
+							<CompanyInfo paramCompanyObjectId="@ObjectId"></CompanyInfo>
+						</RadzenTabsItem>
+
+						@if (company.Code != CompanyCodeConstants.AdminCompany && company.Code != CompanyCodeConstants.BaseClientCompany)
+						{
+							<RadzenTabsItem Text="Orders">
+
+								<OrderList paramCompanyObjectId="@ObjectId"></OrderList>
+							</RadzenTabsItem>
+							<RadzenTabsItem Text="SOP Templates">
+								<KowToMateAdmin.Pages.SOP.Template.TemplateList paramCompanyObjectId="@ObjectId"></KowToMateAdmin.Pages.SOP.Template.TemplateList>
+							</RadzenTabsItem>
+							<RadzenTabsItem Text="Client Ftps">
+								<ClientOrderFtpFileServerList paramCompanyObjectId="@ObjectId"></ClientOrderFtpFileServerList>
+							</RadzenTabsItem>
+							<RadzenTabsItem Text="General Setting">
+								<GeneralSettingList paramCompanyObjectId="@ObjectId"></GeneralSettingList>
+							</RadzenTabsItem>
+
+						}
+						@if (company.Code != CompanyCodeConstants.BaseClientCompany)
+						{
+							<RadzenTabsItem Text="Users">
+								<KowToMateAdmin.Pages.Security.Contact.ContactList paramCompanyObjectId="@ObjectId"></KowToMateAdmin.Pages.Security.Contact.ContactList>
+							</RadzenTabsItem>
+						}
+
+						<RadzenTabsItem Text="Roles">
+							<KowToMateAdmin.Pages.Security.Role.RoleList paramCompanyObjectId="@ObjectId"></KowToMateAdmin.Pages.Security.Role.RoleList>
+						</RadzenTabsItem>
+
+						<RadzenTabsItem Text="Path Replacements">
+							<KowToMateAdmin.Pages.PathReplaceRazor.PathReplacementList paramCompanyObjectId="@ObjectId"></KowToMateAdmin.Pages.PathReplaceRazor.PathReplacementList>
+						</RadzenTabsItem>
+					</Tabs>
+				</RadzenTabs>
+
+				<!-- Nav tabs -->
+				@*                <ul class="nav nav-tabs" role="tablist">
+				<li class="nav-item">
+				<a class="nav-link active" data-bs-toggle="tab" href="#SOP" role="tab">
+				<span class="d-block d-sm-none"><i class="fas fa-home"></i></span>
+				<span class="d-none d-sm-block">SOP Templates</span>
+				</a>
+				</li>
+				<li class="nav-item">
+				<a class="nav-link" data-bs-toggle="tab" href="#Order" role="tab">
+				<span class="d-block d-sm-none"><i class="far fa-user"></i></span>
+				<span class="d-none d-sm-block">Orders</span>
+				</a>
+				</li>
+				<li class="nav-item">
+				<a class="nav-link" data-bs-toggle="tab" href="#User" role="tab">
+				<span class="d-block d-sm-none"><i class="far fa-user"></i></span>
+				<span class="d-none d-sm-block">Users</span>
+				</a>
+				</li>
+				</ul>
+				<!-- Tab panes -->
+				<div class="tab-content p-3 text-muted">
+				<div class="tab-pane active" id="SOP" role="tabpanel">
+
+				</div>
+				<div class="tab-pane" id="Order" role="tabpanel">
+
+				</div>
+				<div class="tab-pane" id="User" role="tabpanel">
+
+				</div>
+				</div>*@
+			</div>
+		</div>
+	</div>
+</div>
+
+@if (isAssignPopupVisible)
+{
+	<EditForm Model="companyTeam" OnValidSubmit="InsertAssingOrderToTeam">
+
+		<div class="modal" tabindex="-1" style="display:block;">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAssignPopup"></button>
+					</div>
+					<div class="row">
+						<h4 class="mb-sm-0 font-size-18">
+							Company Name : @company.Name
+						</h4>
+					</div>
+					<div class="row">
+						<TeamCheckBoxList teams="teams" OnAssignedTeam="OnAssignedTeam" selectedTeams="selectedTeams"></TeamCheckBoxList>
+					</div>
+					<div class="modal-footer">
+						<button type="submit" class="btn btn-primary">Save Changes</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</EditForm>
+
+}
+
+@code {
+
+	[Parameter]
+	public string ObjectId { get; set; }
+
+	void OnChange(int index)
+	{
+		var indexnew = index;
+		//
+	}
+
+	bool isAssignPopupVisible = false;
+	private CompanyTeamModel companyTeam = new CompanyTeamModel();
+	List<int> selectedTeams = new List<int>();
+	List<TeamModel> teams = new List<TeamModel>();
+	private CompanyModel company = new CompanyModel();
+	private LoginUserInfoViewModel loginUser = null;
+
+	protected override async Task OnInitializedAsync()
+	{
+		teams = await _teamService.GetAll();
+		company = await _companyService.GetByObjectId(ObjectId);
+		loginUser = _workContext.LoginUserInfo;
+		List<CompanyTeamModel> companyTeams = await _companyTeamService.GetCompanyTeamByCompanyId(company.Id);
+		foreach (CompanyTeamModel companyTeam in companyTeams)
+		{
+			selectedTeams.Add(companyTeam.TeamId);
+		}
+	}
+
+	private async Task InsertAssingOrderToTeam()
+	{
+
+		List<CompanyTeamModel> companyTeams = new List<CompanyTeamModel>();
+
+		foreach (var teamId in selectedTeams)
+		{
+			CompanyTeamModel companyTeam = new CompanyTeamModel
+				{
+					CompanyId = company.Id,
+					TeamId = teamId,
+					ObjectId = Guid.NewGuid().ToString(),
+					Status = 1, //Todo:Rakib
+					CreatedByContactId = loginUser.ContactId
+				};
+			companyTeams.Add(companyTeam);
+		}
+
+		var addResponse = await _companyTeamService.Insert(companyTeams);
+
+		isAssignPopupVisible = false;
+		companyTeam = new CompanyTeamModel();
+	}
+
+	public async Task OnAssignedTeam(List<int> teamIds)
+	{
+		await Task.Yield();
+		selectedTeams = teamIds;
+	}
+
+	void AssignCompanyTeam()
+	{
+		companyTeam = new CompanyTeamModel();
+		ShowAssignPopup();
+
+	}
+	void ShowAssignPopup()
+	{
+		isAssignPopupVisible = true;
+	}
+	void CloseAssignPopup()
+	{
+		isAssignPopupVisible = false;
+	}
+}

@@ -1,0 +1,250 @@
+﻿@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.ClaimManagementService
+@using System.Security.Claims
+@using CutOutWiz.Services.HR
+@inject IClaimsService _claimsService
+@inject ILeaveSubTypeService _leaveSubTypeService
+
+@* <div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Salary</label>
+    <div class="col-sm-8">
+        <InputNumber class="form-control" @bind-Value="employeeLeave.LeaveForContactId"></InputNumber>
+        <ValidationMessage For="@(() => employeeLeave.LeaveForContactId)" />
+    </div>
+</div> *@
+
+
+@if (isAdminRoleHave)
+{
+    if (isAddNewFormOpen)
+    {
+        <div class="mb-2 row">
+            <label for="Status" class="col-sm-4 col-form-label fw-bold">Leave Type</label>
+            <div class="col-sm-8">
+                <InputSelect @bind-Value="EmployeeLeaveModel.LeaveTypeId" class="form-select" @onclick="((e)=> ChangesSubLeaveTypes(EmployeeLeaveModel.LeaveTypeId))">
+                    <option value="0">- Select -</option>
+                    @foreach (var status in LeaveTypes)
+                    {
+                        <option value="@status.Id"> @status.Name</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveTypeId)" />
+            </div>
+        </div>
+
+
+        <div class="mb-2 row">
+            <label for="Status" class="col-sm-4 col-form-label fw-bold">Sub Leave Type</label>
+            <div class="col-sm-8">
+                <InputSelect @bind-Value="EmployeeLeaveModel.LeaveSubTypeId" class="form-select">
+                    <option value="0">- Select -</option>
+                    @foreach (var status in EmployeeLeaveModel.SubLeaveTyoes)
+                    {
+                        <option value="@status.Id"> @status.Name</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveSubTypeId)" />
+            </div>
+        </div>
+    }
+
+    if (isAddNewFormOpen)
+    {
+        <div class="mb-2 row">
+            <label for="Name" class="col-sm-4 col-form-label fw-bold">Request Start Date</label>
+            <div class="col-sm-8">
+                <InputDate class="form-control" @bind-Value="EmployeeLeaveModel.LeaveStartRequestDate"></InputDate>
+                <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveStartRequestDate)" />
+            </div>
+        </div>
+        <div class="mb-2 row">
+            <label for="Name" class="col-sm-4 col-form-label fw-bold">Request End Date</label>
+            <div class="col-sm-8">
+                <InputDate class="form-control" @bind-Value="EmployeeLeaveModel.LeaveEndRequestDate"></InputDate>
+                <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveEndRequestDate)" />
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="mb-2 row">
+            <label for="Name" class="col-sm-4 col-form-label fw-bold">Request Start Date</label>
+            <div class="col-sm-8">
+                <InputDate class="form-control" @bind-Value="EmployeeLeaveModel.LeaveStartRequestDate" disabled="true"></InputDate>
+                <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveStartRequestDate)" />
+            </div>
+        </div>    <div class="mb-2 row">
+            <label for="Name" class="col-sm-4 col-form-label fw-bold">Request End Date</label>
+            <div class="col-sm-8">
+                <InputDate class="form-control" @bind-Value="EmployeeLeaveModel.LeaveEndRequestDate" disabled="true"></InputDate>
+                <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveEndRequestDate)" />
+            </div>
+        </div>
+    }
+    if (!isAddNewFormOpen)
+    {
+        <div class="mb-2 row">
+            <label for="Name" class="col-sm-4 col-form-label fw-bold">Approved Start Date</label>
+            <div class="col-sm-8">
+                <InputDate class="form-control" @bind-Value="EmployeeLeaveModel.LeaveApprovedStartDate"></InputDate>
+                <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveApprovedStartDate)" />
+            </div>
+        </div>
+        <div class="mb-2 row">
+            <label for="Name" class="col-sm-4 col-form-label fw-bold">Approved End Date</label>
+            <div class="col-sm-8">
+                <InputDate class="form-control" @bind-Value="EmployeeLeaveModel.LeaveApprovedEndDate"></InputDate>
+                <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveApprovedEndDate)" />
+            </div>
+        </div>
+    }
+    @* <div class="mb-2 row">
+        <label for="Name" class="col-sm-4 col-form-label fw-bold">Approved Start Date</label>
+        <div class="col-sm-8">
+            <InputDate class="form-control" @bind-Value="EmployeeLeaveModel.LeaveApprovedStartDate"></InputDate>
+            <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveApprovedStartDate)" />
+        </div>
+    </div>
+    <div class="mb-2 row">
+        <label for="Name" class="col-sm-4 col-form-label fw-bold">Approved End Date</label>
+        <div class="col-sm-8">
+            <InputDate class="form-control" @bind-Value="EmployeeLeaveModel.LeaveApprovedEndDate"></InputDate>
+            <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveApprovedEndDate)" />
+        </div>
+    </div> *@
+    if (isAddNewFormOpen)
+    {
+        <div class="mb-2 row">
+            <label for="Name" class="col-sm-4 col-form-label fw-bold">Employee Note</label>
+            <div class="col-sm-8">
+                <InputText class="form-control" @bind-Value="EmployeeLeaveModel.EmployeeNote"></InputText>
+                <ValidationMessage For="@(() => EmployeeLeaveModel.EmployeeNote)" />
+            </div>
+        </div>
+    }
+    else
+    {
+
+        <div class="mb-2 row">
+            <label for="Name" class="col-sm-4 col-form-label fw-bold">HR Note</label>
+            <div class="col-sm-8">
+                <InputText class="form-control" @bind-Value="EmployeeLeaveModel.HRNote"></InputText>
+                <ValidationMessage For="@(() => EmployeeLeaveModel.HRNote)" />
+            </div>
+        </div>
+    }
+    if(!isAddNewFormOpen)
+    {
+    <div class="mb-2 row">
+        <label for="Status" class="col-sm-4 col-form-label fw-bold">Status</label>
+        <div class="col-sm-8">
+            <InputSelect @bind-Value="EmployeeLeaveModel.LeaveStatus" class="form-select" >
+                <option value="0">- Select -</option>
+                @foreach (var status in leaveStatusConstant)
+                {
+                    <option value="@status.Name">@status.Name</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveStatus)" />
+        </div>
+    </div>
+    }
+}
+else
+{
+
+<div class="mb-2 row">
+    <label for="Status" class="col-sm-4 col-form-label fw-bold">Leave Type</label>
+    <div class="col-sm-8">
+            <InputSelect @bind-Value="EmployeeLeaveModel.LeaveTypeId" class="form-select" @onclick="((e)=> ChangesSubLeaveTypes(EmployeeLeaveModel.LeaveTypeId))">
+            <option value="0">- Select -</option>
+                @foreach (var status in LeaveTypes)
+            {
+                <option value="@status.Id"> @status.Name</option>
+            }
+        </InputSelect>
+            <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveTypeId)" />
+    </div>
+</div>
+
+
+    <div class="mb-2 row">
+        <label for="Status" class="col-sm-4 col-form-label fw-bold">Sub Leave Type</label>
+        <div class="col-sm-8">
+            <InputSelect @bind-Value="EmployeeLeaveModel.LeaveSubTypeId" class="form-select">
+                <option value="0">- Select -</option>
+                @foreach (var status in EmployeeLeaveModel.SubLeaveTyoes)
+                {
+                    <option value="@status.Id"> @status.Name</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveSubTypeId)" />
+        </div>
+    </div>
+
+
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Start Date</label>
+    <div class="col-sm-8">
+            <InputDate class="form-control" @bind-Value="EmployeeLeaveModel.LeaveStartRequestDate"></InputDate>
+            <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveStartRequestDate)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">End Date</label>
+    <div class="col-sm-8">
+            <InputDate class="form-control" @bind-Value="EmployeeLeaveModel.LeaveEndRequestDate"></InputDate>
+            <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveEndRequestDate)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Employee Note</label>
+    <div class="col-sm-8">
+            <InputText class="form-control" @bind-Value="EmployeeLeaveModel.EmployeeNote"></InputText>
+            <ValidationMessage For="@(() => EmployeeLeaveModel.EmployeeNote)" />
+    </div>
+</div>
+
+}
+
+@code {
+    [Parameter]
+    public CutOutWiz.Services.Models.HR.EmployeeLeaveViewModel EmployeeLeaveModel { get; set; }
+    [Parameter]
+    public List<CutOutWiz.Services.Models.HR.LeaveTypeModel> LeaveTypes { get; set; }
+    IEnumerable<System.Reflection.FieldInfo> leaveStatusConstant;
+    private bool isAdminRoleHave = false;
+    [Parameter]
+    public bool isAddNewFormOpen { get; set; } = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var claims = await _claimsService.GetClaimsAsync();
+        var claim = claims.Where(claim => claim.Value == PermissionConstants.HR_EmployeeLeaveApproved).FirstOrDefault();
+        if (claim!=null && !string.IsNullOrWhiteSpace(claim.Value))
+        {
+            isAdminRoleHave = true;
+        }
+        var checkVAlue = isAddNewFormOpen;
+        leaveStatusConstant = typeof(CutOutWiz.Core.Utilities.LeaveStatus)
+        .GetFields()
+        .Where(f => f.IsStatic && f.IsLiteral);
+        if (EmployeeLeaveModel.LeaveTypeId>0)
+        {
+            var getSubLeaveTypes = await _leaveSubTypeService.GetSubLeaveTypes(EmployeeLeaveModel.LeaveTypeId);
+            EmployeeLeaveModel.SubLeaveTyoes = getSubLeaveTypes.Result;
+        }
+        StateHasChanged();
+    }
+    private async Task ChangesSubLeaveTypes(int LeaveTypeId)
+    {
+        if (LeaveTypeId > 0)
+        {
+            var getSubLeaveTypes = await _leaveSubTypeService.GetSubLeaveTypes(LeaveTypeId);
+            EmployeeLeaveModel.SubLeaveTyoes = getSubLeaveTypes.Result;
+        }
+        StateHasChanged();
+    }
+}

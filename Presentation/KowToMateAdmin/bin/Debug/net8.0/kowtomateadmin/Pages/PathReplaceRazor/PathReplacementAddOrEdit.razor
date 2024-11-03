@@ -1,0 +1,63 @@
+﻿
+@using CutOutWiz.Services.Models.PathReplacements;
+@using static CutOutWiz.Core.Utilities.Enums
+
+
+<div class="mb-2 row">
+	<label for="ParentId" class="col-sm-4 col-form-label fw-bold">Protocol Type</label>
+	<div class="col-sm-8">
+		<InputSelect @bind-Value="pathReplacement.Type" class="form-select">
+			<option value="0">Select Type</option>
+			@foreach (var type in Enum.GetValues(typeof(PathReplacementType)))
+			{
+				<option value="@((int)type)">@type</option>
+			}
+		</InputSelect>
+		<ValidationMessage For="@(() => pathReplacement.Type)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label for="Password" class="col-sm-4 col-form-label fw-bold">Old Text</label>
+	<div class="col-sm-8">
+		<InputText class="form-control" @bind-Value="pathReplacement.OldText"></InputText>
+		<ValidationMessage For="@(() => pathReplacement.OldText)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label for="Password" class="col-sm-4 col-form-label fw-bold">New Text</label>
+	<div class="col-sm-8">
+		<InputText class="form-control" @bind-Value="pathReplacement.NewText"></InputText>
+		<ValidationMessage For="@(() => pathReplacement.NewText)" />
+	</div>
+</div>
+<div class="mb-2 row">
+	<label for="Password" class="col-sm-4 col-form-label fw-bold">Execution Order</label>
+	<div class="col-sm-8">
+		<InputNumber class="form-control" @bind-Value="pathReplacement.ExecutionOrder"></InputNumber>
+		<ValidationMessage For="@(() => pathReplacement.ExecutionOrder)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label for="Password" class="col-sm-4 col-form-label fw-bold">Level</label>
+	<div class="col-sm-8">
+		<InputNumber class="form-control" @bind-Value="pathReplacement.Level"></InputNumber>
+		<ValidationMessage For="@(() => pathReplacement.Level)" />
+	</div>
+</div>
+<div class="mb-2 row">
+	<label for="Password" class="col-sm-4 col-form-label fw-bold">Date Format</label>
+	<div class="col-sm-8">
+		<InputText class="form-control" @bind-Value="pathReplacement.DateFormat"></InputText>
+		<ValidationMessage For="@(() => pathReplacement.DateFormat)" />
+	</div>
+</div>
+
+
+
+@code {
+	[Parameter]
+	public PathReplacementModel pathReplacement { get; set; }
+}

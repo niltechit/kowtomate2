@@ -1,0 +1,67 @@
+﻿@using static CutOutWiz.Core.Utilities.Enums
+@using CutOutWiz.Services.Models.ClientCategoryServices
+
+<div class="mb-2 row">
+	<label for="ParentId" class="col-sm-4 col-form-label fw-bold">Client Category</label>
+	<div class="col-sm-8">
+		<InputSelect @bind-Value="clientCategoryService.ClientCategoryId" class="form-select">
+			<option value="0">- Select -</option>
+			@foreach (var type in clientCategories)
+			{
+				<option value="@(type.Id)">@type.CategoryName</option>
+			}
+		</InputSelect>
+		<ValidationMessage For="@(() => clientCategoryService.ClientCategoryId)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label for="ParentId" class="col-sm-4 col-form-label fw-bold">Common Service</label>
+	<div class="col-sm-8">
+		<InputSelect @bind-Value="clientCategoryService.CommonServiceId" class="form-select">
+			<option value="0">- Select -</option>
+			@foreach (var type in commonServices)
+			{
+				<option value="@(type.Id)">@type.Name</option>
+			}
+		</InputSelect>
+		<ValidationMessage For="@(() => clientCategoryService.CommonServiceId)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Time In Minute</label>
+	<div class="col-sm-8">
+		<InputNumber class="form-control" placeholder="Time In Minute" @bind-Value="clientCategoryService.TimeInMinutes"></InputNumber>
+		<ValidationMessage For="@(() => clientCategoryService.TimeInMinutes)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Price (USD)</label>
+	<div class="col-sm-8">
+		<InputText class="form-control" placeholder="Price In USD" @bind-Value="clientCategoryService.PriceInUSD"></InputText>
+		<ValidationMessage For="@(() => clientCategoryService.PriceInUSD)" />
+	</div>
+</div>
+
+<div class="mb-2 row">
+	<label class="col-sm-4 col-form-label fw-bold">Is Active</label>
+	<div class="col-sm-8">
+		<InputCheckbox @bind-Value="clientCategoryService.IsActive" id="IsActive" class="form-check-input"></InputCheckbox>
+		<label class="form-check-label" for="IsActive">
+
+		</label>
+		<ValidationMessage For="@(() => clientCategoryService.IsActive)" />
+	</div>
+</div>
+
+
+@code {
+	[Parameter]
+	public ClientCategoryServiceModel clientCategoryService { get; set; }
+	[Parameter]
+	public List<CommonServiceModel> commonServices { get; set; } = new List<CommonServiceModel>();
+	[Parameter]
+	public List<ClientCategoryModel> clientCategories { get; set; } = new List<ClientCategoryModel>();
+}

@@ -1,0 +1,247 @@
+﻿@page "/common/clientcategoryserivce"
+
+@attribute [Authorize(Roles = PermissionConstants.Category_Canviewallcategoryservicelist)]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.ClientCommonCategoryService.ClientCategoryServices
+@using CutOutWiz.Services.ClientCommonCategoryService.ClientCategorys
+@using CutOutWiz.Services.ClientCommonCategoryService.CommonCategories;
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+@using CutOutWiz.Services.Models.ClientCategoryServices
+
+@inject IWorkContext _workContext
+@inject ICommonServiceService _commonService
+@inject IClientCategoryService _clientCategory
+@inject IClientCategoryServiceService _clientCategoryService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+               Client Category Services
+            </h4>
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New CommonCategory"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+
+        <RadzenDataGrid Data="@clientCategoryServices" IsLoading="isLoading" TItem="ClientCategoryServiceModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+                <RadzenDataGridColumn TItem="ClientCategoryServiceModel" Property="CategoryName" Title="Client Category" TextAlign="TextAlign.Center" Filterable="false" />
+                <RadzenDataGridColumn TItem="ClientCategoryServiceModel" Property="ServiceName" Title="Common Service" SortOrder="SortOrder.Ascending" />
+                <RadzenDataGridColumn TItem="ClientCategoryServiceModel" Property="TimeInMinutes" Title="Time In Minute" TextAlign="TextAlign.Center" Filterable="false" />
+                <RadzenDataGridColumn TItem="ClientCategoryServiceModel" Property="PriceInUSD" Title="Price In USD" TextAlign="TextAlign.Center" Filterable="false" />
+                <RadzenDataGridColumn TItem="ClientCategoryServiceModel" Property="IsActive" Title="Is Active" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn Width="120px" TItem="ClientCategoryServiceModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.Id))">
+                            <span class="fas fa-pencil-alt"></span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.Id,data.Id.ToString())">
+                            <span class="fas fa-times"></span>
+                        </button>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@clientCategoryService OnValidSubmit="@InsertUpdateCommonService">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Client Category Service</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <ClientCategoryServiceAddOrEdit clientCategoryService="clientCategoryService" clientCategories="clientCategories" commonServices="commonServices" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @if (clientCategoryService.Id > 0)
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(clientCategoryService.Id,clientCategoryService.Id.ToString())">Delete</button>
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<ClientCategoryServiceModel> clientCategoryServices;
+    private List<CommonServiceModel> commonServices;
+    private List<ClientCategoryModel> clientCategories;
+
+
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    private ClientCategoryServiceModel clientCategoryService = new ClientCategoryServiceModel();
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private int selectedObjectId = 0;
+
+    List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+    private byte? filterStatus;
+
+    List<CommonServiceModel> filterTypes = new List<CommonServiceModel>();
+    private byte? filterTypeStatus;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+        await LoadCommonCategorys();
+
+        //Populate Status
+        foreach (GeneralStatus item in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+        //Populate Filter Types
+        // foreach (CommonCategoryType item in Enum.GetValues(typeof(CommonCategoryType)))
+        // {
+        //     filterTypes.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        // }
+
+        isLoading = false;
+    }
+
+    private async Task LoadCommonCategorys()
+    {
+        clientCategoryServices = await _clientCategoryService.GetAll();
+        commonServices = await _commonService.GetAll();
+        var clientCategory = await _clientCategory.GetAll();
+        clientCategories = clientCategory.Where(x=>x.IsActive == true).ToList();
+    }
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<ClientCategoryServiceModel> args)
+    {
+        await Edit(args.Data.Id);
+    }
+
+    private async Task InsertUpdateCommonService()
+    {
+        isSubmitting = true;
+
+        if (clientCategoryService.Id == 0)
+        {
+            //commonService.CreatedByUsername = loginUser.UserObjectId;
+            //CommonCategory.ObjectId = Guid.NewGuid().ToString();
+
+            var addResponse = await _clientCategoryService.Insert(clientCategoryService);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+        else
+        {
+            //commonService.UpdatedByUsername = loginUser.UserObjectId;
+            var updateResponse = await _clientCategoryService.Update(clientCategoryService);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+
+        clientCategoryService = new ClientCategoryServiceModel();
+        isSubmitting = false;
+
+        await LoadCommonCategorys();
+        CloseAddEditPopup();
+    }
+
+    void AddNew()
+    {
+        //commonService = new Common { Status = (int)GeneralStatus.Active };
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(int id)
+    {
+        clientCategoryService = await _clientCategoryService.GetById(id);
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(int objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the CommonCategory \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _clientCategoryService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadCommonCategorys();
+                clientCategoryService = new ClientCategoryServiceModel();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+
+        isSubmitting = false;
+    }
+}

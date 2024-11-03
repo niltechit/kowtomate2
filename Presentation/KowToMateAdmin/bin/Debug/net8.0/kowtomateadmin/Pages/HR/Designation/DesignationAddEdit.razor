@@ -1,0 +1,89 @@
+﻿@using CutOutWiz.Services.Models.HR
+@using static CutOutWiz.Core.Utilities.Enums
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="designation.Name"></InputText>
+        <ValidationMessage For="@(() => designation.Name)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Status" class="col-sm-4 col-form-label fw-bold">Status</label>
+    <div class="col-sm-8">
+      <InputSelect @bind-Value="designation.Status" class="form-select">
+           <option value="0">- Select -</option>
+        @foreach (var status in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            <option value="@((int)status)">@status</option>
+        }
+         </InputSelect>
+        <ValidationMessage For="@(() => designation.Status)" />
+    </div>
+</div>
+
+<div class="row">
+    <h4>Select Day Off</h4>
+    <div class="col-xl-6">
+        <div class="form-group">
+            <InputCheckbox @bind-Value="designation.DayOffSaturday" class="form-check-input" type="checkbox" id="dayOffSaturday"></InputCheckbox>
+            <label class="form-check-label" for="dayOffSaturday">
+                Day Of Saturday
+            </label>
+        </div>
+       <div class="form-group">
+            <InputCheckbox @bind-Value="designation.DayOffMonday" class="form-check-input" type="checkbox" id="dayOffMonday"></InputCheckbox>
+            <label class="form-check-label" for="dayOffMonday">
+                Day Of Monday
+            </label>
+       </div>
+       
+    </div>
+    <div class="col-xl-6">
+        <div class="form-group">
+            <InputCheckbox @bind-Value="designation.DayOffSunday" class="form-check-input" type="checkbox" id="dayOffSunday"></InputCheckbox>
+            <label class="form-check-label" for="dayOffSunday">
+                Day Of Sunday
+            </label>
+        </div>
+        <div class="form-group">
+            <InputCheckbox @bind-Value="designation.DayOffTuesday" class="form-check-input" type="checkbox" id="dayOffTuesday"></InputCheckbox>
+            <label class="form-check-label" for="dayOffTuesday">
+                Day Of Tuesday
+            </label>
+        </div>
+       
+    </div>
+</div>
+<div class="row">
+    <div class="col-xl-6">
+        <div class="form-group">
+            <InputCheckbox @bind-Value="designation.DayOffWednesday" class="form-check-input" type="checkbox" id="dayOffWednesday"></InputCheckbox>
+            <label class="form-check-label" for="dayOffWednesday">
+                Day Of Wednesday
+            </label>
+        </div>
+
+        <div class="form-group">
+            <InputCheckbox @bind-Value="designation.DayOffFriday" class="form-check-input" type="checkbox" id="dayOffFriday"></InputCheckbox>
+            <label class="form-check-label" for="dayOffFriday">
+                Day Of Friday
+            </label>
+        </div>
+      
+    </div>
+    <div class="col-xl-6">
+        <div class="form-group">
+            <InputCheckbox @bind-Value="designation.DayOffThursday" class="form-check-input" type="checkbox" id="dayOffThursday"></InputCheckbox>
+            <label class="form-check-label" for="dayOffThursday">
+                Day Of Thursday
+            </label>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public DesignationModel designation { get; set; }
+}

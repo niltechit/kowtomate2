@@ -1,0 +1,65 @@
+﻿@page "/order/activitylogs"
+
+@attribute [Authorize(Roles = "ActivityLog.CanViewAll")]
+
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.Logs
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+
+@inject IWorkContext _workContext
+@inject ILogServices _activityLog
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Order Activities Logs
+            </h4>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+        <RadzenDataGrid Data="@companys" IsLoading="isLoading" TItem="ActivityLogModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        AllowColumnPicking="true" AllowColumnReorder="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        >
+            <Columns>
+                <RadzenDataGridColumn TItem="ActivityLogModel" Property="ActivityLogFor" Title="Activity Log" SortOrder="SortOrder.Ascending" Width="200px" />
+                <RadzenDataGridColumn TItem="ActivityLogModel" Property="Description" Title="Description" SortOrder="SortOrder.Ascending" Width="200px" />
+                <RadzenDataGridColumn TItem="ActivityLogModel" Property="CreatedDate" Title="Created Date" SortOrder="SortOrder.Ascending" Width="200px" />
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+@code {
+
+    private List<ActivityLogModel> companys = new List<ActivityLogModel>();
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    private ActivityLogModel activityLog = new ActivityLogModel();
+    private LoginUserInfoViewModel loginUser = new LoginUserInfoViewModel();
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+        await LoadCompanys();
+        isLoading = false;
+    }
+
+    private async Task LoadCompanys()
+    {
+        companys = await _activityLog.GetAll();
+    }
+}

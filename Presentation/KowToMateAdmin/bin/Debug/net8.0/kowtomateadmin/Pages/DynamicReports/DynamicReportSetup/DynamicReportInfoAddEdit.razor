@@ -1,0 +1,247 @@
+﻿@using CutOutWiz.Services.Models.DynamicReports
+@using CutOutWiz.Services.Models.Security;
+@using CutOutWiz.Services.Security;
+@using static CutOutWiz.Core.Utilities.Enums
+@*@attribute [Authorize(Roles = "DynamicReport.CanSetupDynamicReport")]*@
+@inject IPermissionService _permissionService;
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Report Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="dynamicReportInfo.Name"></InputText>
+        <ValidationMessage For="@(() => dynamicReportInfo.Name)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Report Code</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="dynamicReportInfo.ReportCode"></InputText>
+        <ValidationMessage For="@(() => dynamicReportInfo.ReportCode)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="SqlType" class="col-sm-4 col-form-label fw-bold">Report Type</label>
+    <div class="col-sm-8">
+        <InputSelect @bind-Value="dynamicReportInfo.ReportType" class="form-select">
+            <option value="0">- Select -</option>
+            @foreach (var item in Enum.GetValues(typeof(DynamicReportType)))
+            {
+                <option value="@((int)item)">@item</option>
+            }
+        </InputSelect>
+        <ValidationMessage For="@(() => dynamicReportInfo.ReportType)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Description</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="dynamicReportInfo.Description"></InputText>
+        <ValidationMessage For="@(() => dynamicReportInfo.Description)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="SqlType" class="col-sm-4 col-form-label fw-bold">Sql Type</label>
+    <div class="col-sm-8">
+      <InputSelect @bind-Value="dynamicReportInfo.SqlType" class="form-select">
+           <option value="0">- Select -</option>
+            @foreach (var item in Enum.GetValues(typeof(DynamicReportSqlType)))
+            {
+                <option value="@((int)item)">@item</option>
+            }
+         </InputSelect>
+        <ValidationMessage For="@(() => dynamicReportInfo.SqlType)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Sql Query or Proc</label>
+    <div class="col-sm-8">
+      @*  <InputTextArea class="form-control" @bind-Value="dynamicReportInfo.SqlScript"></InputTextArea>*@
+        <RadzenTextArea @bind-Value=@dynamicReportInfo.SqlScript Rows="6" class="form-control" />
+        <ValidationMessage For="@(() => dynamicReportInfo.SqlScript)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Where Clause</label>
+    <div class="col-sm-8">
+        <RadzenTextArea @bind-Value=@dynamicReportInfo.WhereClause Rows="6" class="form-control" />
+        <ValidationMessage For="@(() => dynamicReportInfo.WhereClause)" />
+    </div>
+</div>
+@*<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Company Filter</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="dynamicReportInfo.AllowCompanyFilter" id="AllowCompanyFilter" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="AllowCompanyFilter">
+            Is Allowed Company Filter
+        </label>
+        <ValidationMessage For="@(() => dynamicReportInfo.AllowCompanyFilter)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Start Date Filter</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="dynamicReportInfo.AllowStartDateFilter" id="AllowStartDateFilter" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="AllowStartDateFilter">
+            Is Allowed Start Date Filter
+        </label>
+        <ValidationMessage For="@(() => dynamicReportInfo.AllowStartDateFilter)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">End Date Filter</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="dynamicReportInfo.AllowEndDateFilter" id="AllowEndDateFilter" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="AllowEndDateFilter">
+            Is Allowed End Date Filter
+        </label>
+        <ValidationMessage For="@(() => dynamicReportInfo.AllowEndDateFilter)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Date Only Filter</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="dynamicReportInfo.AllowDateOnlyFilter" id="AllowDateOnlyFilter" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="AllowDateOnlyFilter">
+            Is Allowed Only Date
+        </label>
+        <ValidationMessage For="@(() => dynamicReportInfo.AllowDateOnlyFilter)" />
+    </div>
+</div>
+*@
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Allow HTML Preview</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="dynamicReportInfo.AllowHtmlPreview" id="AllowHtmlPreview" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="AllowHtmlPreview">
+            Allow HTML Preview
+        </label>
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Allow Filtering</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="dynamicReportInfo.AllowFiltering" id="AllowFiltering" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="AllowFiltering">
+            Allow Filtering
+        </label>
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Allow Paging</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="dynamicReportInfo.AllowPaging" id="AllowPaging" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="AllowPaging">
+            Allow Paging
+        </label>
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Allow Sorting</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="dynamicReportInfo.AllowSorting" id="AllowSorting" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="AllowSorting">
+            Allow Sorting
+        </label>
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Status" class="col-sm-4 col-form-label fw-bold">Record Per Page</label>
+    <div class="col-sm-8">
+        <InputSelect @bind-Value="dynamicReportInfo.PageSize" class="form-select">
+           <option value="0">- Select -</option>
+           <option value="10">10</option>
+            <option value="20">20</option>
+             <option value="25">25</option>
+              <option value="50">50</option>
+            <option value="100">100</option>
+                <option value="200">200</option>
+            <option value="500">500</option>
+            <option value="1000">1000</option>
+         </InputSelect>
+        <ValidationMessage For="@(() => dynamicReportInfo.PageSize)" />
+    </div>
+</div>
+
+@*<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Record Per Page</label>
+    <div class="col-sm-8">
+        <InputNumber class="form-control" @bind-Value="dynamicReportInfo.PageSize"></InputNumber>
+        <ValidationMessage For="@(() => dynamicReportInfo.PageSize)" />
+    </div>
+</div>*@
+
+@*<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Allow Virtualization</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="dynamicReportInfo.AllowVirtualization" id="AllowVirtualization" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="AllowVirtualization">
+            Allow Virtualization
+        </label>
+    </div>
+</div>*@
+
+@*<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Default Sort Column </label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="dynamicReportInfo.DefaultSortColumn "></InputText>
+        <ValidationMessage For="@(() => dynamicReportInfo.DefaultSortColumn )" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Default Sort Order  </label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="dynamicReportInfo.DefaultSortOrder  "></InputText>
+        <ValidationMessage For="@(() => dynamicReportInfo.DefaultSortOrder  )" />
+    </div>
+</div>*@
+
+<div class="mb-2 row">
+    <label for="Permission" class="col-sm-4 col-form-label fw-bold">Permission</label>
+    <div class="col-sm-8">
+       <RadzenDropDown AllowVirtualization="true" AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        @bind-Value=@dynamicReportInfo.PermissionObjectId Placeholder=" - Select -" Data=@permissions TextProperty="DisplayName" ValueProperty="ObjectId"
+                            Class="w-100" />
+        <ValidationMessage For="@(() => dynamicReportInfo.Status)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Status" class="col-sm-4 col-form-label fw-bold">Status</label>
+    <div class="col-sm-8">
+      <InputSelect @bind-Value="dynamicReportInfo.Status" class="form-select">
+           <option value="0">- Select -</option>
+        @foreach (var status in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            <option value="@((int)status)">@status</option>
+        }
+         </InputSelect>
+        <ValidationMessage For="@(() => dynamicReportInfo.Status)" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public DynamicReportInfoModel dynamicReportInfo { get; set; }
+
+    public List<PermissionModel> permissions = new List<PermissionModel>();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            permissions = await _permissionService.GetAll();
+            StateHasChanged();
+        }
+    }
+
+}

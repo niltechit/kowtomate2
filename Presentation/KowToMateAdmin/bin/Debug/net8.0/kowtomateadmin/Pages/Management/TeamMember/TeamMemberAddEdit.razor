@@ -1,0 +1,106 @@
+﻿@using CutOutWiz.Core.Management
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Models.Security
+@using static CutOutWiz.Core.Utilities.Enums
+
+
+@if (!string.IsNullOrWhiteSpace(Name))
+{
+    <div class="mb-2 row">
+        <label for="Name" class="col-sm-4 col-form-label fw-bold">Team Member</label>
+        <div class="col-sm-8">
+            <InputText readonly class="form-control" @bind-Value="Name"></InputText>
+        </div>
+    </div>
+}
+else
+{
+    @*<div class="mb-2 row">
+        <label for="ParentId" class="col-sm-4 col-form-label fw-bold">Team Member</label>
+        <div class="col-sm-8">
+            <InputSelect @bind-Value="teamMember.ContactId" class="form-select">
+            
+                <option value="0">- Select -</option>
+                @foreach (var contact in contacts)
+                {
+                    <option value="@((int)contact.Id)">@contact.FirstName @contact.LastName</option>
+                }
+             </InputSelect>
+            <ValidationMessage For="@(() => teamMember.ContactId)" />
+        </div>
+    </div>*@
+
+    <div class="mb-2 row">
+        <label for="Country" class="col-sm-4 col-form-label fw-bold">Team Member</label>
+        <div class="col-sm-8">
+            <RadzenDropDown AllowClear="true" TValue="string" @bind-Value="EmployeeIdValue" AllowVirtualization="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowFiltering="true" Class="w-100"
+                        Placeholder="- Select -" Data="@contacts" TextProperty="EmployeeId" ValueProperty="EmployeeId" />
+            <ValidationMessage For="@(() => teamMember.EmployeeId)" />
+        </div>
+    </div>
+
+
+}
+
+
+<div class="mb-2 row">
+    <label for="teamName" class="col-sm-4 col-form-label fw-bold">Team Name</label>
+    <div class="col-sm-8">
+        <InputSelect @bind-Value="teamMember.TeamId" class="form-select">
+            <option value="0">- Select -</option>
+                @foreach (var team in teams)
+                {
+                    <option value="@((int)team.Id)">@team.Name</option>
+                }
+            </InputSelect>
+        <ValidationMessage For="@(() =>teamMember.TeamId)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="ParentId" class="col-sm-4 col-form-label fw-bold">Team Role</label>
+    <div class="col-sm-8">
+        <InputSelect @bind-Value="teamMember.TeamRoleId" class="form-select">
+            
+            <option value="0">- Select -</option>
+            @foreach (var teamRole in teamRoles)
+            {
+                <option value="@((int)teamRole.Id)">@teamRole.Name</option>
+            }
+            </InputSelect>
+        <ValidationMessage For="@(() => teamMember.TeamRoleId)" />
+    </div>
+</div>
+
+
+
+@code {
+    [Parameter]
+    public string Name { get; set; }
+
+    [Parameter]
+    public TeamMember teamMember { get; set; }
+
+    [Parameter]
+    public List<TeamRoleModel> teamRoles { get; set; }
+
+    [Parameter]
+    public List<ContactModel> contacts { get; set; }
+
+    [Parameter]
+    public List<TeamModel> teams { get; set; }
+
+
+    private string employeeIdValue;
+
+    private string EmployeeIdValue
+    {
+        get => teamMember?.EmployeeId ?? ""; // Return an empty string if teamMember or EmployeeId is null
+        set
+        {
+            if (teamMember != null)
+            {
+                teamMember.EmployeeId = value;
+            }
+        }
+    }
+}

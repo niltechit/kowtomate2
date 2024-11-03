@@ -1,0 +1,265 @@
+﻿@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.UI
+@using CutOutWiz.Services.UI
+@using KowToMateAdmin.Models.Security
+@using CutOutWiz.Core.Utilities
+@using KowToMateAdmin.Pages.Shared
+
+@inject IWorkContext _workContext
+@inject IGridViewSetupService _gridViewSetupService
+
+@inject NotificationService NotificationService
+@inject AuthenticationStateProvider _authenticationStateProvider
+
+<EditForm Model=@gridViewSetup OnValidSubmit="@gridViewSetupSaveChange">
+
+    <div class="modal" tabindex="-1" style="display:block;">
+        <div class="modal-dialog">
+            <div class="modal-content" style="width:617px !important">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add / Update View Template</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                </div>
+                <div class="modal-body">
+                     <DataAnnotationsValidator />
+
+                      <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label fw-bold"></label>
+                            <div class="col-sm-8">
+                                <h4>@selectedGridViewSetupColumn.Count() Columns Selected.</h4>
+                            </div>
+                        </div>
+
+                    @if (!hideSelectoinMode)
+                    {
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label fw-bold">Save Mode</label>
+                            <div class="col-sm-8">
+                                <input type="radio" checked="checked" value="false" @onchange="@(() => { gridViewSetup.IsCreateNewTemplate = false; })" name="IsCreateNewTemplate" id="UpdateCurrentTemplate" class="form-radio-input" />
+                                <label class="form-check-label" for="UpdateCurrentTemplate">Update Current View</label>
+
+                                <input type="radio" value="true" @onchange="@(() => { gridViewSetup.IsCreateNewTemplate = true; gridViewSetup.Name = ""; })" name="IsCreateNewTemplate" id="AddNewTemplate" class="ms-2 form-radio-input" />
+                                <label class="form-check-label" for="AddNewTemplate">Create New View</label>
+
+                                <ValidationMessage For="@(() => gridViewSetup.IsCreateNewTemplate)" />
+                            </div>
+                        </div>
+                    }
+
+                    <div class="mb-2 row">
+                        <label for="Name" class="col-sm-4 col-form-label fw-bold">View Name</label>
+                        <div class="col-sm-8">
+                            <InputText class="form-control" @bind-Value="gridViewSetup.Name"></InputText>
+                            <ValidationMessage For="@(() => gridViewSetup.Name)" />
+                        </div>
+                    </div>
+
+                    <div class="mb-2 row">
+                        <label class="col-sm-4 col-form-label fw-bold">Template Type</label>
+                        <div class="col-sm-8">
+                            <InputCheckbox @bind-Value="gridViewSetup.IsDefault" id="IsDefault" class="form-check-input"></InputCheckbox>
+                            <label class="form-check-label" for="IsDefault">
+                                Is Default Template
+                            </label>
+                            <ValidationMessage For="@(() => gridViewSetup.IsDefault)" />
+                        </div>
+                    </div>
+
+                    <AuthorizeView Context="InnerContext" Roles="GT.PVT.A,GT.PVT.E">
+                    <div class="mb-2 row">
+                        <label class="col-sm-4 col-form-label fw-bold">Visibility</label>
+                        <div class="col-sm-8">
+                            <InputCheckbox @bind-Value="gridViewSetup.IsPublic" id="IsPublic" class="form-check-input"></InputCheckbox>
+                            <label class="form-check-label" for="IsPublic"> Is Public
+                            </label>
+                            <ValidationMessage For="@(() => gridViewSetup.IsPublic)" />
+                            <div class="form-text">'Public Template'' will be visible to to all users.</div>
+                        </div>                        
+                    </div>
+                    </AuthorizeView>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save</button>
+                 
+                  @if (gridViewSetup.Id > 0 && gridViewSetup.IsCreateNewTemplate == false)
+                  {
+                       if (gridViewSetup.IsPublic)
+                       {
+                         <AuthorizeView Context="InnerContext" Roles="GT.PVT.D">
+                          <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete()">Delete</button>
+                            </AuthorizeView>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete()">Delete</button>
+                        }
+                    }
+
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    [Parameter]
+    public GridViewSetupModel selectedGridViewSetup { get; set; }
+
+    [Parameter]
+    public List<GridViewSetupColumnSlimModel> selectedGridViewSetupColumn { get; set; }
+
+    [Parameter]
+    public EventCallback<int> confirmationGridViewTemplateUpdate { get; set; }
+
+    protected ModalNotification ModalNotification { get; set; }
+
+    GridViewSetupModel gridViewSetup = new GridViewSetupModel();
+    bool isSubmitting = false;
+    private LoginUserInfoViewModel loginUser = null;
+    bool hideSelectoinMode = false;
+    AuthenticationState authState;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Yield();
+        loginUser = _workContext.LoginUserInfo;
+        authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+
+        gridViewSetup = new GridViewSetupModel
+        {
+            Id = selectedGridViewSetup.Id,
+            Name = selectedGridViewSetup.Name,
+            GridViewFor = selectedGridViewSetup.GridViewFor,
+            DynamicReportInfoId = selectedGridViewSetup.DynamicReportInfoId,
+            ObjectId = selectedGridViewSetup.ObjectId,
+            ContactId = selectedGridViewSetup.ContactId,
+            IsDefault = selectedGridViewSetup.IsDefault,
+            IsPublic =  selectedGridViewSetup.IsPublic,
+            OrderByColumn = selectedGridViewSetup.OrderByColumn,
+            OrderDirection = selectedGridViewSetup.OrderDirection
+        };
+
+        if (selectedGridViewSetup.Id == -1)
+        {
+            hideSelectoinMode = true;
+            gridViewSetup.Name = "";
+            gridViewSetup.IsCreateNewTemplate = true;
+        }
+        else
+        {
+            if (!authState.User.IsInRole(PermissionConstants.GridTemplate_EditPublicViewTemplate))
+            {
+                if (selectedGridViewSetup.IsPublic)
+                {
+                    gridViewSetup.IsPublic = false;
+                    hideSelectoinMode = true;
+                    gridViewSetup.Name = "";
+                    gridViewSetup.IsCreateNewTemplate = true;
+                }
+                else
+                {
+                     gridViewSetup.IsCreateNewTemplate = false;
+                }
+            }
+            else
+            {
+                gridViewSetup.IsCreateNewTemplate = false;
+            }
+        }
+
+    }
+
+    protected void Delete()
+    {       
+        var msg = $"Are you sure you want to delete the View \"{gridViewSetup.Name}\"? If you delete this view, its related filter(s) also will be delete automatically.";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _gridViewSetupService.Delete(gridViewSetup.ObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                ShowQuickNotification(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Success!", Detail = deleteResponse.Message, Duration = 5000 });       
+                await confirmationGridViewTemplateUpdate.InvokeAsync(-100);  //-100 means deleted
+            }
+            else
+            {
+                 ShowQuickNotification(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error!", Detail = deleteResponse.Message, Duration = 5000 });       
+            }
+        }
+
+        isSubmitting = false;
+    }
+
+    async Task CloseAddEditPopup()
+    {
+        await confirmationGridViewTemplateUpdate.InvokeAsync(0);
+    }
+
+    async Task gridViewSetupSaveChange()
+    {
+        isSubmitting = true;
+
+        if (gridViewSetup.IsCreateNewTemplate)
+        {
+            gridViewSetup.ContactId = loginUser.ContactId;
+            gridViewSetup.CreatedByContactId = loginUser.ContactId;
+             
+            var addResponse = await _gridViewSetupService.Insert(gridViewSetup);
+
+            if (addResponse.IsSuccess)
+            {
+                //Add Coluns in database                
+
+                await _gridViewSetupService.TemplateColumnsInsertOrUpdateBySetupId(addResponse.Result, selectedGridViewSetupColumn);
+            }
+
+            await ShowQuickMessage(addResponse);
+        }
+        else
+        {
+            gridViewSetup.UpdatedByContactId = loginUser.ContactId;
+
+            var updateResponse = await _gridViewSetupService.Update(gridViewSetup);
+
+            if (updateResponse.IsSuccess)
+            {
+                //Add Coluns in database
+                await _gridViewSetupService.TemplateColumnsInsertOrUpdateBySetupId(gridViewSetup.Id, selectedGridViewSetupColumn);
+            }
+
+            await ShowQuickMessage(updateResponse);
+
+
+        }
+
+        isSubmitting = false;
+    }
+
+
+    async Task ShowQuickMessage(Response<int> response)
+    {
+        if (response.IsSuccess)
+        {
+            ShowQuickNotification(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Success!", Detail = response.Message, Duration = 5000 });
+             await confirmationGridViewTemplateUpdate.InvokeAsync(response.Result);
+        }
+        else
+        {
+            ShowQuickNotification(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error!", Detail = response.Message, Duration = 5000 });
+        }
+    }
+
+    void ShowQuickNotification(NotificationMessage message)
+    {
+        NotificationService.Notify(message);
+    }
+}

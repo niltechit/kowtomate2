@@ -1,0 +1,462 @@
+﻿@page "/order/upload"
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.ClientOrders
+@using CutOutWiz.Services.Models.EmailModels
+@using CutOutWiz.Core.Message
+@using CutOutWiz.Services.Models.OrderAndOrderItemStatusChangeLog
+@using CutOutWiz.Services.Models.SOP
+@using CutOutWiz.Services.Models.OrderSOP
+@using CutOutWiz.Services.Models.Common
+@using static CutOutWiz.Core.Utilities.Enums
+@using CutOutWiz.Services.AutomationAppServices.FtpOrderProcess;
+@using CutOutWiz.Services.BLL.OrderStatusAndOrderItemStatus;
+@using CutOutWiz.Services.Email
+@using CutOutWiz.Services.EmailMessage
+@using CutOutWiz.Services.FolderServices
+@using CutOutWiz.Services.InternalMessage
+@using CutOutWiz.Services.Logs
+@using CutOutWiz.Services.ClientOrders
+@using CutOutWiz.Services.OrderItemStatusChangeLogService
+@using CutOutWiz.Services.OrderAndOrderItemStatusChangeLogServices
+@using CutOutWiz.Services.SOP
+@using CutOutWiz.Services.OrderSOP
+@using CutOutWiz.Services.Security
+@using CutOutWiz.Services.StorageService
+@using FluentFTP
+@using KowToMateAdmin.Helper
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.SOP.StandardService
+@using KowToMateAdmin.Pages.SOP.Template
+@using KowToMateAdmin.Pages.Shared
+@using System.Net
+@using KowToMateAdmin.Services;
+@using CutOutWiz.Services.Managers.Common;
+
+@inject IWorkContext _workContext
+@inject IClientOrderService _orderService
+@inject CutOutWiz.Services.ClientOrders.IOrderTemplateService _orderTemplateService
+@inject IFileServerManager _fileServerService
+@inject ICompanyManager _companyService
+@inject IGCPService _gCPService
+@inject NavigationManager UriHelper
+@inject ILogServices _activityLogService
+@inject IContactManager _contactManager
+@inject IOrderSOPTemplateService _sopTemplateService
+@inject IWorkflowEmailService _workflowEmailService
+@inject IConfiguration _configuration
+@inject IRoleManager _roleManager
+@inject IUserService _userService
+@inject IFtpService _ftpService
+@inject ILocalFileService _localFileService
+@inject IWebHostEnvironment _webHostEnvironment
+@inject IFolderService _folderService
+@inject IOrderSOPStandardServiceService _sopStandardService
+@inject IJSRuntime js
+@inject IOperationEmailService _operationEmailService
+@inject IClientOrderItemService _clientOrderItemService
+@inject IOrderFileAttachmentService _orderFileAttachmentService
+@inject IInternalMessageService _internalMessageService
+@inject ICompanyTeamManager _companyTeamService
+@inject IOrderStatusChangeLogService _orderStatusChangeLogService
+@inject IOrderItemStatusChangeLogService _orderItemStatusChangeLogService
+@inject IFluentFtpService _fluentFtpService
+@inject IOrderTemplateSOPService _orderTemplateSOPService
+@inject IOrderSOPStandardService _orderSOPStandardService
+@inject IOrderSOPTemplateOrderSOPStandardService _orderSOPTemplateOrderSOPStandardService
+@inject IOrderTempleateSOPFileService _orderTemplateSOPFileService
+@inject IFtpFilePathService _ftpFilePathService
+@inject IAcitivityLogCommonMethodService _activityLogCommonMethodService
+@inject IOrderStatusService _orderStatusService
+@inject IClientOrderFtpService _clientOrderFtpService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            @if (order.Id > 0)
+            {
+                <div class="row">
+                    <h4 class="mb-sm-0 font-size-18">Order: @order.OrderNumber (@order.InternalOrderStatusEnumName)</h4>
+                </div>
+            }
+            else
+            {
+                <div class="row">
+                    <h4 class="mb-sm-0 font-size-18">Place New Order</h4>
+                </div>
+            }
+          @*  <div class="">
+                <div class="row">
+                    <h4 class="mb-sm-0 font-size-18">File Upload Time: @timer.elapsedTime</h4>
+                </div>
+            </div>*@
+            <div class="page-title-right">
+                <AuthorizeView Roles="Order.Add">
+                    <a href="/orders" class="btn btn-sm btn-secondary" title="Back To List"><span class="fas fa-arrow-left"></span> Back To List</a>
+                </AuthorizeView>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+<EditForm Model=@order OnValidSubmit="@InsertUpdateOrder">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    <DataAnnotationsValidator />
+                  @*  @if (ClientOrderFtps != null && ClientOrderFtps.Any())
+                    {
+                        <div class="mb-3 mt-3">
+                            <label for="Name" class="fw-bold">Select your Destination Ftp</label>
+                            <InputSelect @bind-Value="order.SourceServerId" class="form-select">
+                                <option value="0"> -- Select your Destination Ftp --</option>
+                                @foreach (var clientOrderFtp in ClientOrderFtps)
+                                {
+                                    if (clientOrderFtp.OutputHost!=null)
+                                    {
+                                        <option value="@clientOrderFtp.Id">@($"{clientOrderFtp.OutputHost} - {clientOrderFtp.OutputUsername} - {clientOrderFtp.OutputFolderName}")</option>
+                                    }
+
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => order.SourceServerId)" />
+                        </div>
+                    }
+                    else
+                    {
+                        <p>No FTP servers available.</p>
+                    }*@
+
+                    <div class="mb-3">
+                        <label class="d-block mb-3 required-field">Select Upload Option</label>
+
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" @onclick="ShowFolder" type="radio" name="outer-group[0][inlineRadioOptions]" id="inlineRadio1" checked="1" value="option1" disabled="@isUploadInputDisabled">
+                            <label class="form-check-label" for="inlineRadio1">Folder Upload</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" @onclick="ShowFile" type="radio" name="outer-group[0][inlineRadioOptions]" id="inlineRadio2" value="option2" disabled="@isUploadInputDisabled">
+                            <label class="form-check-label" for="inlineRadio2">File Upload</label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="fallback">
+                            @if (AllowFolderUpload)
+                            {
+                                @:Folder
+                                <InputFile id="myFileUpload" OnChange="@LoadOrderFolder" webkitdirectory directory multiple disabled="@isUploadInputDisabled" />
+                            }
+                            else
+                            {
+                                @:Files
+                                <InputFile OnChange="@LoadOrderFile" multiple disabled="@isUploadInputDisabled" />
+                            }
+
+                        </div>
+                        @if (isProgressBar)
+                        {
+                            @if (CurrentValue > 0)
+                            {
+                                <div class="row">
+                                    <div class="col-lg-10">
+                                        <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Secondary" Value="CurrentValue" Max="100" Style="margin-top: 20px;background-color: aquamarine;color: black" />
+                                    </div>
+                                    <div class="col-lg-2 mt-3">
+                                        <button type="button" class="btn btn-danger btn-sm btn-rounded" @onclick="UploadItemCancel">Cancel Upload</button>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        @if (order.orderItems != null)
+                        {
+                            <div class="mt-2" style="max-height:250px; overflow:auto;">
+                                <table class="table table-bordered table-sm">
+
+                                    @foreach (var item in order.orderItems)
+                                    {
+                                        <tr>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(item.InternalFileInputPath))
+                                                {
+
+                                                    string[] paths = item.InternalFileInputPath.Split(new[] { order.OrderNumber }, StringSplitOptions.None);
+                                                    @paths[1].Trim('/')
+                                                }
+                                                else
+                                                {
+                                                    @item.FileName
+                                                }
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-tbl-action text-danger" @onclick="() => DeleteClientOrderItemOnPreview((int)item.Id,item.ObjectId)">
+                                                    <span class="fas fa-times"></span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </table>
+                            </div>
+                        }
+                        <div class="mb-3 mt-3">
+                            <label for="Instruction" class="fw-bold required-field">Instruction</label>
+                            <RadzenHtmlEditor @bind-Value=@order.Instructions style="height: 250px; margin-bottom: 1rem;">
+                                <RadzenHtmlEditorBold/>
+                                <RadzenHtmlEditorItalic/>
+                                <RadzenHtmlEditorColor/>
+                                <RadzenHtmlEditorBackground/>
+                                <RadzenHtmlEditorFontName/>
+                                <RadzenHtmlEditorFontSize/>
+                            </RadzenHtmlEditor>
+                            <ValidationMessage For="@(() => order.Instructions)"/>
+                        </div>
+                        <div class="mb-3 mt-3">
+                            <label for="Name" class="fw-bold">Attachment</label>
+                            <InputFile class="form-control" OnChange="AttachmentUpload" type="file" multiple></InputFile>
+                        </div>
+                        @if (order.orderAttachments != null)
+                        {
+                            <table class="table table-bordered table-sm">
+                                @foreach (var item in order.orderAttachments)
+                                {
+                                    <tr>
+                                        <td>
+                                            @item.FileName
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-tbl-action text-danger" @onclick="() => DeleteAttachImagesOnPreview(item)">
+                                                <span class="fas fa-times"></span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </table>
+                        }
+                        @if (spinShow)
+                        {
+                            <div class="loader">
+                                <Grid />
+                            </div>
+                        }
+
+                    </div>
+
+                    @*<div class="mb-3 mt-3">
+                    <label for="Status" class="fw-bold">Status</label>
+                    <InputSelect @bind-Value="order.ExternalOrderStatus" class="form-select">
+                    <option value="0">- Select -</option>
+                    @foreach (var status in Enum.GetValues(typeof(GeneralStatus)))
+                    {
+                    <option value="@((int)status)">@status</option>
+                    }
+                    </InputSelect>
+                    <ValidationMessage For="@(() => order.ExternalOrderStatus)" />
+                    </div>
+                    *@
+
+                    <div class="mb-3 mt-3">
+                        @if (order?.orderItems.Count() > 0)
+                        {
+                            <button type="submit" class="btn btn-primary me-2" disabled="@isUploadInputDisabled">Place Order</button>
+                        }
+                        <button type="button" class="btn btn-danger me-2" @onclick="UploadCancel">Cancel Order</button>
+                    </div>
+
+
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <TemplateCheckBoxList templates="templateService" selectedTemplateList="selectedTemplateList" OnServiceSeletection="SOPServiceChanged" sopTemplate="sopTemplate" OnClickedView="ClickedView"></TemplateCheckBoxList>
+
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="mb-3 mt-3">
+                                <button type="button" @onclick="AddNewSOP" class="btn me-2" style="background-color:#7da52f;color:white" disabled="@isCreatingSop">Create New SOP</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</EditForm>
+
+@if (isInsertUpdateTemplatePopupVisible)
+{
+    <EditForm Model=@sopTemplate OnValidSubmit="@InsertUpdateTemplate">
+        <div class="col-lg-12">
+            <div class="modal" tabindex="-1" style="display:block;">
+                <div class="modal-dialog">
+                    <div class="modal-content modalWith">
+                        <div class="modal-header">
+                            <h5 class="modal-title">New SOP Create</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-lg-8">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <DataAnnotationsValidator />
+                                            <div class="mb-3 mt-3">
+                                                <label for="Name" class="fw-bold">Name</label>
+                                                <InputText class="form-control" @bind-Value="sopTemplate.Name"></InputText>
+                                                <ValidationMessage For="@(() => sopTemplate.Name)" />
+                                            </div>
+                                            <div class="mb-3 mt-3">
+                                                <label for="Instruction" class="fw-bold">Instruction</label>
+                                                <RadzenHtmlEditor @bind-Value=@sopTemplate.Instruction style="height: 250px; margin-bottom: 1rem;">
+                                                    <RadzenHtmlEditorBold />
+                                                    <RadzenHtmlEditorItalic />
+                                                    <RadzenHtmlEditorColor />
+                                                    <RadzenHtmlEditorBackground />
+                                                    <RadzenHtmlEditorFontName />
+                                                    <RadzenHtmlEditorFontSize />
+                                                </RadzenHtmlEditor>
+                                                <ValidationMessage For="@(() => sopTemplate.Instruction)" />
+                                            </div>
+
+                                            <div class="mb-3 mt-3">
+                                                <label for="Name" class="fw-bold">Attachment</label>
+                                                <InputFile class="form-control" OnChange="OnSopTemplateAttachmentInputFileChange" type="file" multiple></InputFile>
+
+                                            </div>
+                                            @if (sopTemplate.SopTemplateFileList != null)
+                                            {
+                                                <div class="mt-2" style="max-height:250px; overflow:auto;">
+                                                    <table class="table table-bordered table-sm">
+
+                                                        @foreach (var item in sopTemplate.SopTemplateFileList)
+                                                        {
+                                                            <tr>
+                                                                <td>
+                                                                    @if (!string.IsNullOrEmpty(item.ActualPath))
+                                                                    {
+                                                                        @item.ActualPath
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        @item.FileName
+                                                                    }
+                                                                </td>
+                                                                <td>
+                                                                    <button type="button" class="btn btn-sm btn-tbl-action text-danger" @onclick="() => DeleteSopTemplateFileOnPreview(item.FileName)">
+                                                                        <span class="fas fa-times"></span>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        }
+
+                                                    </table>
+                                                </div>
+                                            }
+                                            @if (CurrentValue > 0)
+                                            {
+                                                <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Secondary" class="progressbarStyle" Value="CurrentValueForSopAttachmentProgressbar" Max="100" Style="margin-top: 20px;background-color: aquamarine;color: black" />
+                                            }
+                                           @* @if (spinShow)
+                                            {
+                                                <div class="spinner"></div>
+                                            }*@
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-4">
+                                    <SOPServiceCheckBoxList standardService="sopService" selectedSeviceIdtList="selectedSeviceIdList" OnServiceSeletection="ServiceChanged"></SOPServiceCheckBoxList>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <div class="mb-3 mt-3">
+                                <button type="submit" class="btn me-2" style="background-color:#7da52f;color:white" disabled="@isSubmitting">Save SOP</button>
+                                @if (!string.IsNullOrWhiteSpace(sopTemplate.ObjectId))
+                                {
+                                    <button type="button" class="btn btn-danger me-2" disabled="@isSubmitting" @onclick="() => Delete(sopTemplate.ObjectId,sopTemplate.Name)">Delete</button>
+                                }
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@if (isSOPTemplateView)
+{
+    <div class="modal" tabindex="-1" style="display:block;">
+        <div class="modal-dialog">
+            <div class="modal-content modalWith">
+                <div class="modal-header">
+                    <h5 class="modal-title">SOP Detail </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="HideTemplatePopup"></button>
+                </div>
+                <div class="modal-body">
+                    <TemplateDetailPage ObjectId="@sopTemplate.ObjectId">
+
+                    </TemplateDetailPage>
+                </div>
+                <div class="modal-footer">
+                    <a href="/sop/template/@sopTemplate.ObjectId" class="btn btn-danger">Edit</a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="HideTemplatePopup">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (isSOPNameChange)
+{
+    <EditForm Model=@sopTemplate OnValidSubmit="@UpdateTemplateName">
+        <div class="col-lg-12">
+            <div class="modal" tabindex="-1" style="display:block;">
+                <div class="modal-dialog">
+                    <div class="modal-content modalWith">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Rename of SOP @sopTemplate.Name</h5>
+                            <h4 hidden> @sopTemplate.OrderTemplateId</h4>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-lg-8">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <DataAnnotationsValidator />
+                                            <div class="mb-3 mt-3">
+                                                <label for="Name" class="fw-bold">Name</label>
+                                                <InputText class="form-control" @bind-Value="sopTemplate.Name"></InputText>
+                                                <ValidationMessage For="@(() => sopTemplate.Name)" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <div class="mb-3 mt-3">
+                                <button type="submit" class="btn btn-primary me-2" disabled="@isSubmitting">Changes</button>
+                                @if (!string.IsNullOrWhiteSpace(sopTemplate.ObjectId))
+                                {
+                                    <button type="button" class="btn btn-danger me-2" disabled="@isSubmitting" @onclick="() => Delete(sopTemplate.ObjectId,sopTemplate.Name)">Delete</button>
+                                }
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="NameChangesCloseAddEditPopup">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+

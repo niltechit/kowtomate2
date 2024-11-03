@@ -1,0 +1,348 @@
+﻿@page "/common/service"
+
+@attribute [Authorize(Roles = PermissionConstants.Category_CanViewAllCommonServiceList)]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.ClientCommonCategoryService.CommonCategories;
+@using CutOutWiz.Services.EncryptedMethodServices;
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+@using CutOutWiz.Services.Models.ClientCategoryServices
+
+@inject IWorkContext _workContext
+@inject ICommonServiceService _CommonService
+@inject IEncryptedMethodService _encryptedMethodServices
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                @if (commonServices?.Any() == true)
+                {
+                    @:Common Services(@commonServices.Count)
+                }
+                else
+                {
+                    @:Common Services
+                }
+            </h4>
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New CommonCategory"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+        <div style="height: 700Px; overflow-y: auto; overflow-x: auto;">
+        <RadzenDataGrid Data="@commonServices" IsLoading="isLoading" TItem="CommonServiceModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+                <RadzenDataGridColumn TItem="CommonServiceModel" Property="Name" Title="Service Name" SortOrder="SortOrder.Ascending" />
+                
+                    <RadzenDataGridColumn TItem="CommonServiceModel" Property="TimeInMinutes" Title="Time In Minutes" TextAlign="TextAlign.Right" Filterable="false">
+                        <Template Context="order">
+                            @if (decimal.TryParse(order.TimeInMinutes.ToString(), out var timeInMinutes))
+                            {
+                                <p title="Time In Minutes">@timeInMinutes.ToString("N2")</p>
+                            }
+                            else
+                            {
+                                <p title="Time In Minutes">Invalid time</p>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <AuthorizeView Roles=@PermissionConstants.Category_CanViewClientCategoryPrice>
+                        <RadzenDataGridColumn TItem="CommonServiceModel" Property="PriceInUSD" Title="Price In USD" TextAlign="TextAlign.Right" OrderIndex="1" Filterable="false">
+                            <Template Context="order">
+                                @if (decimal.TryParse(_encryptedMethodServices.DecryptData(order.PriceInUSD), out var price))
+                                {
+                                    <p title="Price In USD">@price.ToString("C")</p>
+                                }
+                                else
+                                {
+                                    <p title="Price In USD">Invalid price</p>
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </AuthorizeView>
+
+                <RadzenDataGridColumn TItem="CommonServiceModel" Property="Status" Title="Status" FilterValue="@filterStatus" TextAlign="TextAlign.Center">
+                    <FilterTemplate>
+                        @* <RadzenDropDown @bind-Value=@filterStatus Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                                        Data="@(statuses)" AllowClear="true" /> *@
+                    </FilterTemplate>
+                    <Template Context="role">
+                        @if (role.IsActive == true)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Inactive</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="CommonServiceModel" Property="CreatedByUsername" Title="Created By" TextAlign="TextAlign.Center" Filterable="false" />
+
+                <RadzenDataGridColumn Width="200px" TItem="CommonServiceModel" Property="CreatedDate" Title="CreatedDate" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        @((data.CreatedDate != null) ? data.CreatedDate.ToString("dd-MMM-yyyy hh:mm tt") : string.Empty)
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn Width="120px" TItem="CommonServiceModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.Id))">
+                            <span class="fas fa-pencil-alt"></span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.Id,data.Name)">
+                            <span class="fas fa-times"></span>
+                        </button>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+        </div>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@commonService OnValidSubmit="@InsertUpdateCommonService">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Common Service</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <CommonServiceAddOrEdit commonService="commonService" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                        @if (commonService.Id > 0)
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(commonService.Id,commonService.Name)">Delete</button>
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    bool isSubmitting;
+    private List<CommonServiceModel> commonServices;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isLoading = false;
+    private CommonServiceModel commonService = new CommonServiceModel();
+    private CommonServiceModel editedCommonService = new CommonServiceModel();
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private int selectedObjectId = 0;
+
+    List<CustomEnumTypes> statuses = new List<CustomEnumTypes>();
+    private byte? filterStatus;
+
+    List<CustomEnumTypes> filterTypes = new List<CustomEnumTypes>();
+    private byte? filterTypeStatus;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        loginUser = _workContext.LoginUserInfo;
+        await LoadCommonCategorys();
+
+        //Populate Status
+        foreach (GeneralStatus item in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            statuses.Add(new CustomEnumTypes { EnumName = item.ToString(), EnumValue = Convert.ToByte((int)item) });
+        }
+
+        isLoading = false;
+    }
+
+    private async Task LoadCommonCategorys()
+    {
+        commonServices = await _CommonService.GetAll();
+    }
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<CommonServiceModel> args)
+    {
+        await Edit(args.Data.Id);
+    }
+
+    private async Task InsertUpdateCommonService()
+    {
+        isSubmitting = true;
+
+        if (commonService.Id == 0)
+        {
+            var serviceNameExists = commonServices.Where(x => x.Name.Contains(commonService.Name));
+            if (serviceNameExists != null && serviceNameExists.Any())
+            {
+                ModalNotification.ShowMessage("Error", "Same name service already exist.");
+                isSubmitting = false;
+                return;
+            }
+
+            commonService.CreatedByUsername = loginUser.FirstName;
+            //CommonCategory.ObjectId = Guid.NewGuid().ToString();
+
+            // Check Service name is exists
+
+
+            if (commonService.PriceInUSD != null)
+            {
+                commonService.PriceInUSD = _encryptedMethodServices.EncryptData(commonService.PriceInUSD);
+            }
+
+            commonService.CreatedDate = DateTime.Now;
+            commonService.CreatedByUsername = loginUser.Username;
+            var addResponse = await _CommonService.Insert(commonService);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+        }
+        else
+        {
+            commonService.UpdatedByUsername = loginUser.FirstName;
+            bool updateProcessStart = false;
+            if (editedCommonService.Name == commonService.Name)
+            {
+                updateProcessStart = true;
+            }
+            else
+            {
+                var checkEditedServiceName = commonServices.Where(x => x.Name.Contains(commonService.Name)).FirstOrDefault();
+                if (checkEditedServiceName != null && checkEditedServiceName.Name == commonService.Name)
+                {
+                    ModalNotification.ShowMessage("Error", "Same name service already exist.");
+                    isSubmitting = false;
+                    return;
+                }
+                updateProcessStart = true;
+            }
+
+            if (updateProcessStart)
+            {
+
+                if (commonService.PriceInUSD != null)
+                {
+                    commonService.PriceInUSD = _encryptedMethodServices.EncryptData(commonService.PriceInUSD);
+                }
+                commonService.UpdatedDate = DateTime.Now;
+                commonService.UpdatedByUsername = loginUser.Username;
+                var updateResponse = await _CommonService.Update(commonService);
+
+                if (!updateResponse.IsSuccess)
+                {
+                    ModalNotification.ShowMessage("Error", updateResponse.Message);
+                    isSubmitting = false;
+                    return;
+                }
+            }
+        }
+
+        commonService = new CommonServiceModel();
+        isSubmitting = false;
+
+        await LoadCommonCategorys();
+        CloseAddEditPopup();
+    }
+
+    void AddNew()
+    {
+        //commonService = new Common { Status = (int)GeneralStatus.Active };
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(int id)
+    {
+        commonService = await _CommonService.GetById(id);
+        editedCommonService = await _CommonService.GetById(id);
+        commonService.PriceInUSD = _encryptedMethodServices.DecryptData(commonService.PriceInUSD);
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(int objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the CommonCategory \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+
+            var service = new CommonServiceModel
+                {
+                    Id = selectedObjectId,
+                    IsActive = false,
+                    IsDeleted = true,
+                    UpdatedByUsername = loginUser.Username,
+                    UpdatedDate = DateTime.Now,
+            };
+
+            var deleteResponse = await _CommonService.Update(service);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadCommonCategorys();
+                commonService = new CommonServiceModel();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+
+        isSubmitting = false;
+    }
+}

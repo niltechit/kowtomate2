@@ -1,0 +1,173 @@
+﻿@using static CutOutWiz.Core.Utilities.Enums
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Services.Models.ClientCategoryServices
+@using CutOutWiz.Services.EncryptedMethodServices
+
+@inject IEncryptedMethodService _encryptedMethodServices
+@inject ICommonServiceService _commonService
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold required-field">Category Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" placeholder="Name" @bind-Value="categoryService.Name"></InputText>
+        <ValidationMessage For="@(() => categoryService.Name)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Permissions" class="col-sm-4 col-form-label fw-bold">Select Services</label>
+    <div class="col-sm-8">
+        <RadzenDropDown AllowClear="false" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        @bind-Value="@selectedServiceIds" Multiple="true" Placeholder="Select..." Data="@commonServices"
+                        TextProperty="Name" ValueProperty="Id" Class="w-100" Change="@OnSelectedServiceList" />
+    </div>
+</div>
+
+@* @if (commonServicess != null && commonServicess.Any())
+{
+    <div class="row mb-2">
+        <div class="col-lg-12">
+            <RadzenDataGrid @ref="grid" Data="@commonServicess" IsLoading="@isLoading" TItem="CommonService"
+                            AllowFiltering="false" AllowColumnResize="true" AllowAlternatingRows="false"
+                            FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                            AllowSorting="true" AllowPaging="true" PageSize="20"
+                            PagerHorizontalAlign="HorizontalAlign.Center"
+                            ShowPagingSummary="true" AllowColumnReorder="true">
+                <Columns>
+                    <RadzenDataGridColumn TItem="CommonService" Property="Name" Title="Service Name">
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="CommonService" Property="TimeInMinutes" Title="Time In Minutes" TextAlign="TextAlign.Center" Filterable="false" Width="100px">
+                        <Template Context="order">
+                            
+                            <RadzenNumeric @bind-Value="order.TimeInMinutes" Name="TimeInMinutes" aria-label="Time" Step="0.01" Min="0" Max="10000" Style="width: 100%;" />
+
+                            <RadzenRequiredValidator Text="TimeInMinutes is required" Component="TimeInMinutes" Popup="true" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="CommonService" Property="Id" Title="Actions" Filterable="false" Sortable="false" Pickable="false" TextAlign="TextAlign.Center" Width="100px">
+                        <Template Context="order">
+                            <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="my-1 ms-1" Click="@(args => OnDeleteRow.InvokeAsync(order))" @onclick:stopPropagation="true">
+                            </RadzenButton>
+                        </Template>
+                        <EditTemplate Context="order">
+                            <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="my-1 ms-1" Click="@(args => OnDeleteRow.InvokeAsync(order))" aria-label="Delete">
+                            </RadzenButton>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </div>
+    </div>
+}
+ *@
+@if (commonServicess != null && commonServicess.Any())
+{
+    <div class="row mb-2">
+        <div class="col-lg-12">
+            <RadzenDataGrid @ref="grid" Data="@commonServicess" IsLoading="@isLoading" TItem="CommonServiceModel"
+                            AllowFiltering="false" AllowColumnResize="true" AllowAlternatingRows="false"
+                            FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                            AllowSorting="true" AllowPaging="true" PageSize="20"
+                            PagerHorizontalAlign="HorizontalAlign.Center"
+                            ShowPagingSummary="true" AllowColumnReorder="true">
+                <Columns>
+                    <RadzenDataGridColumn TItem="CommonServiceModel" Property="Name" Title="Service Name">
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="CommonServiceModel" Property="TimeInMinutes" Title="Time In Minutes" TextAlign="TextAlign.Center" Filterable="false" Width="100px">
+                        <Template Context="order">
+                            <RadzenNumeric @bind-Value="order.TimeInMinutes" Name="TimeInMinutes" aria-label="Time" Step="0.01" Min="0" Max="10000" Style="width: 100%;" />
+
+                            <RadzenRequiredValidator Text="TimeInMinutes is required" Component="TimeInMinutes" Popup="true" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="CommonServiceModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" Pickable="false" TextAlign="TextAlign.Center" Width="100px">
+                        <Template Context="order">
+                            <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="my-1 ms-1" Click="@(args => OnDeleteRow.InvokeAsync(order))" @onclick:stopPropagation="true">
+                            </RadzenButton>
+                        </Template>
+                        <EditTemplate Context="order">
+                            <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="my-1 ms-1" Click="@(args => OnDeleteRow.InvokeAsync(order))" aria-label="Delete">
+                            </RadzenButton>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </div>
+    </div>
+}
+
+<div class="mb-2 row">
+    <label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Time In Minute</label>
+    <div class="col-sm-8">
+        <InputNumber class="form-control" disabled="true" placeholder="Time In Minute" @bind-Value="categoryService.TimeInMinutes"></InputNumber>
+        <ValidationMessage For="@(() => categoryService.TimeInMinutes)" />
+    </div>
+</div>
+<AuthorizeView Roles=@PermissionConstants.Category_CanAddCategoryPrice>
+<div class="mb-2 row">
+    <label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Price In USD</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" placeholder="Price In USD" @bind-Value="categoryService.PriceInUSD"></InputText>
+        <ValidationMessage For="@(() => categoryService.PriceInUSD)" />
+    </div>
+</div>
+</AuthorizeView>
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Is Active</label>
+    <div class="col-sm-8">
+        
+        <label class="form-check-label mt-2" for="IsActive">
+            <InputCheckbox @bind-Value="categoryService.IsActive" id="IsActive" class="form-check-input"></InputCheckbox>
+        </label>
+        <ValidationMessage For="@(() => categoryService.IsActive)" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public CommonCategoryServiceViewModel categoryService { get; set; }
+    [Parameter]
+    public List<CommonServiceModel> commonServices { get; set; } = new List<CommonServiceModel>();
+    [Parameter]
+    public List<CommonServiceModel> commonServicess { get; set; } = new List<CommonServiceModel>();
+    RadzenDataGrid<CommonServiceModel> grid;
+    bool isLoading = false;
+    [Parameter]
+    public List<int> selectedServiceIds { get; set; }
+    [Parameter] public EventCallback<CommonServiceModel> OnDeleteRow { get; set; }
+    [Parameter] public EventCallback<IEnumerable<int>> SelectedServiceList { get; set; }
+
+    private async Task OnSelectedServiceList(object value)
+    {
+        selectedServiceIds = ((IEnumerable<int>)value).ToList();
+        await SelectedServiceList.InvokeAsync(selectedServiceIds);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var receivedVAlue = categoryService;
+
+        if (commonServicess != null && commonServicess.Count > 0)
+        {
+            await InvokeAsync(StateHasChanged); // Ensure the state is updated correctly
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (commonServicess != null && commonServicess.Count > 0)
+        {
+            categoryService.TimeInMinutes = commonServicess.Sum(x => x.TimeInMinutes);
+            await ReloadGridAsync();
+        }
+    }
+
+    private async Task ReloadGridAsync()
+    {
+        if (grid != null)
+        {
+            await grid.Reload();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+}

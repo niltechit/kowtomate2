@@ -1,0 +1,350 @@
+﻿@using static CutOutWiz.Core.Utilities.Enums
+@using CutOutWiz.Services.EncryptedMethodServices
+@using CutOutWiz.Services.Models.ClientCategoryServices
+
+@inject IEncryptedMethodService _encryptedMethodServices
+@inject ICommonServiceService _commonService
+
+@* <div class="mb-2 row">
+	<label for="ParentId" class="col-sm-4 col-form-label fw-bold">Common Category</label>
+	<div class="col-sm-8">
+		<InputSelect @bind-Value="categoryService.CommonCategoryId" class="form-select">
+			<option value="0">- Select -</option>
+			@foreach (var type in commonCategories)
+			{
+				<option value="@(type.Id)">@type.Name</option>
+			}
+		</InputSelect>
+		<ValidationMessage For="@(() => categoryService.CommonCategoryId)" />
+	</div>
+</div> *@
+
+@* <div class="mb-2 row">
+	<label for="ParentId" class="col-sm-4 col-form-label fw-bold">Common Service</label>
+	<div class="col-sm-8">
+		<InputSelect @bind-Value="categoryService.CommonServiceId" class="form-select">
+			<option value="0">- Select -</option>
+			@foreach (var type in commonServices)
+			{
+				<option value="@(type.Id)">@type.Name</option>
+			}
+		</InputSelect>
+		<ValidationMessage For="@(() => categoryService.CommonServiceId)" />
+	</div>
+</div>
+ *@
+
+@* <div class="mb-2 row">
+    <label for="Country" class="col-sm-4 col-form-label fw-bold">Common Category</label>
+    <div class="col-sm-8">
+        <RadzenDropDown AllowClear="true" TValue="int" @bind-Value="@categoryService.CommonCategoryId" AllowVirtualization="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowFiltering="true" Class="w-100"
+                        Placeholder="- Select -" Data="@commonCategories" TextProperty="Name" ValueProperty="Id" />
+        <ValidationMessage For="@(() => categoryService.CommonCategoryId)" />
+    </div>
+</div>
+ *@
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold required-field"> Name </label>
+    <div class="col-sm-8">
+        <InputText class="form-control" placeholder=" Name" @bind-Value="categoryService.Name"></InputText>
+        <ValidationMessage For="@(() => categoryService.Name)" />
+    </div>
+</div>
+
+
+
+
+@* <div class="mb-2 row">
+	<label for="Permissions" class="col-sm-4 col-form-label fw-bold">Common Category</label>
+	<div class="col-sm-8">
+		<RadzenDropDown AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+		@bind-Value=@categoryService.CommonCategoryId Multiple="true" Placeholder="Select..." Data=@commonCategories TextProperty="Name" ValueProperty="Id"
+						Class="w-100" />
+	</div>
+</div>
+
+
+ *@
+
+@* <div class="mb-2 row">
+	<label for="Permissions" class="col-sm-4 col-form-label fw-bold">Common Service</label>
+	<div class="col-sm-8">
+		<RadzenDropDown AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+		@bind-Value=@categoryService.ServiceId Multiple="true" Placeholder="Select..." Data=@commonServices TextProperty="Name" ValueProperty="Id"
+						Class="w-100" />
+	</div>
+</div> *@
+
+@* <div class="mb-2 row">
+	<label for="Permissions" class="col-sm-4 col-form-label fw-bold">Common Service</label>
+	<div class="col-sm-8">
+		<RadzenDropDown AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+						@bind-Value="@selectedServiceIds" Multiple="true" Placeholder="Select..." Data="@commonServices"
+						TextProperty="Name" ValueProperty="Id" Class="w-100" @onclick="SelectedServiceList" />
+	</div>
+</div> *@
+
+<div class="mb-2 row">
+    <label for="Permissions" class="col-sm-4 col-form-label fw-bold">Common Service</label>
+    <div class="col-sm-8">
+        <RadzenDropDown AllowClear="false" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        @bind-Value="@selectedServiceIds" Multiple="true" Placeholder="Select..." Data="@commonServices"
+                        TextProperty="Name" ValueProperty="Id" Class="w-100" Change="OnSelectedServiceList" />
+    </div>
+</div>
+@* @if (commonServicess.Any() && commonServicess.Count > 0)
+{
+<div class="row">
+	<div class="col-lg-12">
+
+		<RadzenDataGrid Data="@commonServicess" IsLoading="isLoading" TItem="CommonService"
+						AllowFiltering="false" AllowColumnResize="true"
+						FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+						AllowSorting="true" AllowPaging="true" PageSize="20"
+						PagerHorizontalAlign="HorizontalAlign.Center"
+						ShowPagingSummary="true">
+			<Columns>
+				<RadzenDataGridColumn TItem="CommonService" Property="Name" Title="Category Name"/>
+				<RadzenDataGridColumn TItem="CommonService" Property="TimeInMinutes" Title="Time In Minutes" TextAlign="TextAlign.Center" Filterable="false" />
+				<AuthorizeView Roles="ClientOrder.ClientCategoryPriceCanSee">
+					<RadzenDataGridColumn TItem="CommonService" Property="PriceInUSD" Title="Price In USD" TextAlign="TextAlign.Center" Filterable="false">
+						<Template Context="order">
+							<p title="Price In USD">@_encryptedMethodServices.DecryptData(order.PriceInUSD)</p>
+						</Template>
+					</RadzenDataGridColumn>
+				</AuthorizeView>
+			</Columns>
+		</RadzenDataGrid>
+	</div>
+</div>
+} *@
+
+
+
+@if (commonServicess.Any() && commonServicess.Count > 0)
+{
+    <div class="row">
+        <div class="col-lg-12">
+
+            <RadzenDataGrid @ref="ordersGrid" Data="@commonServicess" IsLoading="isLoading" TItem="CommonServiceModel"
+                            AllowFiltering="false" AllowColumnResize="true" AllowAlternatingRows="false"
+                            FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                            AllowSorting="true" AllowPaging="true" PageSize="20"
+                            PagerHorizontalAlign="HorizontalAlign.Center"
+                            ShowPagingSummary="true" RowUpdate="@OnUpdateRow" RowCreate="@OnCreateRow" Sort="@Reset" Page="@Reset" Filter="@Reset">
+                <Columns>
+                    @*                     <RadzenDataGridColumn TItem="CommonServiceModel" Property="Id" Title="Id" /> *@
+                    <RadzenDataGridColumn TItem="CommonServiceModel" Property="Name" Title="Category Name">
+                        @* <EditTemplate Context="order">
+                    <RadzenDropDown @bind-Value="order.Id" Data="commonServicess" TextProperty="Name" ValueProperty="Id">
+                    InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "Select customer" } })" />
+                    </RadzenDropDown>
+                    </EditTemplate> *@
+                    </RadzenDataGridColumn>
+                    @*                     <RadzenDataGridColumn TItem="CommonServiceModel" Property="TimeIn" Title="Time In Minutes" TextAlign="TextAlign.Center" Filterable="false">
+                        <EditTemplate Context="order">
+
+                            <RadzenTextBox @bind-Value="order.TimeIn" Style="width:200px; display: block" Name="TimeInMinutes" aria-label="Time" />
+                            <RadzenRequiredValidator Text="TimeInMinutes is required" Component="TimeInMinutes" Popup="true" />
+
+                        </EditTemplate>
+                    </RadzenDataGridColumn> *@
+                    <RadzenDataGridColumn TItem="CommonServiceModel" Property="TimeIn" Title="Time In Minutes" TextAlign="TextAlign.Center" Filterable="false">
+                        <Template Context="order">
+
+                            <RadzenTextBox @bind-Value="order.TimeIn" Style="width:200px; display: block" Name="TimeInMinutes" aria-label="Time" />
+                            <RadzenRequiredValidator Text="TimeInMinutes is required" Component="TimeInMinutes" Popup="true" />
+
+                        </Template>
+                    </RadzenDataGridColumn>
+                    @* <AuthorizeView Roles="ClientOrder.ClientCategoryPriceCanSee"> *@
+                    @* <RadzenDataGridColumn TItem="CommonServiceModel" Property="PriceInUSD" Title="Price In USD" TextAlign="TextAlign.Center" Filterable="false">
+                        <EditTemplate Context="order">
+
+                            <RadzenTextBox @bind-Value="order.PriceInUSD" Style="width:200px; display: block" Name="ShipCity" aria-label="Enter ship city" />
+                            <RadzenRequiredValidator Text="ShipCity is required" Component="ShipCity" Popup="true" />
+
+                        </EditTemplate>
+                    </RadzenDataGridColumn> *@
+                    @* </AuthorizeView> *@
+
+                    <RadzenDataGridColumn TItem="CommonServiceModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" Pickable="false" TextAlign="TextAlign.Center" MinWidth="350px">
+                        <Template Context="order">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(args => EditRow(order))" @onclick:stopPropagation="true">
+                            </RadzenButton>
+                            <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="my-1 ms-1" Click="@(args => DeleteRow(order))" @onclick:stopPropagation="true">
+                            </RadzenButton>
+                        </Template>
+                        <EditTemplate Context="order">
+                            <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@((args) => SaveRow(order))" aria-label="Save">
+                            </RadzenButton>
+                            <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" class="my-1 ms-1" Click="@((args) => CancelEdit(order))" aria-label="Cancel">
+                            </RadzenButton>
+                            <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="my-1 ms-1" Click="@(args => DeleteRow(order))" aria-label="Delete">
+                            </RadzenButton>
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </div>
+    </div>
+}
+
+
+<div class="mb-2 row">
+    <label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Time In Minute</label>
+    <div class="col-sm-8">
+        <InputNumber class="form-control" placeholder="Time In Minute" @bind-Value="categoryService.TimeInMinutes"></InputNumber>
+        <ValidationMessage For="@(() => categoryService.TimeInMinutes)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Code" class="col-sm-4 col-form-label fw-bold required-field">Price (USD)</label>
+    <div class="col-sm-8">
+        <InputNumber class="form-control" placeholder="Time In Minute" @bind-Value="categoryService.TotalPrice"></InputNumber>
+        <ValidationMessage For="@(() => categoryService.TotalPrice)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Is Active</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="categoryService.IsActive" id="IsActive" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="IsActive">
+
+        </label>
+        <ValidationMessage For="@(() => categoryService.IsActive)" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public CommonCategoryServiceModel categoryService { get; set; }
+    [Parameter]
+    public List<CommonServiceModel> commonServices { get; set; } = new List<CommonServiceModel>();
+    public List<CommonServiceModel> commonServicess { get; set; } = new List<CommonServiceModel>();
+    [Parameter]
+    public List<CommonCategoryModel> commonCategories { get; set; } = new List<CommonCategoryModel>();
+    bool isLoading = false;
+    private RadzenDataGrid<CommonServiceModel> ordersGrid;
+
+    private List<int> selectedServiceIds = new List<int>();
+    private List<int> previousSelectedServiceIds = new List<int>();
+
+
+    List<CommonServiceModel> ordersToInsert = new List<CommonServiceModel>();
+    List<CommonServiceModel> ordersToUpdate = new List<CommonServiceModel>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        StateHasChanged();
+    }
+
+    private async Task OnSelectedServiceList(object value)
+    {
+        selectedServiceIds = ((IEnumerable<int>)value).ToList();
+        var service = await commonServiceList(selectedServiceIds);
+        // Ensure UI updates
+        StateHasChanged();
+    }
+    private async Task<List<CommonServiceModel>> commonServiceList(List<int> categoryId)
+    {
+        commonServicess = new List<CommonServiceModel>();
+        foreach (var item in categoryId)
+        {
+            var services = await _commonService.GetById(item);
+            services.PriceInUSD = _encryptedMethodServices.DecryptData(services.PriceInUSD);
+            //var price = _encryptedMethodServices.DecryptData(services.PriceInUSD);
+            // if (price!=null)
+            // {
+            //     services.DecryptedPrice = Convert.ToDecimal(price);
+            // }
+            
+            services.TimeIn = services.TimeInMinutes.ToString();
+            commonServicess.Add(services);
+        }
+        categoryService.TotalPrice = commonServicess.Sum(x => x.DecryptedPrice);
+        categoryService.TimeInMinutes = commonServices.Sum(x=>x.TimeInMinutes);
+        return commonServicess;
+    }
+    private async Task OnRowEdit(CommonServiceModel commonService)
+    {
+        // Code to handle row edit event
+    }
+
+    private async Task OnRowUpdated(CommonServiceModel commonService)
+    {
+        // Code to handle row updated event
+        // For example, save the changes to the database
+    }
+
+    #region EditableGrid
+
+
+    void Reset()
+    {
+
+    }
+
+    void Reset(CommonServiceModel order)
+    {
+
+    }
+
+    async Task EditRow(CommonServiceModel order)
+    {
+
+        // if (editMode == DataGridEditMode.Single && ordersToInsert.Count() > 0)
+        // {
+        //     Reset();
+        // }
+
+        ordersToUpdate.Add(order);
+        await ordersGrid.EditRow(order);
+    }
+
+    void OnUpdateRow(CommonServiceModel order)
+    {
+        Reset(order);
+    }
+
+    async Task SaveRow(CommonServiceModel order)
+    {
+        await ordersGrid.UpdateRow(order);
+    }
+
+    void CancelEdit(CommonServiceModel order)
+    {
+        Reset(order);
+
+        ordersGrid.CancelEditRow(order);
+    }
+
+    async Task DeleteRow(CommonServiceModel order)
+    {
+        Reset(order);
+    }
+
+    async Task InsertRow()
+    {
+
+    }
+
+    void OnCreateRow(CommonServiceModel order)
+    {
+
+    }
+
+    // Method to handle the change in TimeInMinutes
+    private void HandleTimeInMinutesChange(ChangeEventArgs args, CommonServiceModel order)
+    {
+        // Perform actions you want when the value changes
+        string newValue = args.Value.ToString();
+        // Access the order context and do something with it...
+    }
+    #endregion
+
+
+}

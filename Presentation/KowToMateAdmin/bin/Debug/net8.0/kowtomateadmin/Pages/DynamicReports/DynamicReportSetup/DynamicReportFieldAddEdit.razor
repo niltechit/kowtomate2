@@ -1,0 +1,309 @@
+﻿@using CutOutWiz.Services.Models.DynamicReports
+@using CutOutWiz.Services.DynamicReports;
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IDynamicReportInfoService _dynamicReportInfoService
+
+<div class="mb-2 row">
+    <label for="FieldName" class="col-sm-4 col-form-label fw-bold">Field Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="reportTableColumn.FieldName" @onblur="OnFieldNameChange" placeholder="Field Name"></InputText>
+        <ValidationMessage For="@(() => reportTableColumn.FieldName)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="DisplayName" class="col-sm-4 col-form-label fw-bold">Display Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="reportTableColumn.DisplayName" placeholder="Display Name"></InputText>
+        <ValidationMessage For="@(() => reportTableColumn.DisplayName)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="FieldWithPrefix" class="col-sm-4 col-form-label fw-bold">Field With Prefix</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="reportTableColumn.FieldWithPrefix" placeholder="Field with Prefix"></InputText>
+        <ValidationMessage For="@(() => reportTableColumn.FieldWithPrefix)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="FieldType" class="col-sm-4 col-form-label fw-bold">Field Type</label>
+    <div class="col-sm-8">
+        <RadzenDropDown @bind-Value=@reportTableColumn.FieldType Style="width:100%" Placeholder="Select a Field Type"
+                        Change=@OnSelectedFieldTypeChange Data="@(allTableFieldType)" AllowClear="true" AllowVirtualization="true"
+                        AllowFiltering="true" TextProperty="EnumName" 
+                                        ValueProperty="EnumValue"  FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"/>
+
+        @*<InputSelect @bind-Value="reportTableColumn.FieldType" class="form-select" onchange="OnFieldTypeChange">
+            <option value="0">- Select Field Type-</option>
+            @foreach (var status in Enum.GetValues(typeof(TableFieldTypeSm)))
+            {
+                <option value="@((int)status)">@status</option>
+            }
+        </InputSelect>*@
+        <ValidationMessage For="@(() => reportTableColumn.FieldType)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Width" class="col-sm-4 col-form-label fw-bold">Dispaly Format</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="reportTableColumn.DispalyFormat" placeholder="Dispaly Format"></InputText>
+        <ValidationMessage For="@(() => reportTableColumn.DispalyFormat)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="JoinInfoId" class="col-sm-4 col-form-label fw-bold">Report Join 1</label>
+    <div class="col-sm-8">
+        <RadzenDropDown class="form-control" @bind-Value=@reportTableColumn.JoinInfoId Data="@(ReportJoinInfoList)" TextProperty="JoinName" ValueProperty="Id" AllowClear="true" Multiple="false" />
+        <ValidationMessage For="@(() => reportTableColumn.JoinInfoId)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="JoinInfoId" class="col-sm-4 col-form-label fw-bold">Report Join 2</label>
+    <div class="col-sm-8">
+        <RadzenDropDown class="form-control" @bind-Value=@reportTableColumn.JoinInfo2Id Data="@(ReportJoinInfoList)" TextProperty="JoinName" ValueProperty="Id" AllowClear="true" Multiple="false" />
+        <ValidationMessage For="@(() => reportTableColumn.JoinInfo2Id)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="JoinInfoId" class="col-sm-4 col-form-label fw-bold">Report Join 3</label>
+    <div class="col-sm-8">
+        <RadzenDropDown class="form-control" @bind-Value=@reportTableColumn.JoinInfo3Id Data="@(ReportJoinInfoList)" TextProperty="JoinName" ValueProperty="Id" AllowClear="true" Multiple="false" />
+        <ValidationMessage For="@(() => reportTableColumn.JoinInfo3Id)" />
+    </div>
+</div>
+
+
+<div class="mb-2 row">
+    <label for="JoinInfoId" class="col-sm-4 col-form-label fw-bold">Report Join 4</label>
+    <div class="col-sm-8">
+        <RadzenDropDown class="form-control" @bind-Value=@reportTableColumn.JoinInfo4Id Data="@(ReportJoinInfoList)" TextProperty="JoinName" ValueProperty="Id" AllowClear="true" Multiple="false" />
+        <ValidationMessage For="@(() => reportTableColumn.JoinInfo4Id)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="JoinInfoId" class="col-sm-4 col-form-label fw-bold">Report Join 5</label>
+    <div class="col-sm-8">
+        <RadzenDropDown class="form-control" @bind-Value=@reportTableColumn.JoinInfo5Id Data="@(ReportJoinInfoList)" TextProperty="JoinName" ValueProperty="Id" AllowClear="true" Multiple="false" />
+        <ValidationMessage For="@(() => reportTableColumn.JoinInfo5Id)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Visibility</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="reportTableColumn.IsVisible" id="IsVisible" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="IsVisible">
+            Is Visible
+        </label>
+        <ValidationMessage For="@(() => reportTableColumn.IsVisible)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Filterability</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="reportTableColumn.Filterable" id="Filterable" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="Filterable">
+            Is Filterable
+        </label>
+        <ValidationMessage For="@(() => reportTableColumn.Filterable)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Sortability</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="reportTableColumn.Sortable" id="Sortable" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="Sortable">
+            Is Sortable
+        </label>
+        <ValidationMessage For="@(() => reportTableColumn.Sortable)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="SortingType" class="col-sm-4 col-form-label fw-bold">Sorting Type</label>
+    <div class="col-sm-8">
+        <InputSelect @bind-Value="reportTableColumn.SortingType" class="form-select">
+            <option value="">-Not Set-</option>
+            <option value="0">ASC</option>
+            <option value="1">DESC</option>
+         </InputSelect>
+        <ValidationMessage For="@(() => reportTableColumn.SortingType)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Groupable</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="reportTableColumn.Groupable" id="Groupable" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="Groupable">
+            Is Groupable
+        </label>
+        <ValidationMessage For="@(() => reportTableColumn.Groupable)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Default Group</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="reportTableColumn.IsDefaultGroup" id="IsDefaultGroup" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="IsDefaultGroup">
+            Is Default Group
+        </label>
+        <ValidationMessage For="@(() => reportTableColumn.IsDefaultGroup)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="DisplayOrder" class="col-sm-4 col-form-label fw-bold">Display Order</label>
+    <div class="col-sm-8">
+        <InputNumber class="form-control" @bind-Value="reportTableColumn.DisplayOrder" placeholder="Display Order"></InputNumber>
+        <ValidationMessage For="@(() => reportTableColumn.DisplayOrder)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="TextAlign" class="col-sm-4 col-form-label fw-bold">Text Align</label>
+    <div class="col-sm-8">
+        <InputSelect @bind-Value="reportTableColumn.TextAlign" class="form-select">
+           <option value="">- Select -</option>
+            @foreach (var status in Enum.GetValues(typeof(TextAlign)))
+            {
+                <option value="@((int)status)">@status</option>
+            }
+         </InputSelect>
+        <ValidationMessage For="@(() => reportTableColumn.TextAlign)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Width" class="col-sm-4 col-form-label fw-bold">Column Width (In Pixel)</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="reportTableColumn.Width" placeholder="Column Width in Pixel"></InputText>
+        <ValidationMessage For="@(() => reportTableColumn.Width)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="TextColor" class="col-sm-4 col-form-label fw-bold">Text Color</label>
+    <div class="col-sm-8">
+        <RadzenColorPicker @bind-Value=@reportTableColumn.TextColorRGB ShowHSV="true" ShowRGBA="true" ShowColors="true" ShowButton="false" Change=@OnTextColorChange />
+       @* <InputText class="form-control" @bind-Value="reportTableColumn.TextColor" placeholder="#000000 - Default Black"></InputText>*@
+        <ValidationMessage For="@(() => reportTableColumn.TextColor)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="BackgroundColor" class="col-sm-4 col-form-label fw-bold">Background Color</label>
+    <div class="col-sm-8">
+        <RadzenColorPicker @bind-Value=@reportTableColumn.BackgroundColorRGB ShowHSV="true" ShowRGBA="true" ShowColors="true" ShowButton="false" Change=@OnBackgroundColorChange />
+        <InputText class="form-control" @bind-Value="reportTableColumn.BackgroundColorRules" placeholder="BG Color Rules: YES=#158419,NO=#F30F0F" style="width: 84% !important; display: inline; vertical-align: top;"></InputText>
+         @* <InputText class="form-control" @bind-Value="reportTableColumn.BackgroundColor"></InputText>*@
+        <ValidationMessage For="@(() => reportTableColumn.BackgroundColor)" />
+        <ValidationMessage For="@(() => reportTableColumn.BackgroundColorRules)" />
+    </div>
+</div>
+
+@if (reportTableColumn.FieldTypeEnum == TableFieldTypeSm.Integer || reportTableColumn.FieldTypeEnum == TableFieldTypeSm.Decimal)
+{
+    <div class="mb-2 row">
+        <label class="col-sm-4 col-form-label fw-bold">Show Group Total</label>
+        <div class="col-sm-8">
+            <InputCheckbox @bind-Value="reportTableColumn.ShowGroupTotal" id="ShowGroupTotal" class="form-check-input"></InputCheckbox>
+            <label class="form-check-label" for="ShowGroupTotal">
+                Is Show Group Total
+            </label>
+            <ValidationMessage For="@(() => reportTableColumn.ShowGroupTotal)" />
+        </div>
+    </div>
+
+    <div class="mb-2 row">
+        <label class="col-sm-4 col-form-label fw-bold">Show Footer Total</label>
+        <div class="col-sm-8">
+            <InputCheckbox @bind-Value="reportTableColumn.ShowFooterTotal" id="ShowFooterTotal" class="form-check-input"></InputCheckbox>
+            <label class="form-check-label" for="ShowFooterTotal">
+                Is Show Footer Total
+            </label>
+            <ValidationMessage For="@(() => reportTableColumn.ShowFooterTotal)" />
+        </div>
+    </div>
+
+    @if (reportTableColumn.ShowFooterTotal)
+    {
+        <div class="mb-2 row">
+            <label for="FooterTotalLabel" class="col-sm-4 col-form-label fw-bold">Footer Total Label</label>
+            <div class="col-sm-8">
+                <InputText class="form-control" @bind-Value="reportTableColumn.FooterTotalLabel"></InputText>
+                <ValidationMessage For="@(() => reportTableColumn.FooterTotalLabel)" />
+            </div>
+        </div>
+    }
+
+    <div class="mb-2 row">
+        <label class="col-sm-4 col-form-label fw-bold">Show Footer Average</label>
+        <div class="col-sm-8">
+            <InputCheckbox @bind-Value="reportTableColumn.ShowFooterAverage" id="ShowFooterAverage" class="form-check-input"></InputCheckbox>
+            <label class="form-check-label" for="ShowFooterAverage">
+                Is Show Footer Average
+            </label>
+            <ValidationMessage For="@(() => reportTableColumn.ShowFooterAverage)" />
+        </div>
+    </div>
+
+    @if (reportTableColumn.ShowFooterAverage)
+    {
+        <div class="mb-2 row">
+            <label for="FooterAverageLabel" class="col-sm-4 col-form-label fw-bold">Footer Average Label</label>
+            <div class="col-sm-8">
+                <InputText class="form-control" @bind-Value="reportTableColumn.FooterAverageLabel"></InputText>
+                <ValidationMessage For="@(() => reportTableColumn.FooterAverageLabel)" />
+            </div>
+        </div>
+    }
+}
+@*<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Apply In Filter1</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="reportTableColumn.ApplyInFilter1" id="ApplyInFilter1" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="ApplyInFilter1">
+            Is Apply In Filter1
+        </label>
+        <ValidationMessage For="@(() => reportTableColumn.ApplyInFilter1)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Apply In Filter2</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="reportTableColumn.ApplyInFilter2" id="ApplyInFilter2" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="ApplyInFilter2">
+            Is Apply In Filter2
+        </label>
+        <ValidationMessage For="@(() => reportTableColumn.ApplyInFilter2)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Apply In Filter3</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="reportTableColumn.ApplyInFilter3" id="ApplyInFilter3" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="ApplyInFilter3">
+            Is Apply In Filter3
+        </label>
+        <ValidationMessage For="@(() => reportTableColumn.ApplyInFilter3)" />
+    </div>
+</div>
+*@
+
+@code {
+
+}

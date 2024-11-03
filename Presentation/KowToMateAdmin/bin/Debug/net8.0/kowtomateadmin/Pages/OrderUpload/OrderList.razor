@@ -1,0 +1,898 @@
+﻿@page "/orders"
+@page "/orders/{paramCompanyObjectId}"
+@attribute [Authorize(Roles = "Order.ViewList")]
+
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.ClientOrders
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Core.Management
+@using CutOutWiz.Core.Message
+@using CutOutWiz.Services.Models.OrderAndOrderItemStatusChangeLog
+@using CutOutWiz.Core.OrderTeams
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.BLL.OrderStatusAndOrderItemStatus;
+@using CutOutWiz.Services.BLL.UpdateOrderItem;
+@using CutOutWiz.Services.ClientCommonCategoryService.ClientCategorys
+@using CutOutWiz.Services.Models.SOP
+@using CutOutWiz.Services.Email
+@using CutOutWiz.Services.EmailMessage
+@using CutOutWiz.Services.Helper;
+@using CutOutWiz.Services.InternalMessage
+@using CutOutWiz.Services.Logs
+
+@using CutOutWiz.Services.Management
+@using CutOutWiz.Services.MessageService
+@using CutOutWiz.Services.ClientOrders
+@using CutOutWiz.Services.OrderItemStatusChangeLogService
+@using CutOutWiz.Services.OrderAndOrderItemStatusChangeLogServices
+@using CutOutWiz.Services.OrderTeamServices
+@using CutOutWiz.Services.SOP
+@using CutOutWiz.Services.Security
+@using CutOutWiz.Services.StorageService
+@using KowToMateAdmin.Helper
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+@using System.Security.Claims
+@using KowToMateAdmin.Services;
+@using Microsoft.AspNetCore.Components.Authorization
+@using KowToMateAdmin.Pages.Management.Team
+@using System.IO.Compression
+
+@inject AuthenticationStateProvider _authenticationStateProvider
+@inject IWorkContext _workContext
+@inject IClientOrderService _orderService
+@inject IFileServerManager _fileServerService
+@inject ICompanyManager _companyService
+@inject ILogServices _activityLogService
+@inject NavigationManager NavigationManager
+@inject IUserService _userService
+@inject IWorkflowEmailService _workflowEmailService
+@inject IConfiguration _configuration
+@inject IJSRuntime js
+@inject IOperationEmailService _operationEmailService
+@inject IClientOrderService _clientOrderService
+@inject IOrderTeamService _orderTeamService
+@inject ITeamService _teamService
+@inject IContactManager _contactManager
+@inject IInternalMessageService _internalMessageService
+@inject ITeamService _teamService
+@inject ITeamMemberService _teamMemberService
+@inject ICompanyTeamManager _companyTeamService
+@inject IClientOrderItemService _clientOrderItemService
+@inject IWebHostEnvironment _webHostEnvironment
+@inject IFtpService _ftpService
+@inject NavigationManager UriHelper
+@inject IOrderStatusChangeLogService _orderStatusChangeLogService
+@inject IOrderItemStatusChangeLogService _orderItemStatusChangeLogService
+@inject IDownloadService _downloadService
+@inject IAcitivityLogCommonMethodService _activityLogCommonMethodService
+@inject IFtpFilePathService _ftpFilePathService
+@inject IUpdateOrderItemBLLService _updateOrderItemBLLService
+@inject IOrderStatusService _orderStatusService
+@inject IClientCategoryService _clientCategoryService
+<!-- start page title -->
+
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Orders (@totalOrderCount.ToString("N0") Orders with @totalImageCount.ToString("N0") Images)
+            </h4>
+
+            <div class="page-title-right">
+                @* TODO : Need work with permission *@
+                @if (loginUser.CompanyId != 1204)
+                {
+                    <AuthorizeView Roles="Order.Add">
+                        <a href="/order/upload" class="btn btn-sm" style="background-color:#7da52f;color:white;" title="Add New Order"><span class="fas fa-plus"></span> Add New</a>
+                    </AuthorizeView>
+                }
+                <AuthorizeView Roles="Order.AssignNewOrderToTeam">
+                    <button type="button" class="btn btn-sm btn-primary" @onclick="AssignToTeam" title="Assign To Team" disabled="@assignOrderToTeam"><span class="fas fa-plus"></span> Assign To Default Team</button>
+                    <button type="button" class="btn btn-sm btn-success" @onclick="ShowOrderAssignToTeamPopup" title="Assign To Team" disabled="@assignOrderToTeam"><span class="fas fa-plus"></span> Assign To Another Team</button>
+                    
+                
+                </AuthorizeView>
+                <button type="button" class="btn btn-sm btn-secondary" disabled="@isExporting" @onclick="DownloadExcelDocument" title="Export">
+                    @if (isExporting)
+                    {
+                        @:<span class="fas i fa-spinner fa-spin"></span> Exporting
+                    }
+                    else
+                    {
+                        @:<span class="fas i fa-file-export"></span> Export
+                    }
+                </button>
+                <button type="button" class="btn btn-sm" @onclick="ReloadGrid" style="background-color:#7da52f;color:white" title="Refresh"><span class="fas fa-sync"></span> Refresh</button>
+                @*<button type="button" class="btn btn-sm btn-danger" @onclick="ResetGrid" title="Reset"><span class="fas fa-undo"></span> Reset</button>*@
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+@if (isProgressBar)
+{
+    @if (CurrentValue > 0)
+    {
+        <div class="row">
+            <div class="col-lg-10" style="margin-left: 33px;margin-bottom: 37px">
+                <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Secondary" Value="CurrentValue" Max="100" Style="margin-top:20px;background-color:aquamarine;color:black" />
+            </div>
+
+        </div>
+    }
+}
+@if (isShowMessage)
+{
+    <div class="alert alert-danger dance" role="alert">
+        @message
+    </div>
+}
+<div class="row">
+    <div class="col-lg-12">
+
+        <RadzenCard class="mb-3 top-filter-container">
+
+            <button type="button" class="btn btn-sm btn-warning btn-apply-top-filter" @onclick="@(async args => await ApplyFilterClicked())" title="Apply Filter">
+                <span class="fas fa-search"></span> Apply Filter
+            </button>
+
+            @* <button type="button" class="btn btn-sm btn-secondary btn-showhide-top-filter" @onclick="(async () => await ShowHideTopFilter_Click())" title="Show/Hide Filter">
+                @if (isShowTopFilter)
+                {
+                    <span class="fas fa-check-square"></span>
+                }
+                else
+                {
+                    <span class="fas fa-square"></span>
+                }
+                Show Filter
+            </button> *@
+
+            <RadzenDataFilter @ref="dataFilter" Auto="false" Data="orders" TItem="ClientOrderListModel">
+                <Properties>
+                    <RadzenDataFilterProperty TItem="ClientOrderListModel" Property="ImageName" FilterOperator="FilterOperator.Contains" Title="Image Name" />
+                    <RadzenDataFilterProperty TItem="ClientOrderListModel" Property="InternalFileInputPath" FilterOperator="FilterOperator.Contains" Title="Batch" />
+                    @if (tableColumns != null)
+                    {
+                        foreach (var prop in tableColumns.Where(f => f.Id != 1 && f.Id != 3 && f.Id != 4).OrderBy(f => f.DisplayName))
+                        {
+                            <RadzenDataFilterProperty TItem="ClientOrderListModel" Property="@prop.FieldName" Title="@prop.DisplayName" />
+                        }
+                    }
+                </Properties>
+            </RadzenDataFilter>
+        </RadzenCard>
+
+        <RadzenDataGrid @ref="grid" Data="@orders"
+                        LoadData="@LoadData" 
+                        Count="@totalOrderCount" IsLoading="isLoading" 
+                        TItem="ClientOrderListModel"
+                        AllowFiltering="true" 
+                        FilterMode="FilterMode.Advanced" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        AllowColumnPicking="true" AllowColumnReorder="true"
+                        AllowGrouping="true"
+                        Render="@OnGridRender"
+                        ColumnWidth="200px"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        SelectionMode="DataGridSelectionMode.Multiple"
+                        AllowRowSelectOnRowClick=@allowRowSelectOnRowClick
+                        AllowColumnResize="true"
+                        ColumnResized=@OnColumnResized
+        @bind-Value="@selectedOrders"
+                        
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))" RowRender="@OnRowRender" Style="height:calc(100vh - 233px)">
+            <Columns>
+
+                <RadzenDataGridColumn TItem="ClientOrderListModel" Title="SL" Width="60px" Filterable="false" Resizable="true">
+                    <Template Context="order">
+                        <RadzenLabel Text="@((orders.ToList().IndexOf(order) + 1).ToString())" Placeholder="SL" />
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="ClientOrderListModel" TextAlign="TextAlign.Center" Visible=@showCheckColumn Width="30px" Frozen="true" Sortable="false"
+                                      Filterable="false" Groupable="false" Reorderable="false" Pickable="false">
+                    <HeaderTemplate>
+                        <RadzenCheckBox TriState="false" TValue="bool" Value="@(orders == null ? false : orders.Any(i => selectedOrders != null && selectedOrders.Contains(i)))"
+                                        Change="@(args => selectedOrders = args && orders != null ? orders.ToList() : null)" />
+                    </HeaderTemplate>
+
+                    <Template Context="data">
+                        @if (data.InternalOrderStatus == (byte)InternalOrderStatus.OrderPlaced)
+                        {
+                            <RadzenCheckBox TriState="false" Value="@(selectedOrders != null && selectedOrders.Contains(data))"
+                                            TValue="bool" Change=@(args => { if(!allowRowSelectOnRowClick) { grid.SelectRow(data); }}) />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ClientOrderListModel" Property="OrderNumber" Title="Order Number" Width="270px" Frozen="true">
+                    <Template Context="order">
+                        <a class="order-details-link" title="Order Detail" href="/order/Details/@order.ObjectId" target="_blank">@order.OrderNumber</a>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ClientOrderListModel" Property="BatchPath" Title="Batch Name" Width="370px" Frozen="true">
+                        <Template Context="order">
+                        <span title="Order Batch" target="_blank">@Path.GetFileName(@order.BatchPath)</span>
+                    </Template>
+                </RadzenDataGridColumn>
+                @*<RadzenDataGridColumn TItem="ClientOrderListModel"  Property="ArrivalTime" Title="Arrival Time"  Resizable="true" Width="250px" >
+
+                </RadzenDataGridColumn>*@
+                @if (loginUser.CompanyType == (int)CompanyType.Admin)
+                {
+                    <RadzenDataGridColumn TItem="ClientOrderListModel" Property="ExpectedDeliveryDate" Title="Expected Delivery Date" Resizable="true" Width="250px">
+
+                    <Template Context="order">
+                         <span>@order.ExpectedDeliveryDate</span>
+                            <AuthorizeView Roles="Order.CanUpdateOrderDedline">
+                                    <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await OrderExpectedDeliveryDatePopupVisible(order))">
+                                        <span class="fas fa-pencil-alt"></span>
+                                    </button>
+                         </AuthorizeView>
+
+                    </Template>
+                </RadzenDataGridColumn>
+             
+                <RadzenDataGridColumn TItem="ClientOrderListModel" Property="TimeLeft" Title="Time Left" TextAlign="TextAlign.Center" Resizable="true" Width="150px">
+                    <Template Context="order">
+                        <span>
+                            @if(order.InternalOrderStatus != (byte)InternalOrderStatus.Completed)
+                            {
+                                 @if (order.DeliveryDeadlineInMinute > 0 || order.CompanyDeliveryDeadlineInMinute > 0)
+                            {
+                                @if (order.DeliveryDeadlineInMinute > 0)
+                                {
+                                    var arrivalTimePlus1_4Hours = new DateTime();
+                                    var timeLeft = new TimeSpan();
+                                    if (order.ArrivalTime.HasValue)
+                                    {
+                                        arrivalTimePlus1_4Hours = order.ArrivalTime.Value.AddMinutes((int)order.DeliveryDeadlineInMinute);
+                                        timeLeft = arrivalTimePlus1_4Hours - DateTime.Now;
+                                    }
+                                    else if (order.OrderPlaceDate.HasValue)
+                                    {
+                                        arrivalTimePlus1_4Hours = order.OrderPlaceDate.Value.AddMinutes((int)order.DeliveryDeadlineInMinute);
+                                        timeLeft = arrivalTimePlus1_4Hours - DateTime.Now;
+                                    }
+
+                                    if (timeLeft.TotalMinutes > 0 || timeLeft.TotalMinutes == 0)
+                                    {
+
+                                        @(
+                                            $"{(int)timeLeft.TotalMinutes} Mintues"
+                                            )
+                                    }
+                                    else if ((timeLeft.TotalMinutes < 0) && order.InternalOrderStatus != (byte)InternalOrderStatus.Completed && order.OrderPlaceDate < new DateTime(2023, 8, 1))
+                                    {
+                                        <span style="font-weight: bold;">
+                                            @(
+                                                $"Over Due By {(int)timeLeft.TotalMinutes * (-1)} Min"
+                                                )
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        @(
+                                            "N/A"
+                                            )
+                                    }
+
+                                }
+                                else
+                                {
+                                    var arrivalTimePlus1_4Hours = new DateTime();
+                                    var timeLeft = new TimeSpan();
+                                    if (order.ArrivalTime.HasValue)
+                                    {
+                                        arrivalTimePlus1_4Hours = order.ArrivalTime.Value.AddMinutes((int)order.CompanyDeliveryDeadlineInMinute);
+                                        timeLeft = arrivalTimePlus1_4Hours - DateTime.Now;
+                                    }
+                                    else if (order.OrderPlaceDate.HasValue)
+                                    {
+                                        arrivalTimePlus1_4Hours = order.OrderPlaceDate.Value.AddMinutes((int)order.CompanyDeliveryDeadlineInMinute);
+                                        timeLeft = arrivalTimePlus1_4Hours - DateTime.Now;
+                                    }
+
+                                    if (timeLeft.TotalMinutes > 0 || timeLeft.TotalMinutes == 0)
+                                    {
+
+                                        @(
+                                            $"{(int)timeLeft.TotalMinutes} Mintues"
+                                            )
+                                    }
+                                    else if ((timeLeft.TotalMinutes < 0) && order.InternalOrderStatus != (byte)InternalOrderStatus.Completed && order.OrderPlaceDate < new DateTime(2023, 8, 1))
+                                    {
+                                        <span style="font-weight: bold;">
+                                            @(
+                                                $"Over Due By {(int)timeLeft.TotalMinutes * (-1)} Min"
+                                                )
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        @(
+                                            "N/A"
+                                            )
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                <span>0</span>
+                                }
+                            }
+                            else
+                            {
+                                <span>N/A</span>
+                            }
+
+
+
+                        </span>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="ClientOrderListModel" Property="CompanyName" Title="Company" Width="200px" TextAlign="TextAlign.Left" Visible=@(loginUser == null || loginUser.CompanyType == (int)CompanyType.Client ? false:true)>
+                    <FilterTemplate>
+                        <RadzenDropDown @bind-Value=@selectedFilterCompanies Style="width:100%;" TextProperty="Name" ValueProperty="Id" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                        Data="@(companies)" Change=@OnSelectedCompanyChange AllowClear="true" AllowFiltering="true" Multiple="true" AllowVirtualization="true" />
+                    </FilterTemplate>
+                    <Template Context="order">
+                        @*	<a href="/company/detail/@order.CompanyObjectId">@order.CompanyName</a>*@
+                        <span>@order.CompanyName</span>
+                    </Template>
+                </RadzenDataGridColumn>
+                   }
+                @if (loginUser.CompanyType == (int)CompanyType.Admin)
+                {
+                    <RadzenDataGridColumn TItem="ClientOrderListModel" Property="InternalOrderStatus" Title="Status" Frozen="true" TextAlign="TextAlign.Center" Width="120px">
+                        <FilterTemplate>
+                            <RadzenDropDown @bind-Value=@selectedFilterInternalStatuss Change=@OnSelectedInternalOrderStatusChange Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                                            Data="@(statuses)" AllowClear="true" Multiple="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
+                        </FilterTemplate>
+                        <Template Context="order">
+                            <span class=@cssHelper.SetInternalOrderStutusBackgroundColor(order)>@((InternalOrderStatus)order.InternalOrderStatus)</span>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ClientOrderListModel" Property="CategorySetStatus" Title="Category Set Status" Frozen="true" TextAlign="TextAlign.Center" Width="220px">
+                        <FilterTemplate>
+                            <RadzenDropDown @bind-Value=@selectedFilterCategorySetStatus Change=@OnSelectedInternalOrderSetStatusChange Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                                            Data="@(categorySetStatus)" AllowClear="true" Multiple="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
+                        </FilterTemplate>
+                        <Template Context="order">
+                            @if(order.CategorySetStatus != null)
+                            {
+                                <span class=@cssHelper.GivenBackgroundColorForOrderCategorySetStatus(order)>@((OrderCategorySetStatus)order.CategorySetStatus)</span>
+                            }
+                            else
+                            {
+                                <span>N/A</span>
+                            }
+
+                        </Template>
+                    </RadzenDataGridColumn>
+                }
+
+                @if (loginUser.CompanyType == (int)CompanyType.Client)
+                {
+                    <RadzenDataGridColumn TItem="ClientOrderListModel" Property="ExternalOrderStatus" Title="Status" Frozen="true" TextAlign="TextAlign.Center" Width="120px">
+                        <FilterTemplate>
+                            <RadzenDropDown @bind-Value=@selectedFilterExternalStatuss Change=@OnSelectedExternalOrderStatusChange Style="width:100%;" TextProperty="EnumName" ValueProperty="EnumValue"
+                                            Data="@(externalStatuses)" AllowClear="true" Multiple="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
+                        </FilterTemplate>
+                        <Template Context="order">
+                            <span class=@cssHelper.SetExternalOrderStutusBackgroundColor(order)>@((ExternalOrderStatus)order.ExternalOrderStatus)</span>
+                        </Template>
+                    </RadzenDataGridColumn>
+                }
+                <RadzenDataGridColumn TItem="ClientOrderListModel" Property="NumberOfImage" Filterable="false" Title="Raw Image Count" TextAlign="TextAlign.Center" Width="170px" />
+
+                <RadzenDataGridColumn TItem="ClientOrderListModel" Property="OrderPlaceDateOnly" Title="Order Place Date" TextAlign="TextAlign.Center" SortOrder="SortOrder.Descending" Width="240px">
+                    <Template Context="order">
+                        <span>@order.OrderPlaceDate.Value.ToString("MM/dd/yyyy hh:mm tt")</span>
+                    </Template>
+                </RadzenDataGridColumn>
+                <AuthorizeView Roles="Order.CanSeeOrderFtpName">
+                    <RadzenDataGridColumn TItem="ClientOrderListModel" Property="SourceFtpUsername" Title="Client Ftp Username" Resizable="true" Width="350px">
+                    </RadzenDataGridColumn>
+                </AuthorizeView>
+                @if (loginUser.TeamId == AutomatedAppConstant.MNMTeamId)
+                {
+                    <RadzenDataGridColumn TItem="ClientOrderListModel" Property="SourceFtpUsername" Title="Client Ftp Username" Resizable="true" Width="350px">
+                    </RadzenDataGridColumn>
+                }
+                @if (loginUser.CompanyType == (int)CompanyType.Admin)
+                {
+                <RadzenDataGridColumn TItem="ClientOrderListModel" Property="AllowExtraOutputFileUpload" Title="Allow Extra Files" TextAlign="TextAlign.Center" SortOrder="SortOrder.Descending" Width="120px">
+                    <Template Context="order">
+                        @if (order.AllowExtraOutputFileUpload)
+                        {
+                            <span>Yes</span>
+                        }
+                        else
+                        {
+                            <span>No</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                
+                <RadzenDataGridColumn TItem="ClientOrderListModel" Property="ContactName" Title="Assigned By (OPS)" Width="160px" TextAlign="TextAlign.Left" Visible=@(loginUser == null || loginUser.CompanyType == (int)CompanyType.Client ? false:true)>
+                    <FilterTemplate>
+                        <RadzenDropDown @bind-Value=@selectedFilterContacts Style="width:100%;" TextProperty="FullName" ValueProperty="Id" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                        Data="@(contacts)" Change=@OnSelectedContactNameChange AllowClear="true" AllowFiltering="true" Multiple="true" AllowVirtualization="true" />
+                    </FilterTemplate>
+                    <Template Context="order">
+                        @if (order.ContactName == null)
+                        {
+                            <a href="/company/detail/@order.CompanyObjectId">N/A</a>
+                        }
+                        else
+                        {
+                            <a href="/company/detail/@order.CompanyObjectId">@order.ContactName</a>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                }
+                @if (loginUser.CompanyType == (int)CompanyType.Admin)
+                {
+                    <RadzenDataGridColumn TItem="ClientOrderListModel" Property="TeamName" Title="Ass. Team" Width="130px" TextAlign="TextAlign.Left" Visible=@(loginUser == null || loginUser.CompanyType == (int)CompanyType.Client ? false:true)>
+                        <FilterTemplate>
+                            <RadzenDropDown @bind-Value=@selectedFilterTeams Style="width:100%;" TextProperty="Name" ValueProperty="Id" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                            Data="@(teams)" Change=@OnSelectedTeamNameChange AllowClear="true" AllowFiltering="true" Multiple="true" AllowVirtualization="true" />
+                        </FilterTemplate>
+                        <Template Context="order">
+                            @if (order.TeamName == null)
+                            {
+                                <a href="/company/detail/@order.CompanyObjectId">N/A</a>
+                            }
+                            else
+                            {
+                                <a href="/company/detail/@order.CompanyObjectId">@order.TeamName</a>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ClientOrderListModel" Property="TeamAssignedDate" Title="Team Ass. Date" Width="180px" TextAlign="TextAlign.Left" Visible=@(loginUser == null || loginUser.CompanyType == (int)CompanyType.Client ? false:true)>
+                        <Template Context="order">
+                            @if (order.TeamAssignedDate != null)
+                            {
+                                <a href="/company/detail/@order.CompanyObjectId">@order.TeamAssignedDate</a>
+                            }
+                            else
+                            {
+                                <span>N/A</span>
+                            }
+
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    <RadzenDataGridColumn TItem="ClientOrderListModel" Property="CompanyDeliveryDeadlineInMinute" Title="Delivery Deadline" Resizable="true" Width="150px">
+                        <Template Context="order">
+
+                            @if (order.DeliveryDeadlineInMinute > 0)
+                            {
+                                TimeConverter time = new TimeConverter();
+                                var convertedTime = time.MinuteToHour((int)order.DeliveryDeadlineInMinute);
+                                <span>@convertedTime</span>
+                                <AuthorizeView Roles="Order.CanUpdateOrderDedline">
+                                    <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await OrderDeadlinePopupVisible(order))">
+                                        <span class="fas fa-pencil-alt"></span>
+                                    </button>
+                                </AuthorizeView>
+                            }
+                            else
+                            {
+                                var convertedTime = "";
+                                if (order.CompanyDeliveryDeadlineInMinute > 0)
+                                {
+                                    TimeConverter time = new TimeConverter();
+                                    convertedTime = time.MinuteToHour((int)order.CompanyDeliveryDeadlineInMinute);
+                                    <span>@convertedTime</span>
+                                    <AuthorizeView Roles="Order.CanUpdateOrderDedline">
+                                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await OrderDeadlinePopupVisible(order))">
+                                            <span class="fas fa-pencil-alt"></span>
+                                        </button>
+                                    </AuthorizeView>
+                                }
+                                else
+                                {
+                                    <span>0</span>
+                                    <AuthorizeView Roles="Order.CanUpdateOrderDedline">
+                                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await OrderDeadlinePopupVisible(order))">
+                                            <span class="fas fa-pencil-alt"></span>
+                                        </button>
+                                    </AuthorizeView>
+                                }
+
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                }
+                @if (loginUser.CompanyType == (int)CompanyType.Client)
+                {
+                    <RadzenDataGridColumn Width="120px" TItem="ClientOrderListModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" Pickable="false" TextAlign="TextAlign.Center">
+                        <Template Context="order">
+                            @if (order.ExternalOrderStatus == (int)ExternalOrderStatus.OrderPlaced || order.InternalOrderStatus == (int)InternalOrderStatus.OrderPlacing)
+                            {
+                                <AuthorizeView Roles="SOPTemplate.Edit">
+                                    @*								<a href="/order/upload/@order.ObjectId" class="btn btn-sm btn-outline-primary btn-tbl-action">
+                            <span class="fas fa-pencil-alt"></span>
+                            </a>*@
+                                </AuthorizeView>
+                                <a href="/order/Details/@order.ObjectId" title="Order Details" class="btn btn-sm btn-outline-primary btn-tbl-action">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <AuthorizeView Roles="Order.Delete">
+                                    <button type="button" title="Delete" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(order.ObjectId, order.OrderNumber)">
+                                        <span class="fas fa-times"></span>
+                                    </button>
+                                </AuthorizeView>
+                            }
+                            else if (order.ExternalOrderStatus == (int)ExternalOrderStatus.ReadyToDownload || order.ExternalOrderStatus == (int)ExternalOrderStatus.Completed)
+                            {
+                                <a href="/order/Details/@order.ObjectId" class="btn btn-sm btn-outline-primary btn-tbl-action">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+
+                               @*  <button type="button" class="btn btn-sm btn-secondary" disabled="@isSubmitting" @onclick="(e)=>ClientDownload((int)order.Id)"><span class="fas fa-arrow-circle-down"></span>Download</button> *@
+                            }
+                            else
+                            {
+                                <a href="/order/Details/@order.ObjectId" class="btn btn-sm btn-outline-primary btn-tbl-action">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                }
+                else
+                {
+                    <RadzenDataGridColumn TItem="ClientOrderListModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" Pickable="false" TextAlign="TextAlign.Center" MinWidth="450px">
+                        <Template Context="order">
+                            @*<a href="/order/upload/@order.ObjectId" class="btn btn-sm btn-outline-primary btn-tbl-action">
+                        <span class="fas fa-pencil-alt"></span>
+                        </a>*@
+
+                            <a href="/order/Details/@order.ObjectId" class="btn btn-sm btn-outline-primary btn-tbl-action">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            @if (order.ExternalOrderStatus == (int)ExternalOrderStatus.OrderPlaced || order.ExternalOrderStatus == (int)ExternalOrderStatus.OrderPlacing)
+                            {
+                                <AuthorizeView Roles="Order.Delete">
+                                    <button type="button" title="Delete" class="btn btn-sm btn-outline-danger btn-tbl-action ml-3" @onclick="() => Delete(order.ObjectId, order.OrderNumber)">
+                                        <span class="fas fa-times"></span>
+                                    </button>
+                                </AuthorizeView>
+                            }
+                            <AuthorizeView Roles="Order.CanOrderDeliveryToClient">
+                                @if (order.InternalOrderStatus == (byte)InternalOrderStatus.ReadyToDeliver)
+                                {
+                                    <button type="button" title="Delivery To Client" class="btn btn-sm btn-outline-success btn-tbl-action ms-2" @onclick="() => UpdateOrderStatus(order, InternalOrderStatus.Delivered)">
+                                        Delivery
+                                    </button>
+                                    <button type="button" title="Complete For Client" class="btn btn-sm btn-outline-success btn-tbl-action ms-2" @onclick="() => UpdateOrderStatus(order, InternalOrderStatus.Completed)">
+                                        Complete
+                                    </button>
+                                }
+                            </AuthorizeView>
+                            <AuthorizeView Roles="Order.CanViewOrderStatusLog">
+                                <button class="btn btn-sm btn-outline-primary btn-tbl-action ml-3" title="Order Logs Details" @onclick="()=>ViewOrderStatusLog((int)order.Id)">
+                                    <i class="fas fa-eye">Logs</i>
+                                </button>
+                            </AuthorizeView>
+                           @*  <button class="btn btn-sm btn-outline-primary btn-tbl-action ml-3" title="Order Category Set" @onclick="()=>ViewCategorySetUpPopup(order)">
+                                    <i class="fas fa-plus"> CategorySet</i>
+                            </button> *@
+                            <AuthorizeView Roles="Order.CanApproveCategory">
+                            <button class="btn btn-sm btn-outline-success btn-tbl-action ml-3" title="Order Category Approved" @onclick="()=>ApprovedOrderCategory(order)">
+                                <i class="fas fa-check">Approved Category</i>
+                            </button>
+                             </AuthorizeView>
+                            <AuthorizeView Roles="Order.SetAllowExtraFile">
+                                @if (order.AllowExtraOutputFileUpload)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-success btn-tbl-action ms-2" title="Allow Extra Files" @* @onclick="() => UpdateOrderAllowExtraOutputFileUploadField(order)" *@>
+                                        Allowed Extra Files
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-success btn-tbl-action ms-2" title="Allow Extra Files" @onclick="() => UpdateOrderAllowExtraOutputFileUploadField(order)">
+                                        Allow Extra Files
+                                    </button>
+                                }
+                            </AuthorizeView>
+                        </Template>
+                    </RadzenDataGridColumn>
+                }
+                
+                @*<RadzenDataGridColumn TItem="ClientOrderListModel" Property="OrderType" Title="OrderType">
+                <Template Context="order">
+                <div class="btn-group" role="group">
+                <button id="btnGroupDrop1" type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                Ammenment
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="btnGroupDrop1">
+                <li><a class="dropdown-item" href="#">Ammenment</a></li>
+                <li><a class="dropdown-item" href="#">Rework</a></li>
+                <li><a class="dropdown-item" href="#">Ammenment & Rework</a></li>
+                </ul>
+                </div>
+                </Template>
+                </RadzenDataGridColumn>*@
+
+            </Columns>
+        </RadzenDataGrid>
+        <RadzenDataGrid Width="120px" TItem="ClientOrderListModel" Property="Ammenment" Title="Actions">
+
+        </RadzenDataGrid>
+    </div>
+</div>
+
+@if (isAssignPopupVisible)
+{
+    <EditForm Model="team" OnValidSubmit="InsertAssingOrderToTeam">
+
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    @if (selectedOrders?.Count() == 0)
+                    {
+                        <div class="modal-header">
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAssignPopup"></button>
+                        </div>
+                        <div class="modal-body">
+                            Please select at leact One order to assign
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="modal-header">
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAssignPopup"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                @* <TeamCheckBoxList teams="teams" OnAssignedTeam="OnAssignedTeam"></TeamCheckBoxList>*@
+                                <h4 class="mb-sm-0 font-size-18">
+                                    Assign To Team (@selectedOrders.Count())
+                                </h4>
+                            </div>
+                            <div class="row">
+                                <div class="col-lg-12">
+                                    <RadzenDataGrid @ref="grid" Data="@selectedOrders" Count="@selectedOrders.Count()" IsLoading="isLoading" TItem="ClientOrderListModel"
+                                                    SelectionMode="DataGridSelectionMode.Multiple"
+                                                    AllowRowSelectOnRowClick=@allowRowSelectOnRowClick
+                                    @bind-Value="@selectedOrders"
+                                                    AllowPaging="true" PageSize="10"
+                                                    ColumnWidth="150px"
+                                                    AllowSorting="true"
+                                                    PagerHorizontalAlign="HorizontalAlign.Center"
+                                                    RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+                                        <Columns>
+                                            <RadzenDataGridColumn TItem="ClientOrderListModel" Property="OrderNumber" Title="Order Number" Width="30px" />
+                                            <RadzenDataGridColumn TItem="ClientOrderListModel" Property="CompanyName" Title="Company Name" TextAlign="TextAlign.Left" Visible=@(loginUser == null || loginUser.CompanyType == (int)CompanyType.Client ? false:true) Width="30px" />
+                                            <RadzenDataGridColumn TItem="ClientOrderListModel" Property="NumberOfImage" Title="Number Of Image" TextAlign="TextAlign.Right" Width="40px" />
+                                            <RadzenDataGridColumn TItem="ClientOrderListModel" Property="OrderPlaceDate" Title="Order Place Date" TextAlign="TextAlign.Center" SortOrder="SortOrder.Descending" Width="40px" />
+                                        </Columns>
+                                    </RadzenDataGrid>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-primary" disabled="@isAssignOrderSubmitting">Assign To Team</button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </EditForm>
+
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+@if (spinShow)
+{
+    <div class="loader">
+        <Grid />
+    </div>
+}
+
+@if (isOrderChangeLogPopupVisible)
+{
+    <div class="modal" tabindex="-1" style="display:block;">
+        <div class="modal-dialog" style="max-width:631px !important">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5>Order Log</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseOrderChangeLogPopup"></button>
+                </div>
+                <div class="modal-body">
+                    @if (orderStatusChangeLogs.Count > 0)
+                    {
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Time Duration In Mintues</th>
+                                    <th>Change By</th>
+                                    @*   <th>Employee Id</th>*@
+                                    <th>Change Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+
+                                @foreach (var orderStatus in orderStatusChangeLogs)
+                                {
+                                    <tr>
+                                        <td>@((InternalOrderStatus)orderStatus.NewInternalStatus)</td>
+                                        <td>@orderStatus.TimeDurationInMinutes</td>
+                                        <td>@(orderStatus.ChangeByFullName ?? "N/A")</td>
+                                        @* <td>@(orderStatus.EmployeeId ?? "N/A")</td>*@
+                                        <td>@orderStatus.ChangeDate</td>
+                                    </tr>
+                                }
+                            </tbody>
+
+                        </table>
+                        <p style="padding-left:147px">Total : <span style="font-weight:bold">@TotalMinutesForOrder Minutes</span></p>
+                    }
+
+                    else
+                    {
+                        <p>No Log Available</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (isOrderDeadlinePopupVisible)
+{
+    <div class="modal" tabindex="-1" style="display:block;">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Update Order Deadline</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseDeadlinePopup"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="ClientOrder">
+                        <div class="row">
+                            <div class="mb-2 row">
+                                <label for="Host" class="col-sm-4 col-form-label fw-bold">Order Deadline</label>
+                                <div class="col-sm-8">
+                                    <InputNumber class="form-control" @bind-Value="ClientOrder.DeliveryDeadlineInMinute"></InputNumber>
+                                    <ValidationMessage For="@(() => ClientOrder.DeliveryDeadlineInMinute)" />
+                                </div>
+                            </div>
+                            <div class="col">
+                            </div>
+                        </div>
+                    </EditForm>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-success btn-space" type="submit" @onclick="(e)=>UpdateOrderDeadLine(ClientOrder)"><span class="fas fa-solid fa-check"></span> Submit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+@if (isOrderExpectedDeliveryDatePopupVisible)
+{
+    <div class="modal" tabindex="-1" style="display:block;">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Update Order Deadline Date</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseExpectedDeliveryDatePopup"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="ClientOrder">
+                        <div class="row">
+                            <div class="mb-2 row">
+                                <label for="Host" class="col-sm-4 col-form-label fw-bold">Order Deadline Date</label>
+                                <div class="col-sm-8">
+                                    <input type="datetime-local" @bind="OrderExpectedDeliveryDate" />
+                                   @* <ValidationMessage For="@(() => ClientOrder.DeliveryDeadlineInMinute)" />*@
+                                </div>
+                            </div>
+                            <div class="col">
+                            </div>
+                        </div>
+                    </EditForm>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-success btn-space" type="submit" @onclick="(e)=>UpdateExpectedDeliveryDate(ClientOrder)"><span class="fas fa-solid fa-check"></span> Submit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+@if (isOrderCategorySetUpPopupVisible)
+{
+    <EditForm Model="orderWiseCategory" OnValidSubmit="SetOrderCategory">
+    <div class="modal" tabindex="-1" style="display:block;">
+        <div class="modal-dialog">
+            <div class="modal-content">
+       <div class="modal-header">
+                             <h6>Set Up Category For Order</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CancelCategorySetUpPopup"></button>
+                            </div>
+       <div class="modal-body">
+                        @if (commonCategories == null || !commonCategories.Any())
+                        {
+                            <div>No Category Available !</div>
+                        }
+                        else
+                        {
+                            <div class="row" style="margin-bottom:19px;">
+                                <div class="form-group">
+                                    <label>Select Category</label>
+                                    <InputSelect @bind-Value="@orderWiseCategory.CategoryId" class="form-select form-control">
+                                        <option value="0">- Select -</option>
+                                        @foreach (var commonCategory in commonCategories)
+                                        {
+                                            <option value="@((int)commonCategory.CommonCategoryId)">@commonCategory.CategoryName</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+
+                        }
+                      
+                            </div>
+       <div class="modal-footer">
+                                <button type="submit" class="btn btn-primary" disabled="@isAssignOrderSubmitting">Set Category</button>
+                            </div>
+           
+       </div>  
+        </div>
+    </div>
+    </EditForm>
+}
+
+@if (isOrderAssignToTeamVisible)
+{
+    <EditForm Model="orderAssignToTeam" OnValidSubmit="InsertAssingOrderToTeam">
+
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseOrderAssignToTeamPopup"></button>
+                    </div>
+                    <div class="row">
+                        <div class="ml-2">
+                            <label>Select Team:</label>
+                            <InputSelect @bind-Value="orderAssignToTeam.TeamId" class="form-select">
+                                <option value="0">- Select team.... -</option>
+                                @foreach (var team in @teams)
+                                {
+                                    <option value="@team.Id">@team.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+
+}
+
+

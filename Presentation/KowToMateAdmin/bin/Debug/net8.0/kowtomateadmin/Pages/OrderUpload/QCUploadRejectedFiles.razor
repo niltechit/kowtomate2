@@ -1,0 +1,642 @@
+﻿@page "/QCUploadRejectedFiles/{objectId}"
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.ClientOrders
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.ClientOrders
+@using CutOutWiz.Services.Models.FileUpload
+@using CutOutWiz.Services.OrderItemStatusChangeLogService
+@using CutOutWiz.Services.OrderAndOrderItemStatusChangeLogServices
+@using CutOutWiz.Services.Security
+@using CutOutWiz.Services.StorageService
+@using FluentFTP
+@using KowToMateAdmin.Helper
+@using KowToMateAdmin.Models.Security
+@using static CutOutWiz.Core.Utilities.Enums
+@using CutOutWiz.Services.Models.OrderAndOrderItemStatusChangeLog
+
+@inject IJSRuntime js
+@inject IFileServerManager _fileServerService
+@inject ICompanyManager _companyService
+@inject IWorkContext _workContext
+@inject IFtpService _ftpService
+@inject IClientOrderService _orderService
+@inject IClientOrderItemService _orderFileService
+@inject IContactManager _contactManager
+@inject IClientOrderItemService _clientOrderItemService
+@inject NavigationManager UriHelper
+@inject IOrderFileAssignService _assignService
+@inject IOrderStatusChangeLogService _orderStatusChangeLogService
+@inject IOrderItemStatusChangeLogService _orderItemStatusChangeLogService
+@inject IFluentFtpService _fluentFtpService
+<!-- end page title -->
+<div class="row">
+	<div class="col-12">
+		<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+			<h4 class="mb-sm-0 font-size-18">
+				Order : @order.OrderNumber
+				@*<span>(@filteredStandardServices.Count)</span>*@
+			</h4>
+			<div class="page-title-right">
+				@*<ol class="breadcrumb m-0">
+				<li class="breadcrumb-item"><a emailef="javascript: void(0);">Invoices</a></li>
+				<li class="breadcrumb-item active">Invoice List</li><span class="fas fa-pencil-alt"></span><i class="fa-solid fa-backward"></i><i class="fa-solid fa-circle-arrow-left"></i>
+				</ol>*@
+				<a type="button" class="btn btn-sm btn-warning" href="/order/Details/@objectId"><span class="fas fa-angle-double-left"></span> Back</a>
+
+
+			</div>
+		</div>
+	</div>
+</div>
+<EditForm Model=@order OnValidSubmit="@UploadRejectedFiles">
+	<div class="row">
+		<div class="col-lg-8">
+			<div class="card">
+				<div class="card-body"> 
+					<DataAnnotationsValidator />
+					<div>
+						<div class="mb-3">
+							<label class="d-block mb-3" style="text-align:center;font:bold;color:red;"><h4 style="color:red">QC Uplaod Rejected Files</h4></label>
+						</div>
+						<div class="mb-3">
+							<label class="d-block mb-3">Select Upload Option</label>
+
+							<div class="form-check form-check-inline">
+								<input class="form-check-input" @onclick="ShowFolder" type="radio" name="outer-group[0][inlineRadioOptions]" id="inlineRadio1" checked="1" value="option1">
+								<label class="form-check-label" for="inlineRadio1">Folder Upload</label>
+							</div>
+							<div class="form-check form-check-inline">
+								<input class="form-check-input" @onclick="ShowFile" type="radio" name="outer-group[0][inlineRadioOptions]" id="inlineRadio2" value="option2">
+								<label class="form-check-label" for="inlineRadio2">File Upload</label>
+							</div>
+						</div>
+
+						<div class="fallback">
+							@*<inputFile name="file" OnChange="OnInputFileChange" type="file" multiple="multiple"></inputFile>*@
+							@if (AllowFolderUpload)
+							{
+								<InputFile id="myRejectedQCFileUpload" OnChange="@LoadFile" webkitdirectory directory multiple disabled=@isUploadDisabled />
+							}
+							else
+							{
+								<InputFile OnChange="@LoadFiles" multiple disabled=@isUploadDisabled />
+							}
+						</div>
+						@if (isProgressbar)
+						{
+							@if (CurrentValue > 0)
+							{
+								<div class="row">
+									<div class="col-lg-10">
+										<RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Secondary" Value="CurrentValue" Max="100" Style="margin-top:20px;background-color:aquamarine" />
+									</div>
+									@*<div class="col-lg-2 mt-3">
+							<button type="button" class="btn btn-danger btn-sm btn-rounded" @onclick="UploadItemCancel">Cancel Upload</button>
+							</div>*@
+								</div>
+							}
+						}
+
+						@if (order.orderItems != null)
+						{
+							<table class="table table-bordered table-sm">
+
+								@foreach (var item in order.orderItems)
+								{
+									<tr>
+										@if (!string.IsNullOrEmpty(item.InternalFileOutputPath))
+										{
+											string[] paths = item.InternalFileOutputPath.Split(new[] { order.OrderNumber }, StringSplitOptions.None);
+
+											<td>
+												@paths[1].Trim('/')
+											</td>
+										}
+										<td>
+											@item.FileName
+										</td>
+										<td>
+											<button type="button" class="btn btn-sm btn-tbl-action text-danger" @onclick="() => DeleteImagesOnPreview(item)">
+												<span class="fas fa-times"></span>
+											</button>
+										</td>
+									</tr>
+								}
+							</table>
+						}
+
+						@*<div class="mb-3 mt-3">
+						<button type="submit" class="btn btn-primary me-2" disabled="@isSubmitting">Upload Rejected Files</button>
+						</div>*@
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</EditForm>
+@if (spinShow)
+{
+	@*<div class="spinner"></div>*@
+	<div class="loader">
+		<Grid />
+	</div>
+}
+@code {
+	[Parameter]
+	public string objectId { get; set; }
+	private ClientOrderModel order = new ClientOrderModel();
+	private IReadOnlyList<IBrowserFile> loadedFiles { get; set; }
+	bool isSubmitting;
+	private LoginUserInfoViewModel loginUser = null;
+	//Progress Bar
+	private double maxValue;
+	private double CurrentValue = 0;
+	// For Hide Control
+	private bool AllowFolderUpload = true;
+	private List<string> ItemPathList = new List<string>();
+	ClientOrderItemModel fileExists = new ClientOrderItemModel();
+	List<ClientOrderItemModel> checkListFile = new List<ClientOrderItemModel>();
+	CompanyModel company = new CompanyModel();
+	ContactModel contactInfo = new ContactModel();
+	FileServerModel serverInfo = new FileServerModel();
+
+	bool isUploadDisabled = false;
+	DateTimeConfiguration _dateTime = new DateTimeConfiguration();
+	bool isProgressbar = false;
+	bool spinShow = false;
+	protected override async Task OnInitializedAsync()
+	{
+		loginUser = _workContext.LoginUserInfo;
+		order = await _orderService.GetByObjectId(objectId);
+		company = await _companyService.GetById(order.CompanyId);
+		serverInfo = await _fileServerService.GetById((int)order.FileServerId);
+		contactInfo = await _contactManager.GetById(loginUser.ContactId);
+	}
+
+	private async Task UploadRejectedFiles()
+	{
+		//if (order.orderItems.Count==0)
+		//{
+		//	await js.DisplayMessage($"Upload at least one file !");
+		//	return;
+		//}
+
+		//if (order.orderItems != null || !order.orderItems.Any())
+		//{
+		//	ClientOrderItem fileExists = new ClientOrderItem();
+		//	foreach (var file in order.orderItems)
+		//	{
+		//		await UpdateOrderStatus(order, file);
+		//	}
+		//}
+		//if (ItemPathList.Count > 0)
+		//{
+		//	await js.DisplayMessage($"File Uploaded Successfully");
+		//	UriHelper.NavigateTo("/order/Details" + "/" + objectId);
+		//}
+	}
+	private async void LoadFiles(InputFileChangeEventArgs args)
+	{
+		spinShow = true;
+		await Task.Yield();
+		isUploadDisabled = true;
+		loadedFiles = args.GetMultipleFiles(maximumFileCount: 100000000);
+		maxValue = args.GetMultipleFiles(maximumFileCount: 100000000).Count();
+		var clientItemFile = await _orderFileService.GetByIdOrderId((int)order.Id);
+		checkListFile = new List<ClientOrderItemModel>();
+		fileExists = new ClientOrderItemModel();
+		isProgressbar = true;
+		if (isProgressbar)
+		{
+			spinShow = false;
+			this.StateHasChanged();
+			CurrentValue = 0.1;
+		}
+		var count = 0;
+		var fileServerViewModel = new FileServerViewModel()
+			{
+				Host = serverInfo.Host,
+				UserName = serverInfo.UserName,
+				Password = serverInfo.Password,
+			};
+		using (var ftp = await _fluentFtpService.CreateFtpClient(fileServerViewModel))
+		{
+			ftp.Config.EncryptionMode = FtpEncryptionMode.Auto;
+			ftp.Config.ValidateAnyCertificate = true;
+			await ftp.AutoConnect();
+			foreach (var file in args.GetMultipleFiles(maximumFileCount: 3000))
+			{
+				try
+				{
+					FileUploadModel modell = new FileUploadModel();
+					var orderItemFile = new ClientOrderItemModel();
+					orderItemFile.FileName = file.Name;
+					orderItemFile.ClientOrderId = order.Id;
+					orderItemFile.FileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.Name);
+					orderItemFile.PartialPath = $"/{order.OrderNumber}";
+					orderItemFile.CompanyId = company.Id;
+					if (orderItemFile != null)
+					{
+						fileExists = await _orderFileService.GetByFileByOrderIdAndFileNameAndPath(orderItemFile);
+					}
+					if (fileExists != null)
+					{
+						var imageInfo = await _assignService.GetById((int)fileExists.Id);
+						var editorInfo = await _contactManager.GetById(imageInfo.AssignContactId);
+						await _dateTime.DateTimeConvert(order.CreatedDate);
+
+						modell.ReturnPath = $"{company.Code}/{_dateTime.year}/{_dateTime.month}/{_dateTime.date}/In Progress/{order.OrderNumber}/{editorInfo.FirstName + editorInfo.Id}/Rejected/";
+
+
+						if (!string.IsNullOrWhiteSpace(serverInfo.SubFolder))
+						{
+							await ftp.UploadStream(file.OpenReadStream(maxAllowedSize: file.Size * 1024), $"{serverInfo.SubFolder}\\{modell.ReturnPath}\\{order.OrderNumber}\\{file.Name}", FtpRemoteExists.Overwrite, true);
+						}
+						else
+						{
+							await ftp.UploadStream(file.OpenReadStream(maxAllowedSize: file.Size * 1024), $"{modell.ReturnPath}\\{order.OrderNumber}\\{file.Name}", FtpRemoteExists.Overwrite, true);
+						}
+
+						orderItemFile.CompanyId = fileExists.CompanyId;
+
+						orderItemFile.InternalFileOutputPath = fileExists.InternalFileOutputPath;
+						orderItemFile.PartialPath = fileExists.PartialPath;
+
+
+
+						//modell.UploadDirectory = await _ftpService.CreateFtpFolder(modell);
+
+						orderItemFile.FileName = file.Name;
+						orderItemFile.File = file;
+						//
+						orderItemFile.Id = fileExists.Id;
+						orderItemFile.ObjectId = fileExists.ObjectId;
+						orderItemFile.CreatedByContactId = loginUser.ContactId;
+						orderItemFile.FileName = file.Name;
+						orderItemFile.FileType = file.ContentType;
+						orderItemFile.FileSize = (byte)file.Size;
+
+						await _orderFileService.UpdateItemByQC(orderItemFile);
+						order.orderItems.Add(orderItemFile);
+					}
+					if (fileExists == null)
+					{
+						checkListFile.Add(orderItemFile);
+					}
+				}
+				catch { }
+				count++;
+				CurrentValue = Math.Round((float)((100 / maxValue) * count), 2);
+				this.StateHasChanged();
+			}
+			await ftp.Disconnect();
+		}
+
+		if (CurrentValue == 100)
+		{
+			CurrentValue = 0;
+			spinShow = true;
+			this.StateHasChanged();
+		}
+		if (checkListFile.Count > 0)
+		{
+			isUploadDisabled = false;
+			spinShow = false;
+			this.StateHasChanged();
+			var text = await CreateTextFileName(checkListFile);
+			await js.DisplayMessage($"This Image File is not for this Order {order.OrderNumber}\n{text}");
+			return;
+		}
+		if (order.orderItems.Count > 0)
+		{
+			foreach (var orderItem in order.orderItems)
+			{
+				await UpdateOrderItemStatus(order, orderItem);
+			}
+			await js.DisplayMessage($"File Uploaded Successfully");
+			UriHelper.NavigateTo("/order/Details" + "/" + objectId);
+		}
+		isUploadDisabled = false;
+		spinShow = false;
+		this.StateHasChanged();
+	}
+	#region Folder Upload Model
+	private static List<FileForUploadDetails> _RejectedQCselectedFileFromJs = new();
+	public List<IBrowserFile> loadedFiless = new();
+	private string baseFolder = "";
+	public class FileForUploadDetails
+	{
+		public string Name { get; set; }
+
+		public string Path { get; set; }
+	}
+
+	[JSInvokable]
+	public static Task GetRejectedQCSelectedFileDetails(List<FileForUploadDetails> files)
+	{
+		_RejectedQCselectedFileFromJs = files;
+		return Task.CompletedTask;
+	}
+	protected override void OnAfterRender(bool firstRender)
+	{
+		js.InvokeVoidAsync("rejectedattachQCFileUploadHandler");
+	}
+	private async Task LoadFile(InputFileChangeEventArgs e)
+	{
+		spinShow = true;
+		isUploadDisabled = true;
+		loadedFiless = e.GetMultipleFiles(maximumFileCount: 100000000).ToList();
+		maxValue = e.GetMultipleFiles(maximumFileCount: 100000000).Count();
+
+		var clientItemFile = await _orderFileService.GetByIdOrderId((int)order.Id);
+		checkListFile = new List<ClientOrderItemModel>();
+		fileExists = new ClientOrderItemModel();
+		isProgressbar = true;
+		if (isProgressbar)
+		{
+			spinShow = false;
+			this.StateHasChanged();
+			CurrentValue = 0.1;
+		}
+		var count = 0;
+		var fileServerViewModel = new FileServerViewModel()
+			{
+				Host = serverInfo.Host,
+				UserName = serverInfo.UserName,
+				Password = serverInfo.Password,
+			};
+		using (var ftp = await _fluentFtpService.CreateFtpClient(fileServerViewModel))
+		{
+			var takeFirstFileFromUploadedFiles = _RejectedQCselectedFileFromJs[0].Path;
+			var takeOrderNumberFromUploadFilePath = takeFirstFileFromUploadedFiles.Split("/")[0];
+			if (takeOrderNumberFromUploadFilePath == order.OrderNumber)
+			{
+				ftp.Config.EncryptionMode = FtpEncryptionMode.Auto;
+				ftp.Config.ValidateAnyCertificate = true;
+				await ftp.AutoConnect();
+				for (int i = 0; i < loadedFiless.Count; i++)
+				{
+					var completefilePath = _RejectedQCselectedFileFromJs[i].Path;
+					var file = loadedFiless[i];
+					try
+					{
+						FileUploadModel modell = new FileUploadModel();
+						var orderItemFile = new ClientOrderItemModel();
+						orderItemFile.FileName = file.Name;
+						orderItemFile.FileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.Name);
+						orderItemFile.ClientOrderId = order.Id;
+						orderItemFile.CompanyId = company.Id;
+						var filepath = Path.GetDirectoryName(completefilePath);
+						// Thumb File Uplaod Prevent
+						if (Path.GetExtension(orderItemFile.FileName) == ".db")
+						{
+							count++;
+							CurrentValue = Math.Round((float)((100 / maxValue) * count), 2);
+							StateHasChanged();
+							continue;
+						}
+
+						if (!string.IsNullOrEmpty(filepath))
+						{
+							var takeOrderNumberFromUploadPath = filepath.Split("\\")[0];
+							if (takeOrderNumberFromUploadPath == order.OrderNumber)
+							{
+								var replaceString = filepath.Replace($"\\", @"/");
+								orderItemFile.PartialPath = @"/" + replaceString /*+ @"/"*/;
+							}
+							else
+							{
+								var replaceString = filepath.Replace($"\\", @"/");
+								orderItemFile.PartialPath = $"/{order.OrderNumber}/{replaceString}";
+							}
+
+						}
+						if (!string.IsNullOrEmpty(orderItemFile.FileName) && !string.IsNullOrEmpty(orderItemFile.PartialPath))
+						{
+							fileExists = await _orderFileService.GetByFileByOrderIdAndFileNameAndPath(orderItemFile);
+						}
+						if (fileExists != null)
+						{
+							var imageInfo = await _assignService.GetById((int)fileExists.Id);
+							var editorInfo = await _contactManager.GetById(imageInfo.AssignContactId);
+							await _dateTime.DateTimeConvert(order.CreatedDate);
+
+							modell.ReturnPath = $"{company.Code}/{_dateTime.year}/{_dateTime.month}/{_dateTime.date}/In Progress/{order.OrderNumber}/{editorInfo.FirstName + editorInfo.Id}/Rejected/";
+
+							if (!string.IsNullOrWhiteSpace(serverInfo.SubFolder))
+							{
+								await ftp.UploadStream(file.OpenReadStream(maxAllowedSize: file.Size * 1024), $"{serverInfo.SubFolder}\\{modell.ReturnPath}\\{orderItemFile.PartialPath}\\{file.Name}", FtpRemoteExists.Overwrite, true);
+							}
+							else
+							{
+								await ftp.UploadStream(file.OpenReadStream(maxAllowedSize: file.Size * 1024), $"{modell.ReturnPath}\\{orderItemFile.PartialPath}\\{file.Name}", FtpRemoteExists.Overwrite, true);
+							}
+							orderItemFile.InternalFileOutputPath = fileExists.InternalFileOutputPath;
+							orderItemFile.PartialPath = fileExists.PartialPath;
+
+
+
+							//modell.UploadDirectory = await _ftpService.CreateFtpFolder(modell);
+							orderItemFile.FileName = file.Name;
+							orderItemFile.File = file;
+							//
+							orderItemFile.Id = fileExists.Id;
+							orderItemFile.ObjectId = fileExists.ObjectId;
+							orderItemFile.CreatedByContactId = loginUser.ContactId;
+							orderItemFile.FileName = file.Name;
+							orderItemFile.FileType = file.ContentType;
+							orderItemFile.FileSize = (byte)file.Size;
+
+							await _orderFileService.UpdateItemByQC(orderItemFile);
+							order.orderItems.Add(orderItemFile);
+						}
+						if (fileExists == null)
+						{
+							checkListFile.Add(orderItemFile);
+						}
+						count++;
+						CurrentValue = Math.Round((float)((100 / maxValue) * count), 2);
+						this.StateHasChanged();
+					}
+					catch { }
+				}
+			}
+			else
+			{
+				CurrentValue = 0;
+				spinShow = false;
+				await js.DisplayMessage($"Please Provide With Folder Name Like Order Number {order.OrderNumber}");
+				this.StateHasChanged();
+			}
+			await ftp.Disconnect();
+		}
+		if (CurrentValue == 100)
+		{
+			CurrentValue = 0;
+			isProgressbar = false;
+			spinShow = true;
+			this.StateHasChanged();
+		}
+		if (order.orderItems.Count > 0)
+		{
+			foreach (var orderItem in order.orderItems)
+			{
+				await UpdateOrderItemStatus(order, orderItem);
+			}
+			await js.DisplayMessage($"File Uploaded Successfully");
+			UriHelper.NavigateTo("/order/Details" + "/" + objectId);
+		}
+		
+		if (checkListFile.Count > 0)
+		{
+			isUploadDisabled = false;
+			spinShow = false;
+			this.StateHasChanged();
+			var text = await CreateTextFileName(checkListFile);
+			await js.DisplayMessage($"This Image File is not for this Order {order.OrderNumber}\n{text}");
+			return;
+		}
+		isUploadDisabled = false;
+		spinShow = false;
+		this.StateHasChanged();
+	}
+	#endregion
+	private void ShowFolder()
+	{
+		AllowFolderUpload = true;
+	}
+	private void ShowFile()
+	{
+		AllowFolderUpload = false;
+	}
+
+	private async Task UpdateOrderItemStatus(ClientOrderModel order, ClientOrderItemModel clientOrderItem)
+	{
+		var orderItem = await _clientOrderItemService.GetByIdAndFileName((int)order.Id,Path.GetFileNameWithoutExtension(clientOrderItem.FileName), clientOrderItem.PartialPath);
+		if (orderItem != null)
+		{
+			if (orderItem.Status >= (int)InternalOrderItemStatus.ReadyToDeliver)
+			{
+				return;
+			}
+			orderItem.Status = (byte)InternalOrderItemStatus.ReworkDistributed;
+
+			await _clientOrderItemService.UpdateClientOrderItemStatus(orderItem);
+			await AddOrderItemStatusChangeLog(orderItem, (InternalOrderItemStatus)orderItem.Status);
+
+			var orderAllItem = await _clientOrderItemService.GetAllOrderItemByOrderId((int)order.Id);
+
+			//if (orderAllItem.All(orderItem => orderItem.Status == (byte)InternalOrderItemStatus.Rejected))
+			//  {
+			//	UpdateOrder(order,InternalOrderStatus.Rejected);
+			//  }
+			UpdateOrder(order, await GetInternalOrderStatus(orderAllItem));//Todo:RakibStatus
+		}
+
+	}
+
+	private async void UpdateOrder(ClientOrderModel clientOrder, InternalOrderStatus status)
+	{
+		if (status == InternalOrderStatus.AssignedForSupport)
+		{
+			status = InternalOrderStatus.Assigned;
+		}
+		clientOrder.InternalOrderStatus = (byte)status;
+		clientOrder.ExternalOrderStatus = (byte)(EnumHelper.ExternalOrderStatusChange(status));
+		await _orderService.UpdateClientOrderStatus(clientOrder);
+		await AddOrderStatusChangeLog(clientOrder, status);
+	}
+
+	private async Task<InternalOrderStatus> GetInternalOrderStatus(List<ClientOrderItemModel> clientOrderItems)
+	{
+		await Task.Yield();
+		ClientOrderItemStatus clientOrderItemMinStatus = await _clientOrderItemService.GetOrderItemMinStatusByOrderId((int)order.Id);
+		InternalOrderStatus internalOrderItemStatus = (InternalOrderStatus)clientOrderItemMinStatus.Status;
+		return internalOrderItemStatus;
+	}
+
+	public async Task AddOrderStatusChangeLog(ClientOrderModel clientOrder, InternalOrderStatus internalOrderStatus)
+	{
+		var previousLog = await _orderStatusChangeLogService.OrderStatusLastChangeLogByOrderId((int)clientOrder.Id);
+		if (previousLog.NewInternalStatus != (byte)internalOrderStatus)
+		{
+			OrderStatusChangeLogModel orderStatusChangeLog = new OrderStatusChangeLogModel
+				{
+					OrderId = (int)clientOrder.Id,
+					NewInternalStatus = (byte)internalOrderStatus,
+					NewExternalStatus = (byte)EnumHelper.ExternalOrderStatusChange(internalOrderStatus),
+					ChangeByContactId = loginUser.ContactId,
+					ChangeDate = DateTime.Now
+				};
+
+			if (previousLog != null)
+			{
+				orderStatusChangeLog.OldExternalStatus = previousLog.NewExternalStatus;
+				orderStatusChangeLog.OldInternalStatus = previousLog.NewInternalStatus;
+				orderStatusChangeLog.TimeDurationInMinutes = (int)(orderStatusChangeLog.ChangeDate.Subtract(previousLog.ChangeDate).TotalMinutes);
+			}
+			await _orderStatusChangeLogService.Insert(orderStatusChangeLog);
+		}
+
+	}
+
+	public async Task AddOrderItemStatusChangeLog(ClientOrderItemModel clientOrderItem, InternalOrderItemStatus internalOrderItemStatus)
+	{
+		var previousLog = await _orderItemStatusChangeLogService.OrderItemStatusLastChangeLogByOrderFileId((int)clientOrderItem.Id);
+		if (previousLog != null && previousLog.NewInternalStatus != (byte)internalOrderItemStatus)
+		{
+			OrderItemStatusChangeLogModel orderItemStatusChangeLog = new OrderItemStatusChangeLogModel
+				{
+					OrderFileId = (int)clientOrderItem.Id,
+					NewInternalStatus = (byte)internalOrderItemStatus,
+					NewExternalStatus = (byte)EnumHelper.ExternalOrderItemStatusChange(internalOrderItemStatus),
+					ChangeByContactId = loginUser.ContactId,
+					ChangeDate = DateTime.Now
+				};
+			if (previousLog != null)
+			{
+				orderItemStatusChangeLog.OldExternalStatus = previousLog.NewExternalStatus;
+				orderItemStatusChangeLog.OldInternalStatus = previousLog.NewInternalStatus;
+				orderItemStatusChangeLog.TimeDurationInMinutes = (int)(orderItemStatusChangeLog.ChangeDate.Subtract(previousLog.ChangeDate).TotalMinutes);
+
+			}
+			await _orderItemStatusChangeLogService.Insert(orderItemStatusChangeLog);
+		}
+
+	}
+	private async Task<string> CreateTextFileName(List<ClientOrderItemModel> files)
+	{
+		var text = "";
+		var fileName = "";
+		var filesArray = files.ToArray();
+		for (int i = 0; i < filesArray.ToList().Count; i++)
+		{
+			fileName += $"{i}) {filesArray[i].FileName}\n";
+		}
+		text = $"File Names : \n {fileName}\n";
+		return text;
+	}
+	private async void DeleteImagesOnPreview(ClientOrderItemModel file)
+	{
+		//await Task.Yield();
+		order.orderItems.RemoveAll(f => f.FileName == file.FileName);
+		StateHasChanged();
+		await _dateTime.DateTimeConvert(order.CreatedDate);
+		var result = await _clientOrderItemService.GetById((int)file.Id);
+		var imageInfo = await _assignService.GetById((int)file.Id);
+		var editorInfo = await _contactManager.GetById(imageInfo.AssignContactId);
+		FileUploadModel model = new FileUploadModel()
+			{
+				FtpUrl = serverInfo.Host,
+				userName = serverInfo.UserName,
+				password = serverInfo.Password,
+				SubFolder = serverInfo.SubFolder,
+				ReturnPath = $"{company.Code}/{_dateTime.year}/{_dateTime.month}/{_dateTime.date}/In Progress/{order.OrderNumber}/{editorInfo.FirstName + editorInfo.Id}/Rejected/{result.PartialPath}/{file.FileName}",
+			};
+		await _fluentFtpService.DeleteFile(model);
+
+	}
+}

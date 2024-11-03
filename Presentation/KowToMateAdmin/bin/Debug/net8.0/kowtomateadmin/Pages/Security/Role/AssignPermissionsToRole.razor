@@ -1,0 +1,157 @@
+﻿@page "/security/role/assignpermissions/{roleObjectId}"
+@page "/security/role/assignpermissions/{roleObjectId}/{returnto}"
+@using System.Linq
+@*@attribute [Authorize(Roles = "Security.Role.AssignPermissions")]
+*@
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.MapperHelper
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IRoleManager _roleManager
+@inject IPermissionService _permissionService
+@inject IModuleService _moduleService
+@inject ICompanyManager _companyService
+@inject NavigationManager NavigationManager
+@inject IMapperHelperService _mapperHelperService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">Assign Permissions to Role : @role.Name
+            </h4>
+
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-secondary" @onclick="backtoRoles" title="Add New Role"><span class="fas fa-list"></span> Back to Roles</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-body">
+                @if (nodes is null)
+                {
+                    <p><em>Loading...</em></p>
+                }
+                else
+                {
+                     <RadzenCard>
+                        <RadzenTree AllowCheckBoxes="true"  @bind-CheckedValues=@CheckedValues Style="width: 100%;" Data=@nodes>
+                            <RadzenTreeLevel Expanded="@(treeNode => true)"  TextProperty="Name" ChildrenProperty="ChildNodes" />
+                            <RadzenTreeLevel TextProperty="Name" HasChildren=@(treeNode => false) />
+                        </RadzenTree>
+                    </RadzenCard>
+
+                }
+                <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => SaveRolePermissions()">Save Changes</button>   
+                  <button type="button" class="btn btn-secondary" disabled="@isSubmitting" @onclick="() => backtoRoles()">Cancel</button>   
+            </div>
+        </div>
+    </div>
+</div>
+
+<ModalNotification @ref="ModalNotification">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+
+    [Parameter]
+    public string roleObjectId { get; set; }
+
+    [Parameter]
+    public string returnto { get; set; }
+
+    public RoleViewModel role = new RoleViewModel();
+
+    bool isSubmitting;
+    IEnumerable<TreeNode> nodes;
+    private LoginUserInfoViewModel loginUser = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+        var roleModel = await _roleManager.GetByObjectId(roleObjectId);
+        role = await _mapperHelperService.MapToSingleAsync<RoleModel, RoleViewModel>(roleModel);
+        var company = await _companyService.GetByObjectId(role.CompanyObjectId);
+
+        var modulePermissions = await _moduleService.GetModuleAllPermissions((byte)company.CompanyType);
+
+        nodes = _moduleService.GetTreeNodes(modulePermissions);
+
+        var selectedPermissons = await _roleManager.GetPermissionsByRoleObjectId(roleObjectId);
+
+        if (selectedPermissons != null)
+        {
+            var checkedNodes = nodes.SelectMany(f => f.ChildNodes).Where(w => selectedPermissons.Any(i => i == w.Id)).ToList();
+
+            //Set parent nodes
+            foreach(var node in nodes)
+            {
+                var coutdd= selectedPermissons.Where(f => node.ChildNodes.Any(k => k.Id == f)).Count();
+
+                if (node.ChildNodes.Count() == coutdd)
+                {
+                    checkedNodes.Add(node);
+                }
+            }
+
+            CheckedValues = checkedNodes;
+
+        }
+
+    }
+
+    private  async Task SaveRolePermissions()
+    {
+        isSubmitting = true;
+        var checkItesm = CheckedValues;
+
+        var selectedNodes = CheckedValues.Cast<TreeNode>();
+        var permissionObjectIds = selectedNodes.Where(f => f.NodeType == "Permission").Select(i => i.Id).ToList();
+
+        var addResponse = await _roleManager.RolePermissionInsertOrUpdateByRoleObjectId(roleObjectId, permissionObjectIds, loginUser.ContactId);
+
+        if (!addResponse.IsSuccess)
+        {
+            ModalNotification.ShowMessage("Error",addResponse.Message);
+            isSubmitting = false;
+            return;
+        }
+
+        ModalNotification.ShowMessage("Success",addResponse.Message);
+        isSubmitting = false;
+    }
+
+    IEnumerable<object> checkedValues;
+
+    IEnumerable<object> CheckedValues
+    {
+        get => checkedValues;
+        set
+        {
+            checkedValues = value;
+        }
+    }
+
+    protected void backtoRoles()
+    {
+        if (string.IsNullOrWhiteSpace(returnto) && returnto == "cd")
+        {
+            NavigationManager.NavigateTo($"/security/roles", true);
+        }
+        else
+        {
+             NavigationManager.NavigateTo($"/company/details/{role.CompanyObjectId}", true);
+        }
+    }
+}

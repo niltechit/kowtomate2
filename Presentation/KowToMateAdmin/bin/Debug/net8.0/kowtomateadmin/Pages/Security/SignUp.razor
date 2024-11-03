@@ -1,0 +1,357 @@
+﻿@page "/company/signup"
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.Common
+@using CutOutWiz.Services.Models.EmailModels
+@using CutOutWiz.Services.Email
+@using CutOutWiz.Services.EmailMessage
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Helper
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@layout EmptyLayout
+
+@attribute [AllowAnonymous]
+
+@inject ICompanyManager _companyService
+@inject IJSRuntime js
+@inject IUserService _userService
+@inject IContactManager _contactManager
+@inject NavigationManager UriHelper
+@inject ICompanyManager _companyService
+@inject IOperationEmailService _operationEmailService
+@inject IConfiguration _configuration
+@inject IWorkflowEmailService _workflowEmailService
+@inject IFileServerManager _fileServerService
+
+<div class="account-pages mt-4">
+	<div class="container">
+		<div class="row justify-content-center">
+			<div class="col-md-8 col-lg-6 col-xl-5">
+				<div class="card overflow-hidden mb-2">
+					<div class="bg-primary bg-soft">
+						<div class="row">
+							<div class="col-7">
+								<div class="text-primary p-4">
+									<h5 class="text-primary">Stay With Us</h5>
+									<p>Sign Up For Your Account</p>
+								</div>
+							</div>
+							<div class="col-5 align-self-end">
+								<img src="assets/images/profile-img.png" alt="" class="img-fluid">
+							</div>
+						</div>
+					</div>
+					<div class="card-body pt-0 pb-0">
+						<div>
+							<a href="index.html">
+								<div class="avatar-md profile-user-wid mb-2">
+									<span class="avatar-title rounded-circle bg-light">
+										<img src="assets/images/logo.svg" alt="" class="rounded-circle" height="34">
+									</span>
+								</div>
+							</a>
+						</div>
+						<div class="p-2">
+							<EditForm Model="signUpModel" OnValidSubmit="InsertOrUpdateCompany">
+								<DataAnnotationsValidator />
+
+								@if (!string.IsNullOrWhiteSpace(errorMessage))
+								{
+									<div class="alert alert-danger" role="alert">
+										@errorMessage
+									</div>
+								}
+
+								<div class="mb-3">
+									<label for="" class="form-label fw-bold required-field">Company Name</label>
+									<InputText type="text" class="form-control" @bind-Value="signUpModel.Name" placeholder="Company Name"></InputText>
+									<ValidationMessage For="@(() => signUpModel.Name)" />
+								</div>
+								<div class="mb-3">
+									<label for="" class="form-label fw-bold required-field">Company Code</label>
+									<InputText placeholder="Company Code" class="form-control" @bind-Value="signUpModel.Code"></InputText>
+									<ValidationMessage For="@(() => signUpModel.Code)" />
+								</div>
+								<div class="mb-3">
+									<label for="" class="form-label fw-bold required-field">First Name</label>
+									<InputText type="text" class="form-control" @bind-Value="signUpModel.FirstName" placeholder="First Name"></InputText>
+									<ValidationMessage For="@(() => signUpModel.FirstName)" />
+								</div>
+								<div class="mb-3">
+									<label for="" class="form-label fw-bold">Last Name</label>
+									<InputText type="text" class="form-control" @bind-Value="signUpModel.LastName" placeholder="Last Name"></InputText>
+									<ValidationMessage For="@(() => signUpModel.LastName)" />
+								</div>
+								<div class="mb-3">
+									<label for="" class="form-label fw-bold required-field">Email </label>
+									<InputText type="email" class="form-control" @bind-Value="signUpModel.Email" placeholder="Email"></InputText>
+									<ValidationMessage For="@(() => signUpModel.Email)" />
+								</div>
+								<div class="mb-3">
+									<label for="" class="form-label fw-bold required-field"> Username </label>
+									<InputText type="text" class="form-control" @bind-Value="signUpModel.UserName" placeholder="Username"></InputText>
+									<ValidationMessage For="@(() => signUpModel.UserName)" />
+								</div>
+
+								<div class="mb-3">
+									<label for="userpassword" class="col-sm-4 col-form-label fw-bold required-field">Password</label>
+									<div class="input-group auth-pass-inputgroup">
+										<InputText type="@passwordType" class="form-control" placeholder="Enter password" aria-label="Password" aria-describedby="password-addon" @bind-Value="signUpModel.Password"></InputText>
+										<button class="btn btn-light " type="button" id="password-addon"><i @onclick="ShowPassword" class="@passwordIcon"></i></button>
+										
+									</div>
+									<ValidationMessage For="@(() => signUpModel.Password)" />
+								</div>
+
+								<div class="mb-3">
+									<label for="userpassword" class="col-sm-4 col-form-label fw-bold required-field">Confirm Password</label>
+									<div class="input-group auth-pass-inputgroup">
+										<InputText type="@passwordConfirmType" class="form-control" placeholder="Enter password" aria-label="Password" aria-describedby="password-addon" @bind-Value="signUpModel.ConfirmPassword"></InputText>
+										<button class="btn btn-light " type="button" id="password-addon"><i @onclick="ShowConfirmPassword" class="@passwordConfirmIcon"></i></button>
+									</div>
+									<ValidationMessage For="@(() => signUpModel.ConfirmPassword)" />
+								</div>
+								<div class="mt-4 d-grid">
+									<button class="btn btn-primary waves-effect waves-light" disabled="@isSubmitting" type="submit">Register</button>
+								</div>
+								<div class="mt-4 text-center">
+									<div>
+										<p>Already have an account ? <a href="/login" class="fw-medium text-primary"> Login</a> </p>
+									</div>
+								</div>
+							</EditForm>
+						</div>
+
+					</div>
+				</div>
+
+				<div class="text-center">
+					<p>© @DateTime.Now.Year <i class="mdi mdi-heart text-danger"></i> by KowToMate</p>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+@if (spinShow)
+{
+	<div class="spinner"></div>
+}
+
+@code {
+
+	public NewCompanySignUpModel signUpModel = new NewCompanySignUpModel();
+
+	bool isSubmitting = false;
+	//private bool _isInvalidForm = true;
+	//EditContext _editContext;
+	bool spinShow = false;
+	string errorMessage = "";
+	string passwordType = "password";
+	string passwordConfirmType = "password";
+	string passwordIcon = "fas fa-eye-slash";
+	string passwordConfirmIcon = "fas fa-eye-slash";
+
+	private async Task InsertOrUpdateCompany()
+	{
+
+		// logic to save valid form  to database
+
+		isSubmitting = true;
+		spinShow = true;
+		// Create Company
+		// check company code exist of not
+		var existingCompany = await _companyService.GetByCompanyCode(signUpModel.Code);
+
+		if (existingCompany != null)
+		{
+			spinShow = false;
+			isSubmitting = false;
+			errorMessage = "Company Code already exist. Please try another one.";
+			//await js.DisplayMessage($"Company Code already exist. Please try another one.");
+			return;
+		}
+
+		//Check email
+		var existUser = await _userService.GetUserByUsername(signUpModel.Email);
+
+		if (existUser != null)
+		{
+			isSubmitting = false;
+			spinShow = false;
+			//await js.DisplayMessage($"Email (Username) already exist. Please try another one.");
+			errorMessage = "Email (Username) already exist. Please try another one.";
+			return;
+		}
+
+		//Check Username
+		var existUserName = await _userService.GetUsername(signUpModel.UserName);
+
+		if (existUserName != null)
+		{
+			isSubmitting = false;
+			await js.DisplayMessage($"Username already exist. Please try another one.");
+			spinShow = false;
+			return;
+		}
+
+		var company = new CompanyModel();
+		company.Name = signUpModel.Name;
+		company.Code = signUpModel.Code;
+
+		company.CompanyType = (int)CompanyType.Client;
+		company.Telephone = signUpModel.Telephone;
+		company.Email = signUpModel.Email;
+		company.Password = signUpModel.Password;
+		company.ConfirmPassword = signUpModel.ConfirmPassword;
+		company.ObjectId = Guid.NewGuid().ToString();
+		company.Status = (int)GeneralStatus.Active;
+		company.CreatedByContactId = null;
+
+		var fileServer = await _fileServerService.GetDefaultFileServer();
+
+		if (fileServer == null)
+		{
+			var fileServers = await _fileServerService.GetAll();
+
+			fileServer = fileServers.Where(f => f.Status == 1).FirstOrDefault();
+		}
+
+		company.FileServerId = fileServer.Id;
+
+		var addResponse = await _companyService.Insert(company);
+
+		if (!addResponse.IsSuccess)
+		{
+			isSubmitting = false;
+			spinShow = false;
+			//await js.DisplayMessage($"Problem on creating your account, Please contact with administrator. Error: " + addResponse.Result);
+			errorMessage = "Problem on creating your account, Please contact with administrator. Error: " + addResponse.Result;
+			return;
+		}
+
+		// Create Contact
+		var contact = new ContactModel();
+
+		contact.Email = signUpModel.Email;
+		contact.FirstName = signUpModel.FirstName;
+		contact.LastName = signUpModel.LastName;
+		contact.ObjectId = Guid.NewGuid().ToString();
+		contact.CompanyId = addResponse.Result;
+		contact.Status = (int)GeneralStatus.Active;
+		contact.CreatedByContactId = null;
+
+		var contactAddResponse = await _contactManager.Insert(contact);
+		contact.Id = contactAddResponse.Result;
+
+		var salt = _userService.CreateRandomSalt();
+		var hashedPassword = _userService.GetHashPassword(signUpModel.Password, salt);
+		// Create User
+		var user = new UserModel();
+		user.Username = signUpModel.UserName;
+		user.CompanyId = addResponse.Result;
+		user.ContactId = contactAddResponse.Result;
+		user.CreatedByContactId = contactAddResponse.Result;
+		user.ObjectId = Guid.NewGuid().ToString();
+		user.PasswordHash = hashedPassword;
+		user.PasswordSalt = salt;
+		user.Status = (int)(GeneralStatus.Active);
+		user.SelectedUserRoles = null;
+
+		var responseResult = await _userService.Insert(user);
+
+		if (responseResult.IsSuccess)
+		{
+			SignUpViewModel model = new SignUpViewModel();
+			model.NewCompanyObjectId = company.ObjectId;
+			model.CompanyId = addResponse.Result;
+			model.NewUserContactId = contactAddResponse.Result;
+			model.CreatedByContactId = contactAddResponse.Result;
+			model.BaseCompanyCode = CompanyCodeConstants.BaseClientCompany;
+			model.UserOBjectId = user.ObjectId;
+			var responses = await _companyService.SignupInsertCompany(model);
+			//await SendMailToAllOperation(company,contact,"Add");
+			await SendMailToAllOperation("Add", company, contact);
+			await SendMailToRegistrationUserNameAndPassword("Add", contact, user, company.Password);
+			spinShow = false;
+			await js.DisplayMessage($"Your account has been created successfully.");
+			UriHelper.NavigateTo("/login");
+		}
+
+		company = new CompanyModel();
+		isSubmitting = false;
+		spinShow = false;
+	}
+
+	#region Mail Sending
+	private async Task SendMailToAllOperation(string callerType, CompanyModel company, ContactModel contact)
+	{
+		var userList = await _operationEmailService.GetUserListByCompanyIdAndPermissionName(Convert.ToInt32(_configuration["CompanyId"]), PermissionConstants.SendMailCompanyCreateForOPeration);
+		foreach (var user in userList)
+		{
+			var detailUrl = $"{_configuration["AppMainUrl"]}/company/details/{company.ObjectId}";
+
+			var newCompanySignUpNotification = new NewCompanySignUpNotification
+				{
+					NewCompanyName = company.Name,
+					DetailUrl = detailUrl,
+					ToEmail = user.Email,
+					ToEmailName = user.FirstName,
+					CompanyEmail = company.Email,
+					CreateByUserName = user.FirstName + " (Client)",
+					ContactId = contact.Id
+				};
+
+			newCompanySignUpNotification.MailType = callerType;
+			await _workflowEmailService.SendCompanyAddUpdateDeleteNotificationForCompanyOperationsTeam(newCompanySignUpNotification);
+		}
+	}
+
+	private async Task SendMailToRegistrationUserNameAndPassword(string callerType, ContactModel contact, UserModel user, string password)
+	{
+		var newCompanySignUpNotification = new NewCompanySignUpNotification
+			{
+				ClientFirstName = contact.FirstName,
+				UserName = user.Username,
+				Password = password,
+				LoginUrl = $"{_configuration["AppMainUrl"]}",
+				ContactId = contact.Id,
+				ToEmail = contact.Email
+			};
+
+		newCompanySignUpNotification.MailType = callerType;
+		await _workflowEmailService.SendCompanyUsernameAndPassword(newCompanySignUpNotification);
+
+	}
+
+	#endregion
+	private async Task ShowPassword()
+	{
+		if (passwordIcon == "fas fa-eye-slash")
+		{
+			passwordType = "";
+			passwordIcon = "fas fa-eye";
+		}
+		else if (passwordIcon == "fas fa-eye")
+		{
+			passwordType = "password";
+			passwordIcon = "fas fa-eye-slash";
+		}
+	}
+	private async Task ShowConfirmPassword()
+	{
+		if (passwordConfirmIcon == "fas fa-eye-slash")
+		{
+			passwordConfirmType = "";
+			passwordConfirmIcon = "fas fa-eye";
+		}
+		else if (passwordConfirmIcon == "fas fa-eye")
+		{
+			passwordConfirmType = "password";
+			passwordConfirmIcon = "fas fa-eye-slash";
+		}
+	}
+}

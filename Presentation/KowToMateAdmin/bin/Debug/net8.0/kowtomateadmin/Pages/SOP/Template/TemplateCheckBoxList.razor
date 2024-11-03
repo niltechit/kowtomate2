@@ -1,0 +1,58 @@
+﻿@using CutOutWiz.Services.Models.SOP
+
+<div class="row">
+	<div class="col-lg-12">
+		<div class="card">
+			<div class="card-body">
+				<p class="required-field"><b>Select a SOP From SOP List Below</b></p>
+				@if (templates is null)
+				{
+					<p><em>Loading...</em></p>
+				}
+				else
+				{
+					@foreach (var item in templates)
+					{
+						if (!selectedTemplateList.Contains(item.Id))
+						{
+							<div>
+								<input type="checkbox" id="@item.Id" name="selectedTemplateId" @onchange="()=>CheckBoxChanged(item.Id)">
+								<label for="@item.Id">@item.Name</label>
+								<a class=""><i class="fas fa-info-circle" @onclick="()=>ClickedView(item)"></i></a>
+							</div>
+						}
+						else {
+							<div>
+								<input type="checkbox" id="@item.Id" name="selectedTemplateId" @onchange="()=>CheckBoxChanged(item.Id)" checked>
+								<label for="@item.Id">@item.Name</label>
+								<a class=""><i class="fas fa-info-circle" @onclick="()=>ClickedView(item)"></i></a>
+							</div>
+						}
+					}
+				}
+			</div>
+		</div>
+	</div>
+</div>
+@code {
+	[Parameter]
+	public List<SOPTemplateModel> templates { get; set; }
+	[Parameter]
+	public List<int> selectedTemplateList { get; set; }
+	[Parameter]
+	public EventCallback<int> OnServiceSeletection { get; set; }
+	[Parameter]
+	public SOPTemplateModel sopTemplate { get; set; }
+	[Parameter]
+	public EventCallback<SOPTemplateModel> OnClickedView { get; set; }
+
+	protected async Task CheckBoxChanged(int id)
+	{
+		await OnServiceSeletection.InvokeAsync(id);
+	}
+
+	protected async Task ClickedView(SOPTemplateModel template)
+	{
+		await OnClickedView.InvokeAsync(template);
+	}
+}

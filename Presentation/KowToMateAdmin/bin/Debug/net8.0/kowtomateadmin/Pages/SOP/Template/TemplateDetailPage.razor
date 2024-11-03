@@ -1,0 +1,473 @@
+﻿@page "/sop/templates/Details/{objectId}"
+@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Core
+@using CutOutWiz.Services.Managers.Common
+@using CutOutWiz.Services.Models.EmailModels
+@using CutOutWiz.Core.Message
+@using CutOutWiz.Services.Models.SOP
+@using CutOutWiz.Services.EmailMessage
+@using CutOutWiz.Services.InternalMessage
+@using CutOutWiz.Services.Models.FileUpload
+@using CutOutWiz.Services.Models.Message
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Helper;
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.SOP.StandardService
+@using CutOutWiz.Services.StorageService
+@using System.IO
+@using CutOutWiz.Services.Logs
+@using KowToMateAdmin.Pages.Shared
+@using KowToMateAdmin.Reports
+@using static CutOutWiz.Core.Utilities.Enums
+@using KowToMateAdmin.Controllers
+
+@inject IWorkContext _workContext
+@inject IOrderSOPTemplateService _templateService
+@inject IOrderSOPStandardServiceService _standardServiceService
+@inject IGCPService _gCPService
+@inject ILogServices _activityLogService
+@inject NavigationManager navigationManger
+@inject IUserService _userService
+@inject IRoleManager _roleManager
+@inject IConfiguration _configuration
+@inject IContactManager _contactManager
+@inject IWorkflowEmailService _workflowEmailService
+@inject IInternalMessageService _internalMessageService
+@inject ICompanyManager _companyService
+@inject AuthenticationStateProvider _authenticationStateProvider
+@inject IWebHostEnvironment _webHostEnvironment
+@inject IDownloadService _downloadService
+@inject IJSRuntime js
+
+<!-- start page title -->
+<div class="row">
+	<div class="col-12">
+		<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+			<h4 class="mb-sm-0 font-size-18">
+				SOP Template : @template.Name
+				@*<span>(@filteredStandardServices.Count)</span>*@
+			</h4>
+			<div>
+				<AuthorizeView Context="cancelorAcceptApproval" Roles="Sop.ViewReviewPriceActionForOperation">
+					@if (template.Status == (int)SopStatus.RequestByOpsForApprove)
+					{
+						<button type="button" class="btn btn-outline-info sop-list-action-btn" @onclick="()=>UpdateSopTemplateStatus(template,(int)SopStatus.ReviewPriceByOps)">
+							Request For Approval
+						</button>
+					}
+					else if (template.Status == (int)SopStatus.ReviewPriceByClient || template.Status == (int)SopStatus.ReviewPriceByOps)
+					{
+						<button type="button" class="btn btn-outline-success sop-list-action-btn" @onclick="()=>UpdateSopTemplateStatus(template,(int)SopStatus.PriceApproved)">
+							Approved
+						</button>
+						<a href="/sop/template/@template.ObjectId" class="btn btn-sm btn-outline-primary btn-tbl-action">
+							<span>
+								Review Price
+							</span>
+						</a>
+					}
+				</AuthorizeView>
+				<AuthorizeView Context="requestForApproval" Roles="Sop.ViewReviewPriceActionForClient">
+					@if (template.Status == (int)SopStatus.ReviewPriceByOps || template.Status == (int)SopStatus.ReviewPriceByClient)
+					{
+						<button type="button" class="btn btn-outline-success sop-list-action-btn" @onclick="()=>UpdateSopTemplateStatus(template,(int)SopStatus.PriceApproved)">
+							Approved
+						</button>
+						<a href="/sop/template/@template.ObjectId" class="btn btn-sm btn-outline-primary btn-tbl-action">
+							<span>
+								Review Price
+							</span>
+						</a>
+					}
+				</AuthorizeView>
+			</div>
+			<div class="page-title-right">
+				<AuthorizeView Roles="SOPTemplate.Edit">
+				<a type="button" class="btn btn-sm btn-secondary" href="/sop/template/@template.ObjectId"><span class="fas fa-pencil-alt"></span>  Edit</a>
+				</AuthorizeView>
+				<a type="button" class="btn btn-sm btn-secondary" href="/sop/templates"><span class="fas fa-angle-double-left"></span>  Back</a>
+				@*				<a type="button" class="btn btn-sm btn-secondary" @onclick="(e)=>GeneratePDF(template.ObjectId.ToString())"><span class="fas fa-print"></span>  Print</a>
+				<a class="btn btn-sm btn-secondary" href="https://localhost:7073/api/SOPReport/SOPReport/@template.Id" target="_blank"><span class="fas fa-print"></span>  Print</a>*@
+				@*<a type="button" class="btn btn-sm btn-secondary" @onclick="@(p => ClickCreateFile(template))"><span class="fas fa-print"></span>  Print</a>*@
+				<a type="button" class="btn btn-sm btn-secondary" @onclick="@(p => DownloadSOPFileAttachment(template))"><span class="fas fa-download"></span> Download All Attachement</a>
+			</div>
+		</div>
+	</div>
+</div>
+<!-- end page title -->
+
+<div class="row">
+	<div class="col-lg-9">
+		<div class="card">
+			<div class="card-body">
+				@if (template is null)
+				{
+					<p><em>Loading...</em></p>
+				}
+				else
+				{
+
+					
+					@if (template.Status != (int)SopStatus.RequestByOpsForApprove && template.Status != (int) SopStatus.New)
+                            {
+                               <h4 class="card-title mb-2">Price: @template.UnitPrice</h4>
+                            }
+                            else
+                            {
+                               <h4 class="card-title mb-2">Price:</h4>
+                            }
+					
+					<hr />
+					<SOPService standardServices="standardServices"></SOPService>
+					<hr />
+					<h4 class="card-title mb-2 mt-2">Instructions</h4>
+					<p>
+						@((MarkupString)template.Instruction)
+					</p>
+					<hr />
+					<div class="row">
+						<h4 class="card-title mb-2 mt-2">Attachment List</h4>
+						<div class="table-responsive">
+							<table class="table mb-0 table-striped table-hover">
+								<thead class="table-light">
+									<tr>
+										<th>Name</th>
+										@*<th>File</th>*@
+										<th>Action</th>
+									</tr>
+								</thead>
+								<tbody>
+									<Virtualize Items="sopTemplateFiles" Context="file">
+										<tr>
+											<td>@file.FileName</td>
+											@*<td><img src="Upload/@file.ViewPath/@file.FileName" height="200" width="200" @onclick="(e)=>DownloadFileFromURL(file.FileName.ToString())" /></td>*@
+										@*	@if (file.FileByteString != null)
+											{
+												<td>
+													<div class="img-wrap">
+														<img src="@file.FileByteString">
+													</div>
+												</td>
+											}
+											else
+											{
+												<td>
+
+												</td>
+											}*@
+											<td>
+												<button type="button" class="btn btn-sm btn-outline-info btn-tbl-action" @onclick="(e)=>DownloadFileFromURL(file.FileName.ToString(),file.ViewPath.ToString())">
+													<i class="fas fa-download"></i>
+												</button>
+												<button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="(e)=>Delete(file.ObjectId)">
+													<span class="fas fa-times"></span>
+												</button>
+											</td>
+										</tr>
+									</Virtualize>
+								</tbody>
+							</table>
+						</div>
+					</div>
+				}
+			</div>
+		</div>
+	</div>
+	<div class="col-lg-3">
+		<div class="card">
+			<div class="card-body">
+				<h4>Activities</h4>
+				<hr />
+				@foreach (var acitivityLog in activityLogs)
+				{
+					<p>@acitivityLog.Description</p>
+					<hr>
+				}
+			</div>
+		</div>
+	</div>
+</div>
+@if (spinShow)
+{
+	<div class="spinner"></div>
+}
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+@code {
+	protected ModalNotification ModalNotification { get; set; }
+	[Parameter]
+	public string ObjectId { get; set; }
+	private SOPTemplateModel template = new SOPTemplateModel();
+	private List<ActivityLogModel> activityLogs = new List<ActivityLogModel>();
+	private List<SOPStandardServiceModel> standardServices = new List<SOPStandardServiceModel>();
+	private List<SOPTemplateFile> sopTemplateFiles = new List<SOPTemplateFile>();
+	private string selectedObjectId;
+	private LoginUserInfoViewModel loginUser = null;
+	bool spinShow = false;
+
+	protected async override Task OnParametersSetAsync()
+	{
+		loginUser = _workContext.LoginUserInfo;
+		template = await _templateService.GetByObjectId(ObjectId);
+		var templateId = template.Id;
+		activityLogs = await _activityLogService.GetByActivityLogFor(ActivityLogForConstants.SOPTemplate, template.Id);
+		sopTemplateFiles = await _templateService.GetSopTemplateFilesBySopTemplateId(templateId);
+		if (template != null)
+		{
+			standardServices = await _standardServiceService.GetListByTemplateId(template.Id);
+		}
+	}
+
+	private async void DownloadAttachment(string filePath)
+	{
+		filePath = "KTMDCL/SOP/Template-8bf61bc8-2b3c-47ae-aeb4-9c70bf8a33dc/person 1.jpg";
+		var List = await _gCPService.DownloadAttachment((int)template.FileServerId, filePath);
+		//var bytes = GetFileStream();
+		////var fileName = "log.bin";
+		//var fileInput = new FileStream(filePath,FileMode.Open,FileAccess.Read);
+		//fileInput.CopyTo(fileStream);
+		////using var streamRef = new DotNetStre amReference(stream: fileStream);
+		//string base64 = Convert.ToBase64String(fileStream.ToArray());
+		//await js.InvokeVoidAsync("downloadFile","image/jpeg", base64,"download.file");
+	}
+	private async Task DownloadFileFromURL(string fileName, string viewPath)
+	{
+		spinShow = true;
+		var filename = fileName;
+		string baseUrl = $"{_configuration["AppMainUrl"]}/Upload/";
+		var fileURL = $"{baseUrl}{viewPath}/{fileName}";
+		await js.InvokeVoidAsync("triggerFileDownload", fileName, fileURL);
+		spinShow = false;
+	}
+	protected void Delete(string objectId)
+	{
+		selectedObjectId = objectId;
+		var msg = $"Are you sure you want to delete the template \"{objectId}\"?";
+		ModalNotification.ShowConfirmation("Confirm Delete", msg);
+	}
+	protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+	{
+		if (deleteConfirmed)
+		{
+			var templateFile = await _templateService.UpdateTemplateFile(selectedObjectId);
+			navigationManger.NavigateTo(navigationManger.Uri, forceLoad: true);
+		}
+	}
+
+	#region Generate PDF
+	private async void GeneratePDF(string objectId)
+	{
+		SOPTemplateViewModel templates = await _templateService.GetByObjectID(ObjectId);
+		templates.SopTemplateFileList = await _templateService.GetSopTemplateFilesBySopTemplateId(template.Id);
+		templates.SopTemplateServiceList = await _standardServiceService.GetListByTemplateId(template.Id);
+		RptResult rptResult = new RptResult();
+		//var data = rptResult.Report(templates);
+		//var report = Convert.ToBase64String(data);
+		await js.InvokeAsync<SOPTemplateViewModel>("Print");
+		//await JS.InvokeAsync<SOPTemplateVM>("jsDownloadFile", "sample.pdf", report);
+	}
+	#endregion
+
+	private async Task UpdateSopTemplateStatus(SOPTemplateModel template, byte status)
+	{
+		template.Status = status;
+		await _templateService.Update(template);
+		var user = await _userService.GetUserByContactId(loginUser.ContactId);
+		List<string> roleNames = await _roleManager.GetUserRoleByUserObjectId(user.ObjectId);
+		var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+
+		if (template.Status == (int)SopStatus.RequestByOpsForApprove)
+		{
+			//TODO: Need review by team lead
+			if (authState.User.IsInRole(PermissionConstants.CanEditPriceByOps))
+			{
+				await SendMailToAllClient(template, "PriceUpdateByOperation");
+				await SendInternalMessage(template, "PriceUpdateByOperation");
+			}
+		}
+		if (template.Status == (int)SopStatus.PriceApproved)
+		{
+			if (!authState.User.IsInRole(PermissionConstants.CanEditPriceByOps))
+			{
+				await SendMailToAllOperation(template, "PriceApprovedByClient");
+				await SendInternalMessage(template, "PriceApprovedByClient");
+			}
+			else
+			{
+				await SendMailToAllClient(template, "PriceApprovedByOperation");
+				await SendInternalMessage(template, "PriceApprovedByOperation");
+			}
+		}
+	}
+
+	private async Task SendMailToAllClient(SOPTemplateModel template, string callerType)
+	{
+		var contactList = await _contactManager.GetByCompanyId(loginUser.CompanyId);
+		var detailUrl = $"{_configuration["AppMainUrl"]}/sop/templates/Details/{template.ObjectId}";
+		SOPAddUpdateNotification sOPAddUpdateNotification = new SOPAddUpdateNotification
+			{
+				Contacts = contactList,
+				DetailUrl = detailUrl,
+				CreatedByContactId = loginUser.ContactId,
+				TemplateName = template.Name
+			};
+		sOPAddUpdateNotification.MailType = callerType;
+		await _workflowEmailService.SendSopAddUpdateDeleteNotificationForCompanyAllUsers(sOPAddUpdateNotification);
+	}
+
+	private async Task SendInternalMessage(SOPTemplateModel template, string callerType)
+	{
+		var contactList = await _contactManager.GetByCompanyId(loginUser.CompanyId);
+
+		    InternalMessageNotification internalMessageNotification = new InternalMessageNotification
+			{
+				Contacts = contactList,
+				SenderContactId = loginUser.ContactId,
+				TemplateName = template.Name
+			};
+
+		internalMessageNotification.MessageType = callerType;
+		await _internalMessageService.Insert(internalMessageNotification);
+	}
+	private async Task SendMailToAllOperation(SOPTemplateModel template, string callerType)
+	{
+		var company = await _companyService.GetByObjectId(_configuration["CompanyObjectId"]);
+		var role = await _roleManager.GetAll(company.ObjectId);
+		//var singleRole = role.Where(x => x.Name.Contains("Operation")).FirstOrDefault();
+		var singleRole = role.Where(x => x.Name.Contains("Operation")).ToList();
+		foreach (var singlerole in singleRole)
+		{
+			var userList = await _roleManager.GetAllUserRole(singlerole.ObjectId);
+			foreach (var user in userList)
+			{
+				var userInfo = await _userService.GetByObjectId(user.UserObjectId);
+				var contactInfo = await _contactManager.GetById(userInfo.ContactId);
+				var detailUrl = $"{_configuration["AppMainUrl"]}/sop/templates/Details/{template.ObjectId}";
+				SOPAddUpdateNotification sOPAddUpdateNotification = new SOPAddUpdateNotification
+					{
+						Contact = contactInfo,
+						DetailUrl = detailUrl,
+						CreatedByContactId = loginUser.ContactId,
+						TemplateName = template.Name
+					};
+				sOPAddUpdateNotification.MailType = callerType;
+				await _workflowEmailService.SendSopAddUpdateDeleteNotificationForCompanyOperationsTeam(sOPAddUpdateNotification);
+			}
+		}
+	}
+
+	private async void ClickCreateFile(SOPTemplateModel template)
+	{
+		string fileName = template.Name + ".pdf";
+		template.SopTemplateFileList = await _templateService.GetSopTemplateFilesBySopTemplateId(template.Id);
+		template.SopStandardServiceList = await _standardServiceService.GetListByTemplateId(template.Id);
+		SopPdfGeneratorModel pdfGeneratorModel = new SopPdfGeneratorModel
+			{
+				Name = template.Name,
+				HeaderForInstruction = "Instructions",
+				Instruction = template.Instruction,
+				HeaderForService = "Service",
+				SopStandardServiceList = template.SopStandardServiceList,
+				SopTemplateFileList = template.SopTemplateFileList
+			};
+		var pdf = new Report();
+		//pdf.Generate(js, pdfGeneratorModel, fileName);
+	}
+
+	#region SOP Download 
+	public async Task DownloadSOPFileAttachment(SOPTemplateModel sOPTemplate)
+	{
+		spinShow = true;
+		var contactInfo = await _contactManager.GetById(loginUser.ContactId);
+		var downloadPath = $"{this._webHostEnvironment.WebRootPath}\\TempDownload\\{contactInfo.FirstName + contactInfo.Id}";
+
+		if (Directory.Exists(downloadPath))
+		{
+			DirectoryInfo directory = new DirectoryInfo(downloadPath);
+			directory.Delete(true);
+		}
+		if (sOPTemplate.Id > 0)
+		{
+			var result = false;
+			var selectedFile = await _templateService.GetSopTemplateFilesBySopTemplateId(sOPTemplate.Id);
+			var sopTemplateInfo = await _templateService.GetById((int)sOPTemplate.Id);
+			var destFile = "";
+			FileUploadModel fileUploadVM = new FileUploadModel();
+			fileUploadVM.ContactName = contactInfo.FirstName + contactInfo.Id;
+
+			destFile = $"{this._webHostEnvironment.WebRootPath}\\TempDownload\\{fileUploadVM.ContactName}\\{sopTemplateInfo.Name}\\";
+
+			foreach (var file in selectedFile)
+			{
+				var fileinfo = await _templateService.GetSopTemplateFilesById(file.Id);
+				
+				var sourcePath = $"{this._webHostEnvironment.WebRootPath}\\Upload\\{fileinfo.ViewPath}\\{fileinfo.FileName}";
+				
+				if (!Directory.Exists(destFile))
+				{
+					Directory.CreateDirectory(destFile);
+				}
+				if (File.Exists(sourcePath))
+				{
+					File.Copy(sourcePath, $"{destFile}\\{fileinfo.FileName}", true);
+				}
+				this.StateHasChanged();
+			}
+			var text = await CreateTextSOPInstruction(sopTemplateInfo);
+
+			if (!string.IsNullOrEmpty(text))
+			{
+				if (!Directory.Exists(destFile))
+				{
+					Directory.CreateDirectory(destFile);
+				}
+
+				// Directory Check
+				if (Directory.Exists(destFile))
+				{
+					// Create Text File
+					var datapath = destFile + "instruction.txt";
+					if (!File.Exists(datapath))
+					{
+						await File.WriteAllTextAsync(datapath, text);
+						result = true;
+					}
+				}
+			}
+			if (result)
+			{
+				var webHost = $"{this._webHostEnvironment.WebRootPath}";
+				await _downloadService.CreateZipAndDownload(contactInfo, null, webHost, null, sopTemplateInfo, null);
+				spinShow = false;
+				await js.DisplayMessage("Download Succesfully");
+				this.StateHasChanged();
+			}
+			else
+			{
+				spinShow = false;
+				await js.DisplayMessage("Download Failed");
+			}
+
+		}
+	}
+	private async Task<string> CreateTextSOPInstruction(SOPTemplateModel sOPTemplate)
+	{
+		var ServiceName = "";
+		var sopserviceList = await _standardServiceService.GetListByTemplateId(sOPTemplate.Id);
+		var service = sopserviceList.ToArray();
+		for (int i = 0; i < service.ToList().Count; i++)
+		{
+			ServiceName += $"{i}) {service[i].Name}\n ";
+
+		}
+		string sopConvertedInstruction = HtmlToStringConverter.HTMLToText(sOPTemplate.Instruction);
+		var instructions = $"SOP Instruction :\n{sopConvertedInstruction}\n SOP Services :\n {ServiceName}";
+		return instructions;
+	}
+	#endregion
+}
+
+
+
+
+

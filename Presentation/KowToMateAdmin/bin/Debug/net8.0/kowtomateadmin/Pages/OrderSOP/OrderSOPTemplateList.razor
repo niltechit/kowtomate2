@@ -1,0 +1,100 @@
+﻿@using CutOutWiz.Services.Models.ClientOrders
+@using CutOutWiz.Services.Models.OrderSOP
+@using CutOutWiz.Services.Models.SOP
+
+
+<div class="card">
+	<div class="card-header">
+		<div class="row">
+			<div class="col-md-6">
+				<h6>Order SOP Templates</h6>
+			</div>
+			<div class="col-md-6">
+				@* <AuthorizeView Roles="Order.Edit">
+
+				<button type="button" class="btn btn-sm btn-primary" @onclick="Upload" style="float:right"><span class="fas fa-pencil-alt"></span> Upload</button>
+
+				</AuthorizeView>*@
+			</div>
+		</div>
+	</div>
+</div>
+@if (orderTemplateList != null)
+{
+	<dl>
+		<table class="table mb-0 table-striped table-hover table-sm">
+			<thead>
+				<tr>
+					<th>SL</th>
+					<th style="width:191px">Name</th>
+					<th>Action</th>
+
+				</tr>
+			</thead>
+			<tbody>
+				@{
+					int count = 1;
+				}
+				@foreach (var item in orderTemplateList)
+				{
+					@if (item!=null)
+					{ 
+						<tr data-id="1">
+							<td class="fw-bold">@(count++) </td>
+							@if(item.Name!=null)
+							{
+								<td data-field="id" style="width: 80px">@item.Name</td>
+							}
+							<td>
+								@* <button type="button" class="btn btn-sm btn-outline-info btn-tbl-action" @onclick="(e)=>DownloadSOPTemplate(item)">
+									<i class="fas fa-download"></i>
+								</button> *@
+								<AuthorizeView Roles="OrderSOP.CanUploadUpdatedOrderSOP">
+									<button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="(e)=>Delete(item)">
+										<i class="fas fa-times"></i>
+									</button>
+								</AuthorizeView>
+								@*<button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="(e)=>Upload(item)">
+									<i class="fas fa-pencil-alt"></i> Upload Update SOP
+								</button>*@
+							</td>
+						</tr>
+					}
+				}
+			</tbody>
+		</table>
+	</dl>
+}
+else
+{
+	<p>N/A</p>
+}
+
+@code {
+	[Parameter]
+	public List<OrderSOPTemplateModel> orderTemplateList { get; set; }
+
+
+	[Parameter]
+	public EventCallback<OrderSOPTemplateModel> OrderDownloadTemplate { get; set; }
+	[Parameter]
+	public EventCallback<OrderSOPTemplateModel> OrderDeleteSOPTemplate { get; set; }
+	[Parameter]
+	public EventCallback<OrderSOPTemplateModel> OrderUploadSop { get; set; }
+
+	[Parameter]
+	public ClientOrderModel Order { get; set; }
+
+	protected async Task DownloadSOPTemplate(OrderSOPTemplateModel orderSOPtemplate)
+	{
+		await OrderDownloadTemplate.InvokeAsync(orderSOPtemplate);
+	}
+	protected async Task Delete(OrderSOPTemplateModel orderSOPtemplate)
+	{
+		await OrderDeleteSOPTemplate.InvokeAsync(orderSOPtemplate);
+	}
+	protected async Task Upload(OrderSOPTemplateModel orderSOPtemplate)
+	{
+		await OrderUploadSop.InvokeAsync(orderSOPtemplate);
+	}
+}

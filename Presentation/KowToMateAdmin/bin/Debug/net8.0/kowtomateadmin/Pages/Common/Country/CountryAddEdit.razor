@@ -1,0 +1,37 @@
+﻿@using CutOutWiz.Services.Models.Common
+@using static CutOutWiz.Core.Utilities.Enums
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="country.Name"></InputText>
+        <ValidationMessage For="@(() => country.Name)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Code" class="col-sm-4 col-form-label fw-bold">Code</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="country.Code"></InputText>
+        <ValidationMessage For="@(() => country.Code)" />
+    </div>
+</div>
+
+@*<div class="mb-2 row">
+    <label for="Status" class="col-sm-4 col-form-label fw-bold">Status</label>
+    <div class="col-sm-8">
+      <InputSelect @bind-Value="country.Status" class="form-select">
+           <option value="0">- Select -</option>
+        @foreach (var status in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            <option value="@((int)status)">@status</option>
+        }
+         </InputSelect>
+        <ValidationMessage For="@(() => country.Status)" />
+    </div>
+</div>*@
+
+@code {
+    [Parameter]
+    public CountryModel country { get; set; }
+}

@@ -1,0 +1,99 @@
+﻿@using CutOutWiz.Services.Models.DynamicReports
+@using CutOutWiz.Services.Models.Security;
+@using CutOutWiz.Services.DynamicReports
+@using CutOutWiz.Services.Security;
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IDynamicReportInfoService _dynamicReportInfoService;
+@inject IWorkContext _workContext
+@inject NotificationService _notificationService
+
+<div class="modal" tabindex="-1" style="display:block;">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Dynamic Report Join Info</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+            </div>
+            <EditForm Model=@reportJoinInfo OnValidSubmit="@InsertUpdateJoinfInfo">
+                <div class="modal-body">
+                    <DataAnnotationsValidator />
+                    <div class="row">
+
+                        <div class="mb-2 row">
+                            <label for="Name" class="col-sm-2 col-form-label fw-bold">Join Name</label>
+                            <div class="col-sm-10">
+                                <InputText class="form-control" @bind-Value="reportJoinInfo.JoinName"></InputText>
+                                <ValidationMessage For="@(() => reportJoinInfo.JoinName)" />
+                            </div>
+                        </div>
+
+                        <div class="mb-2 row">
+                            <label for="Name" class="col-sm-2 col-form-label fw-bold">Join Script</label>
+                            <div class="col-sm-10">
+                                <RadzenTextArea @bind-Value=@reportJoinInfo.JoinScript Rows="6" class="form-control" />
+                                <ValidationMessage For="@(() => reportJoinInfo.JoinScript)" />
+                            </div>
+                        </div>
+
+                        <div class="mb-2 row">
+                            <label for="Name" class="col-sm-2 col-form-label fw-bold">Display Order</label>
+                            <div class="col-sm-10">
+                                <InputNumber class="form-control" @bind-Value="reportJoinInfo.DisplayOrder"></InputNumber>
+                                <ValidationMessage For="@(() => reportJoinInfo.DisplayOrder)" />
+                            </div>
+                        </div>
+                        <div class="col">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save Changes</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                </div>
+            </EditForm>
+
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <RadzenDataGrid @ref="grid" IsLoading=@(isLoadingReportJoin) TItem="ReportJoinInfoModel"
+                                                Count="@countReportJoin"
+                                                Data="@ReportJoinData"
+                                                LoadData="@LoadData"
+                                                Density="Density.Compact"
+                                                AllowColumnResize="true" AllowColumnReorder="false"
+                                                AllowSorting="false"
+                                                AllowFiltering="false"                                                
+                                                AllowPaging="false"                                                 
+                                                ColumnWidth="160px" Style="height:calc(70vh - 272px)">
+                                    <Columns>      
+                                        <RadzenDataGridColumn TItem="ReportJoinInfoModel" Property="DisplayOrder" Title="Display Order" Width="78px" Filterable="false" TextAlign="TextAlign.Left"  OrderIndex="1" />
+                                        <RadzenDataGridColumn TItem="ReportJoinInfoModel" Property="JoinName" Title="Join Name" Width="100px" Filterable="false" TextAlign="TextAlign.Left" OrderIndex="2" />
+                                        <RadzenDataGridColumn TItem="ReportJoinInfoModel" Property="JoinScript" Title="Join Script" Width="220px" Filterable="false" TextAlign="TextAlign.Left" OrderIndex="3" />
+                                        <RadzenDataGridColumn TItem="ReportJoinInfoModel" Property="Id" Title="Actions" Width="80px" Frozen="false" Filterable="false" Sortable="false" TextAlign="TextAlign.Center" OrderIndex="4">
+                                            <Template Context="data">
+                                                <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(data.Id))">
+                                                    <span class="fas fa-pencil-alt"></span>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(data.Id,data.JoinName)">
+                                                    <span class="fas fa-times"></span>
+                                                </button>                                               
+                                            </Template>
+                                        </RadzenDataGridColumn>
+
+                                    </Columns>
+                                </RadzenDataGrid>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>

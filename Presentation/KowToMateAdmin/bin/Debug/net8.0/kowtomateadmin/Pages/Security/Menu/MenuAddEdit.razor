@@ -1,0 +1,131 @@
+﻿@using CutOutWiz.Services.Models.Security
+@using static CutOutWiz.Core.Utilities.Enums
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Name</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="menu.Name"></InputText>
+        <ValidationMessage For="@(() => menu.Name)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="ParentId" class="col-sm-4 col-form-label fw-bold">Parent</label>
+    <div class="col-sm-8">
+
+        <RadzenDropDown AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                            @bind-Value=@menu.ParentId Placeholder="Select..." Data=@parentMenus TextProperty="Name" ValueProperty="Id"
+                            Class="w-100" />
+
+@*
+        <InputSelect @bind-Value="menu.ParentId" class="form-select">
+           <option>- Select -</option>
+        @foreach (var parent in parentMenus)
+        {
+            <option value="@((int)parent.Id)">@parent.Name</option>
+        }
+         </InputSelect>*@
+        <ValidationMessage For="@(() => menu.ParentId)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Icon" class="col-sm-4 col-form-label fw-bold">Icon</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="menu.Icon"></InputText>
+        <ValidationMessage For="@(() => menu.Icon)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Is Left Menu</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="menu.IsLeftMenu" id="IsLeftMenu" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="IsLeftMenu">
+            Is Left Menu
+        </label>
+        <ValidationMessage For="@(() => menu.IsLeftMenu)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Is Top Menu</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="menu.IsTopMenu" id="IsTopMenu" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="IsTopMenu">
+            Is Top Menu
+        </label>
+        <ValidationMessage For="@(() => menu.IsTopMenu)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label class="col-sm-4 col-form-label fw-bold">Is External Menu</label>
+    <div class="col-sm-8">
+        <InputCheckbox @bind-Value="menu.IsExternalMenu" id="IsExternalMenu" class="form-check-input"></InputCheckbox>
+        <label class="form-check-label" for="IsExternalMenu">
+            Is External Menu
+        </label>
+        <ValidationMessage For="@(() => menu.IsExternalMenu)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="MenuUrl" class="col-sm-4 col-form-label fw-bold">Url</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="menu.MenuUrl"></InputText>
+        <ValidationMessage For="@(() => menu.MenuUrl)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Permissions" class="col-sm-4 col-form-label fw-bold">Permissions</label>
+    <div class="col-sm-8">
+       <RadzenDropDown AllowClear="true" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                            @bind-Value=@menu.SelectedMenuPermissons Multiple="true" Placeholder="Select..." Data=@permissions TextProperty="DisplayName" ValueProperty="ObjectId"
+                            Class="w-100" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="DisplayOrder" class="col-sm-4 col-form-label fw-bold">Display Order</label>
+    <div class="col-sm-8">
+        <InputNumber class="form-control" @bind-Value="menu.DisplayOrder"></InputNumber>
+        <ValidationMessage For="@(() => menu.DisplayOrder)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Status" class="col-sm-4 col-form-label fw-bold">Status</label>
+    <div class="col-sm-8">
+      <InputSelect @bind-Value="menu.Status" class="form-select">
+           <option value="0">- Select -</option>
+        @foreach (var status in Enum.GetValues(typeof(GeneralStatus)))
+        {
+            <option value="@((int)status)">@status</option>
+        }
+         </InputSelect>
+        <ValidationMessage For="@(() => menu.Status)" />
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public MenuModel menu { get; set; }
+
+    [Parameter]
+    public List<MenuListModel> parentMenus { get; set; }
+
+    [Parameter]
+    public List<PermissionModel> permissions { get; set; }
+
+    //https://blazor.radzen.com/dropdown
+    //[Parameter]
+    //public IEnumerable<string> selectedMenuPermissons { get; set; }
+
+    void OnChange(object value, string name)
+    {
+        var str = value is IEnumerable<object> ? string.Join(", ", (IEnumerable<object>)value) : value;
+       // console.Log($"{name} value changed to {str}");
+    }
+}

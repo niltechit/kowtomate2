@@ -1,0 +1,288 @@
+﻿@page "/operationreport/completedimagecount"
+
+@using System.Globalization
+@using CutOutWiz.Services.Models.Common;
+@using CutOutWiz.Services.Models.Reports;
+@using CutOutWiz.Services.ReportServices;
+@using CutOutWiz.Services.Models.Dashboard
+@using KowToMateAdmin.Helper;
+@using static CutOutWiz.Core.Utilities.Enums;
+@using CutOutWiz.Services.Managers.Common;
+
+@inject AuthenticationStateProvider _authenticationStateProvider
+@inject IOperationReportService _operationReportService
+@inject IWorkContext _workContext
+@inject IJSRuntime js
+@inject ICompanyManager _companyService
+<!-- start page title -->
+<div class="row">
+	<div class="col-12">
+		<div class="page-title-box d-sm-flex align-items-center justify-content-between">
+			<h4 class="mb-sm-0 font-size-18">
+				Reports
+			</h4>
+			<div class="page-title-right">
+
+				@*<a href="/management/teams" class="btn btn-sm btn-secondary" @onclick="AddNew" title="Back"><span class="fas fa-plus"></span> Back</a>*@
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="row">
+
+	<div class="col-auto">
+		<label for="staticEmail2" class="visually-hidden">Email</label>
+		<RadzenDropDown Multiple="false" Placeholder="-- Select Company --" Data="@companies" TextProperty="Name" ValueProperty="Id" @bind-Value="@companyId" Change="@LoadMonthlyImageCount" />
+
+	</div>
+	<div class="col-auto">
+		<label for="staticEmail2" class="visually-hidden">Email</label>
+		<RadzenDatePicker Placeholder="Start Date" @bind-Value="@StartDate" Change="@LoadMonthlyImageCount" />
+	</div>
+	<div class="col-auto">
+		<label for="staticEmail2" class="visually-hidden">Email</label>
+		<RadzenDatePicker Placeholder="End Date" @bind-Value="@EndDate" Change="@LoadMonthlyImageCount" />
+	</div>
+</div>
+
+<!-- end page title -->
+<div class="row">
+	<div class="col-lg-12">
+		<div class="row">
+			<div class="col-sm-9">
+				<RadzenChart>
+					<RadzenColumnSeries Data="@revenue2020" CategoryProperty="MonthName" Title="@currentYearTitle" LineType="LineType.Dashed" ValueProperty="TotalImages">
+						<RadzenSeriesDataLabels Visible="@showDataLabels" />
+					</RadzenColumnSeries>
+					<RadzenColumnSeries Data="@revenue2019" CategoryProperty="MonthName" Title="@previousYearTitle" ValueProperty="TotalImages">
+						<RadzenSeriesDataLabels Visible="@showDataLabels" />
+					</RadzenColumnSeries>
+					<RadzenColumnOptions Radius="5" />
+					<RadzenValueAxis Formatter="@FormatAsUSD">
+						<RadzenGridLines Visible="true" />
+						<RadzenAxisTitle Text="Completed Images" />
+					</RadzenValueAxis>
+					<RadzenLegend Position="LegendPosition.Bottom" />
+				</RadzenChart>
+			</div>
+			<div class="col-sm-3">
+				<RadzenDataGrid Data="@allImageCountList" IsLoading="isLoading" TItem="MonthlyImageCountModel"
+								AllowFiltering="false" AllowColumnResize="false"
+								AllowSorting="false" AllowPaging="false"
+								PagerHorizontalAlign="HorizontalAlign.Center"
+								ShowPagingSummary="false">
+					<Columns>
+						<RadzenDataGridColumn TItem="MonthlyImageCountModel" Property="MonthName" Title="Month" TextAlign="TextAlign.Center" />
+						<RadzenDataGridColumn TItem="MonthlyImageCountModel" Property="TotalImages" Title="@currentYearTitle" TextAlign="TextAlign.Right" />
+						<RadzenDataGridColumn TItem="MonthlyImageCountModel" Property="TotalImages2" Title="@previousYearTitle" TextAlign="TextAlign.Right" />
+					</Columns>
+				</RadzenDataGrid>
+			</div>
+		</div>
+	</div>
+</div>
+
+@code {
+	bool showDataLabels = true;
+	//AuthenticationState authState;
+	List<MonthlyImageCountModel> allImageCountList = new List<MonthlyImageCountModel>();
+
+	List<MonthlyImageCountModel> revenue2019 = new List<MonthlyImageCountModel>();
+	List<MonthlyImageCountModel> revenue2020 = new List<MonthlyImageCountModel>();
+	string currentYearTitle = "";
+	string previousYearTitle = "";
+	bool isLoading = false;
+
+	private int companyId = 0;
+	private DateTime StartDate = new DateTime();
+	private DateTime EndDate = DateTime.Now.Date;
+	List<CompanyModel> companies;
+
+
+
+	protected override async Task OnInitializedAsync()
+	{
+		await Task.Yield();
+		//authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+		// var loginUser = _workContext.LoginUserInfo;
+		companies = await _companyService.GetAllClientCompany();
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			await LoadMonthlyImageCount();
+			StateHasChanged();
+		}
+		//await base.OnAfterRenderAsync(firstRender);
+	}
+
+	private async Task LoadMonthlyImageCount()
+	{
+		//authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+		// var loginUser = _workContext.LoginUserInfo;
+
+		if (StartDate.ToString().Trim() == "1/1/0001 12:00 AM" || EndDate.ToString().Trim() == "1/1/0001 12:00 AM")
+		{
+			StartDate = DateTime.Now;
+			EndDate = DateTime.Now;
+		}
+
+		isLoading = true;
+
+		var allData = await _operationReportService.GetMonthlyImagesCompletedDataFroGraph(0, StartDate, 12);
+
+		revenue2020 = allData.Where(f => f.LabelName.StartsWith("1-")).OrderBy(o => o.MonthYearValue).ToList();
+
+		currentYearTitle = revenue2020.FirstOrDefault().LabelName.Replace("1-", "");
+
+		revenue2019 = allData.Where(f => f.LabelName.StartsWith("2-")).OrderBy(o => o.MonthYearValue).ToList();
+		previousYearTitle = revenue2019.FirstOrDefault().LabelName.Replace("2-", "");
+
+
+		allImageCountList = revenue2020;
+
+		foreach (var item in allImageCountList)
+		{
+			item.TotalImages2 = revenue2019.FirstOrDefault(f => f.MonthName == item.MonthName).TotalImages;
+		}
+
+		isLoading = false;
+	}
+
+
+	string FormatAsUSD(object value)
+	{
+		return ((double)value).ToString("N0", CultureInfo.CreateSpecificCulture("en-US"));
+	}
+
+	//ChartDataItem[] revenue2019 = new ChartDataItem[] {
+	//    new DataItem
+	//    {
+	//        Month = "Jan",
+	//        Revenue = 234000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Feb",
+	//        Revenue = 284000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Mar",
+	//        Revenue = 274000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Apr",
+	//        Revenue = 294000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "May",
+	//        Revenue = 123000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Jun",
+	//        Revenue = 178000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Jul",
+	//        Revenue = 254000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Aug",
+	//        Revenue = 304000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Sep",
+	//        Revenue = 234000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Oct",
+	//        Revenue = 264000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Nov",
+	//        Revenue = 294000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Dec",
+	//        Revenue = 314000
+	//    }
+	//};
+
+
+	//ChartDataItem[] revenue2020 = new ChartDataItem[] {
+	//    new DataItem
+	//    {
+	//        Month = "Jan",
+	//        Revenue = 215000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Feb",
+	//        Revenue = 248000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Mar",
+	//        Revenue = 256000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Apr",
+	//        Revenue = 287000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "May",
+	//        Revenue = 175000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Jun",
+	//        Revenue = 198000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Jul",
+	//        Revenue = 237000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Aug",
+	//        Revenue = 271000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Sep",
+	//        Revenue = 225000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Oct",
+	//        Revenue = 258000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Nov",
+	//        Revenue = 282000
+	//    },
+	//    new DataItem
+	//    {
+	//        Month = "Dec",
+	//        Revenue = 301000
+	//    }
+	//};
+	//}
+}

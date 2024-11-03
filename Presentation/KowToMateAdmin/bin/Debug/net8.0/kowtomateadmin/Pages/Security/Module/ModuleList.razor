@@ -1,0 +1,274 @@
+﻿@page "/security/modules"
+
+@attribute [Authorize(Roles = "Security.ManageModules")]
+
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.Security
+@using KowToMateAdmin.Models.Security
+@using KowToMateAdmin.Pages.Shared
+@using static CutOutWiz.Core.Utilities.Enums
+
+@inject IWorkContext _workContext
+@inject IModuleService _moduleService
+@inject IPermissionService _permissionService
+
+<!-- start page title -->
+<div class="row">
+    <div class="col-12">
+        <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+            <h4 class="mb-sm-0 font-size-18">
+                Modules
+            </h4>
+
+            <div class="page-title-right">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddNew" title="Add New Module"><span class="fas fa-plus"></span> Add New</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- end page title -->
+<div class="row">
+    <div class="col-lg-12">
+
+        <RadzenDataGrid Data="@modules" IsLoading="isLoading" TItem="ModuleModel"
+                        AllowFiltering="true" AllowColumnResize="true"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        ShowPagingSummary="true" PageSizeOptions="@pageSizeOptions"
+                        RowDoubleClick="(async (arg)=> await RowDoubleClick(arg))">
+            <Columns>
+                <RadzenDataGridColumn TItem="ModuleModel" Property="Name" Title="Module Name" Width="160px" SortOrder="SortOrder.Ascending">
+                    <Template Context="module">
+                        @if (!string.IsNullOrWhiteSpace(module.Icon))
+                        {
+                            <span class="@module.Icon me-2"></span>
+                        }
+                        @module.Name
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="ModuleModel" Property="PermissionNames" Title="Permissions" Filterable="false" Sortable="false">
+                    <Template Context="module">
+                        @if (!string.IsNullOrWhiteSpace(@module.PermissionNames))
+                        {
+                            var perList = @module.PermissionNames.Split(',');
+                            foreach (var per in perList)
+                            {
+                                <span class="me-1 badge badge bg-warning">@per</span>
+                            }
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="ModuleModel" Property="Status" Title="Status" TextAlign=TextAlign.Center Filterable="false" Width="100px">
+                    <Template Context="module">
+                        @if (module.Status == (int)GeneralStatus.Active)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Inactive</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="ModuleModel" Property="DisplayOrder" Title="Display Order" TextAlign=TextAlign.Center Filterable="false" Width="130px" />
+                <RadzenDataGridColumn TItem="ModuleModel" Property="CreatedDate" Title="Created Date" TextAlign=TextAlign.Center Filterable="false" Width="150px" />
+                <RadzenDataGridColumn Width="90px" TItem="ModuleModel" Property="Id" Title="Actions" Filterable="false" Sortable="false" TextAlign="TextAlign.Center">
+                    <Template Context="module">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-tbl-action" @onclick="(async () => await Edit(module.ObjectId))">
+                            <span class="fas fa-pencil-alt"></span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-tbl-action" @onclick="() => Delete(module.ObjectId,module.Name)">
+                            <span class="fas fa-times"></span>
+                        </button>
+                    </Template>
+                </RadzenDataGridColumn>
+
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+@if (isPopupVisible)
+{
+    <EditForm Model=@module OnValidSubmit="@InsertUpdateModule">
+        <div class="modal" tabindex="-1" style="display:block;">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Module</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAddEditPopup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <ModuleAddEdit module="module" permissions="permissions" />
+                            <div class="col">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Save</button>
+                        @if (!string.IsNullOrWhiteSpace(module.ObjectId))
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@isSubmitting" @onclick="() => Delete(module.ObjectId,module.Name)">Delete</button>
+                        }
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" disabled="@isSubmitting" @onclick="CloseAddEditPopup">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<ModalNotification @ref="ModalNotification" ConfirmationChanged="ConfirmDelete_Click">
+</ModalNotification>
+
+@code {
+    protected ModalNotification ModalNotification { get; set; }
+    bool isLoading = false;
+    IEnumerable<int> pageSizeOptions = new int[] { 10, 20, 50, 100, 500 };
+    bool isSubmitting;
+    private List<ModuleModel> modules;
+
+    private ModuleModel module = null;
+    bool isPopupVisible = false;
+    private LoginUserInfoViewModel loginUser = null;
+    private string selectedObjectId = "";
+    List<PermissionModel> permissions = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginUser = _workContext.LoginUserInfo;
+        await LoadModules();
+        permissions = await _permissionService.GetAll();
+    }
+
+    private async Task LoadModules()
+    {
+        modules = await _moduleService.GetAllWithDetails();
+    }
+
+    private async Task RowDoubleClick(DataGridRowMouseEventArgs<ModuleModel> args)
+    {
+        await Edit(args.Data.ObjectId);
+    }
+
+    private async Task InsertUpdateModule()
+    {
+        isSubmitting = true;
+
+        if (module.Id == 0)
+        {
+            module.CreatedByContactId = loginUser.ContactId;
+            module.ObjectId = Guid.NewGuid().ToString();
+
+            var addResponse = await _moduleService.Insert(module);
+
+            if (!addResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", addResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+
+            //Save module permission on database for this moduleId
+            await _moduleService.ModulePermissionInsertOrUpdateByModuleObjectId(module.ObjectId, module.SelectedModulePermissons.ToList(), (int)module.CreatedByContactId);
+
+        }
+        else
+        {
+            module.UpdatedByContactId = loginUser.ContactId;
+            var updateResponse = await _moduleService.Update(module);
+
+            if (!updateResponse.IsSuccess)
+            {
+                ModalNotification.ShowMessage("Error", updateResponse.Message);
+                isSubmitting = false;
+                return;
+            }
+
+            //Save module permission on database
+            if (module.SelectedModulePermissons == null)
+            {
+                module.SelectedModulePermissons = new List<string>();
+            }
+
+            await _moduleService.ModulePermissionInsertOrUpdateByModuleObjectId(module.ObjectId, module.SelectedModulePermissons.ToList(), (int)module.UpdatedByContactId);
+        }
+
+        module = new ModuleModel();
+        isSubmitting = false;
+
+        await LoadModules();
+        CloseAddEditPopup();
+    }
+
+    string StatusText()
+    {
+        if (module.Status == (int)GeneralStatus.Active)
+        {
+            return "<span class='badge bg-success'>Active</span>";
+        }
+
+        return "<span class='badge bg-info text-dark'>Inactive</span>";
+    }
+
+    void AddNew()
+    {
+        module = new ModuleModel { Status = (int)GeneralStatus.Active };
+
+        isSubmitting = false;
+        ShowAddEditPopup();
+    }
+
+    private async Task Edit(string objectId)
+    {
+        module = await _moduleService.GetByObjectId(objectId);
+        module.SelectedModulePermissons = await _moduleService.GetPermissionsByModuleObjectId(objectId);
+        ShowAddEditPopup();
+    }
+
+    void ShowAddEditPopup()
+    {
+        isPopupVisible = true;
+    }
+
+    void CloseAddEditPopup()
+    {
+        isPopupVisible = false;
+    }
+
+    protected void Delete(string objectId, string name)
+    {
+        selectedObjectId = objectId;
+        var msg = $"Are you sure you want to delete the module \"{name}\"?";
+        ModalNotification.ShowConfirmation("Confirm Delete", msg);
+    }
+
+    protected async Task ConfirmDelete_Click(bool deleteConfirmed)
+    {
+        if (deleteConfirmed)
+        {
+            var deleteResponse = await _moduleService.Delete(selectedObjectId);
+
+            if (deleteResponse.IsSuccess)
+            {
+                await LoadModules();
+                module = new ModuleModel();
+                CloseAddEditPopup();
+            }
+            else
+            {
+                ModalNotification.ShowMessage("Error", deleteResponse.Message);
+            }
+        }
+
+        isSubmitting = false;
+    }
+
+}
+

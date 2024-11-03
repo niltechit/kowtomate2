@@ -1,0 +1,113 @@
+﻿@using CutOutWiz.Core.Utilities
+@using CutOutWiz.Services.Models.Security
+@using CutOutWiz.Services.ClaimManagementService
+@using System.Security.Claims
+@using CutOutWiz.Services.HR
+@inject IClaimsService _claimsService
+@inject ILeaveSubTypeService _leaveSubTypeService
+
+
+<div class="mb-2 row">
+    <label for="Status" class="col-sm-4 col-form-label fw-bold">Leave Type</label>
+    <div class="col-sm-8">
+        <InputSelect @bind-Value="EmployeeLeaveModel.LeaveTypeId" class="form-select" disabled="true">
+            <option value="0">- Select -</option>
+            @foreach (var status in LeaveTypes)
+            {
+                <option value="@status.Id">@status.Id @status.Name</option>
+            }
+        </InputSelect>
+        <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveTypeId)" />
+    </div>
+</div>
+
+<div class="mb-2 row">
+    <label for="Status" class="col-sm-4 col-form-label fw-bold">Sub Leave Type</label>
+    <div class="col-sm-8">
+        <InputSelect @bind-Value="EmployeeLeaveModel.LeaveSubTypeId" class="form-select" disabled="true">
+            <option value="0">- Select -</option>
+            @foreach (var status in EmployeeLeaveModel.SubLeaveTyoes)
+            {
+                <option value="@status.Id">@status.Id @status.Name</option>
+            }
+        </InputSelect>
+        <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveSubTypeId)" />
+    </div>
+</div>
+
+
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Start Date</label>
+    <div class="col-sm-8">
+        <InputDate class="form-control" @bind-Value="EmployeeLeaveModel.LeaveStartRequestDate" disabled="true"></InputDate>
+        <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveStartRequestDate)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">End Date</label>
+    <div class="col-sm-8">
+        <InputDate class="form-control" @bind-Value="EmployeeLeaveModel.LeaveEndRequestDate" disabled="true"></InputDate>
+        <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveEndRequestDate)" />
+    </div>
+</div>
+<div class="mb-2 row">
+    <label for="Name" class="col-sm-4 col-form-label fw-bold">Employee Note</label>
+    <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="EmployeeLeaveModel.EmployeeNote" disabled="true"></InputText>
+        <ValidationMessage For="@(() => EmployeeLeaveModel.EmployeeNote)" />
+    </div>
+</div>
+
+
+    <div class="mb-2 row">
+        <label for="Name" class="col-sm-4 col-form-label fw-bold">Approved Start Date</label>
+        <div class="col-sm-8">
+        <InputDate class="form-control" @bind-Value="EmployeeLeaveModel.LeaveApprovedStartDate" disabled="true"></InputDate>
+        <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveApprovedStartDate)" />
+        </div>
+    </div>
+    <div class="mb-2 row">
+        <label for="Name" class="col-sm-4 col-form-label fw-bold">Approved End Date</label>
+        <div class="col-sm-8">
+        <InputDate class="form-control" @bind-Value="EmployeeLeaveModel.LeaveApprovedEndDate" disabled="true"></InputDate>
+        <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveApprovedEndDate)" />
+        </div>
+    </div>
+    <div class="mb-2 row">
+        <label for="Name" class="col-sm-4 col-form-label fw-bold">HR Note</label>
+        <div class="col-sm-8">
+        <InputText class="form-control" @bind-Value="EmployeeLeaveModel.HRNote" disabled="true"></InputText>
+        <ValidationMessage For="@(() => EmployeeLeaveModel.HRNote)" />
+        </div>
+    </div>
+    <div class="mb-2 row">
+        <label for="Status" class="col-sm-4 col-form-label fw-bold">Gender</label>
+        <div class="col-sm-8">
+        <InputSelect @bind-Value="EmployeeLeaveModel.LeaveStatus" class="form-select" disabled="true">
+                <option value="0">- Select -</option>
+                @foreach (var status in leaveStatusConstant)
+                {
+                    <option value="@status.Name">@status.Name</option>
+                }
+            </InputSelect>
+        <ValidationMessage For="@(() => EmployeeLeaveModel.LeaveStatus)" />
+        </div>
+    </div>
+
+
+
+@code {
+    [Parameter]
+    public CutOutWiz.Services.Models.HR.EmployeeLeaveViewModel EmployeeLeaveModel { get; set; }
+    IEnumerable<System.Reflection.FieldInfo> leaveStatusConstant;
+    [Parameter]
+    public List<CutOutWiz.Services.Models.HR.LeaveTypeModel> LeaveTypes { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        leaveStatusConstant = typeof(CutOutWiz.Core.Utilities.LeaveStatus)
+        .GetFields()
+        .Where(f => f.IsStatic && f.IsLiteral);
+        var getSubLeaveTypes = await _leaveSubTypeService.GetSubLeaveTypes((int)EmployeeLeaveModel.LeaveTypeId);
+        EmployeeLeaveModel.SubLeaveTyoes = getSubLeaveTypes.Result;
+    }
+}
